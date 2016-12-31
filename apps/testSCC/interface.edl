@@ -1,0 +1,11 @@
+enclave {
+  include "common.h"
+
+  /* list enclave calls here */
+  trusted {
+    public uint64_t enclave_test();
+  };
+
+  from "../../../libmoat/libmoat.edl" import *;
+
+};
