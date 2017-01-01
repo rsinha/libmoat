@@ -20,10 +20,11 @@ void debugf(const char *fmt, ...)
 uint64_t enclave_test()
 {
     blob_t blob;
-    moat_recv(&blob, sizeof(blob));
+    scc_ctx_t *ctx = _moat_scc_create();
+    _moat_scc_recv(ctx, &blob, sizeof(blob));
     //trusted increment
     blob.x += 1;
-    moat_send(&blob, sizeof(blob));        
+    _moat_scc_send(ctx, &blob, sizeof(blob));        
 
     return 0;
 }
