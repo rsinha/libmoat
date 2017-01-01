@@ -3,6 +3,9 @@
 
 #include "sgx_tcrypto.h"
 
+/* Debugging */
+void _moat_print_debug(const char *fmt, ...);
+
 /* Secure Communication Channel */
 
 typedef struct

@@ -73,3 +73,4 @@ void _moat_scc_delete(scc_ctx_t *ctx)
 {
     free(ctx);
 }
+
