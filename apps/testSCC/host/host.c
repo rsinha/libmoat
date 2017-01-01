@@ -194,28 +194,22 @@ void _shal_printDebugOnHost(const char *buf)
   printf("DEBUG: %s\n", buf);
 }
 
+uint8_t blob[1024];
+size_t bloblen;
+
 void _shal_outputToHost(void *buf, size_t buflen)
 {
-  blob_t blob;
-  if (buflen < sizeof(blob)) {
+  if (buflen > 1024) {
     return;
   }
-
-  memcpy(&blob, buf, sizeof(blob));
-  printf("enclave output: %" PRIu64 "\n", blob.x);
+  memcpy(&blob, buf, buflen);
+  bloblen = buflen;
 }
 
 void _shal_inputFromHost(void *buf, size_t buflen, size_t *buflen_out)
 {
-  blob_t blob;
-  if (buflen < sizeof(blob)) {
-    *buflen_out = 0;
-    return;
-  }
-
-  blob.x = 42;
-  memcpy(buf, &blob, sizeof(blob));
-  *buflen_out = sizeof(blob);
+  *buflen_out = buflen < bloblen ? buflen : bloblen;
+  memcpy(buf, &blob, *buflen_out);
 }
 
 int test(void)
