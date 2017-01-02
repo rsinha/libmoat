@@ -75,7 +75,7 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-Host_C_Files := host/host.c
+Host_Cpp_Files := host/host.cpp
 Host_Include_Paths := -Icommon -Ihost -I$(SGX_SDK)/include
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
@@ -101,9 +101,9 @@ else
 	Host_Link_Flags += -lsgx_uae_service
 endif
 
-Host_C_Objects := $(Host_C_Files:.c=.o)
+Host_Cpp_Objects := $(Host_Cpp_Files:.cpp=.o)
 
-Host_Name := hostapp
+Host_Name := app
 
 ######## Enclave Settings ########
 
@@ -204,12 +204,12 @@ host/interface_u.o: host/interface_u.c
 	@$(CC) $(Host_C_Flags) -c $< -o $@
 	@echo "CC  <=  $<"
 
-host/%.o: host/%.c
-	@$(CC) $(Host_C_Flags) -c $< -o $@
-	@echo "CC  <=  $<"
+host/%.o: host/%.cpp
+	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
+	@echo "CXX <=  $<"
 
-$(Host_Name): host/interface_u.o $(Host_C_Objects)
-	@$(CC) $^ -o $@ $(Host_Link_Flags)
+$(Host_Name): host/interface_u.o $(Host_Cpp_Objects)
+	@$(CXX) $^ -o $@ $(Host_Link_Flags)
 	@echo "LINK =>  $@"
 
 
