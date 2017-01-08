@@ -69,7 +69,7 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
     return actual_len - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
 }
 
-void _moat_scc_delete(scc_ctx_t *ctx)
+void _moat_scc_destroy(scc_ctx_t *ctx)
 {
     free(ctx);
 }
