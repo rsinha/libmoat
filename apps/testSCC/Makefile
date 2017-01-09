@@ -36,6 +36,7 @@ SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
 MOAT := ../../libmoat
+LOCALATTESTATION := ../../libmoat/attestation/local
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -67,6 +68,15 @@ else
         SGX_COMMON_CFLAGS += -O2
 endif
 
+######## Library Settings ########
+
+Trust_Lib_Name := libLocalAttestation_Trusted.a
+TrustLib_Cpp_Files := $(wildcard ../../libmoat/attestation/local/*.cpp)
+TrustLib_Cpp_Objects := $(TrustLib_Cpp_Files:.cpp=.o)
+TrustLib_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/epid -I./Include
+TrustLib_Compile_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector  $(TrustLib_Include_Paths)
+TrustLib_Compile_Cxx_Flags :=  -std=c++03 -nostdinc++
+
 ######## App Settings ########
 
 ifneq ($(SGX_MODE), HW)
@@ -76,7 +86,7 @@ else
 endif
 
 Host_Cpp_Files := host/host.cpp
-Host_Include_Paths := -Icommon -Ihost -I$(SGX_SDK)/include
+Host_Include_Paths := -Icommon -Ihost -I$(MOAT) -I$(SGX_SDK)/include
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
 
@@ -117,7 +127,7 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_C_Files := enclave/enclave.c $(wildcard ../../libmoat/*.c)
-Enclave_Include_Paths := -Icommon -Ienclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+Enclave_Include_Paths := -Icommon -Ienclave -I$(MOAT) -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
 
 Moat_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fvisibility=hidden -fPIC -fstack-protector $(Enclave_Include_Paths)
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fvisibility=hidden -fPIC -fstack-protector $(Enclave_Include_Paths) -I$(MOAT)/api
@@ -132,7 +142,7 @@ Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
 # Otherwise, you may get some undesirable errors.
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -L../../libmoat/attestation/local -lLocalAttestation_Trusted -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 \
@@ -166,7 +176,7 @@ endif
 .PHONY: all run
 
 ifeq ($(Build_Mode), HW_RELEASE)
-all: $(Host_Name) $(Enclave_Name)
+all: $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name)
 	@echo "The project has been built in release hardware mode."
 	@echo "Please sign the $(Enclave_Name) first with your signing key before you run the $(Host_Name) to launch and access the enclave."
 	@echo "To sign the enclave use the command:"
@@ -174,7 +184,7 @@ all: $(Host_Name) $(Enclave_Name)
 	@echo "You can also sign the enclave using an external signing tool."
 	@echo "To build the project in simulation mode set SGX_MODE=SIM. To build the project in prerelease mode set SGX_PRERELEASE=1 and SGX_MODE=HW."
 else
-all: $(Host_Name) $(Signed_Enclave_Name)
+all: $(Trust_Lib_Name) $(Host_Name) $(Signed_Enclave_Name)
 ifeq ($(Build_Mode), HW_DEBUG)
 	@echo "The project has been built in debug hardware mode."
 else ifeq ($(Build_Mode), SIM_DEBUG)
@@ -194,52 +204,70 @@ ifneq ($(Build_Mode), HW_RELEASE)
 	@echo "RUN  =>  $(Host_Name) [$(SGX_MODE)|$(SGX_ARCH), OK]"
 endif
 
+######## Library Objects ########
+
+$(LOCALATTESTATION)/LocalAttestationCode_t.c $(LOCALATTESTATION)/LocalAttestationCode_t.h : $(SGX_EDGER8R) $(LOCALATTESTATION)/LocalAttestationCode.edl
+	@echo "GEN  =>  $@"
+	@cd $(LOCALATTESTATION) && $(SGX_EDGER8R) --trusted LocalAttestationCode.edl --search-path $(SGX_SDK)/include 
+
+$(LOCALATTESTATION)/LocalAttestationCode_t.o: $(LOCALATTESTATION)/LocalAttestationCode_t.c
+	@echo "CC   <=  $<"
+	@$(CC) $(TrustLib_Compile_Flags) -c $< -o $@
+
+$(LOCALATTESTATION)/%.o: $(LOCALATTESTATION)/%.cpp $(LOCALATTESTATION)/LocalAttestationCode_t.h
+	@echo "CC   <= $<"
+	@$(CXX) $(TrustLib_Compile_Flags) $(TrustLib_Compile_Cxx_Flags) -c $< -o $@
+
+$(Trust_Lib_Name): $(LOCALATTESTATION)/LocalAttestationCode_t.o $(TrustLib_Cpp_Objects)
+	@echo "GEN  =>  $@"
+	@$(AR) rcs $@ $^
+
 ######## App Objects ########
 
 host/interface_u.c: $(SGX_EDGER8R) interface.edl
-	@cd host && $(SGX_EDGER8R) --untrusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
+	@cd host && $(SGX_EDGER8R) --untrusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 
 host/interface_u.o: host/interface_u.c
-	@$(CC) $(Host_C_Flags) -c $< -o $@
 	@echo "CC  <=  $<"
+	@$(CC) $(Host_C_Flags) -c $< -o $@
 
 host/%.o: host/%.cpp
-	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 	@echo "CXX <=  $<"
+	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 $(Host_Name): host/interface_u.o $(Host_Cpp_Objects)
-	@$(CXX) $^ -o $@ $(Host_Link_Flags)
 	@echo "LINK =>  $@"
+	@$(CXX) $^ -o $@ $(Host_Link_Flags)
 
 
 ######## Enclave Objects ########
 
 enclave/interface_t.c: $(SGX_EDGER8R) interface.edl $(MOAT)/libmoat.edl
-	@cd enclave && $(SGX_EDGER8R) --trusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
+	@cd enclave && $(SGX_EDGER8R) --trusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 
 enclave/interface_t.o: enclave/interface_t.c
-	@$(CC) $(Enclave_C_Flags) -c $< -o $@
 	@echo "CC   <=  $<"
+	@$(CC) $(Enclave_C_Flags) -c $< -o $@
 
 $(MOAT)/%.o: $(MOAT)/%.c
+	@echo "CC   <=  $<"
 	@$(CC) $(Moat_C_Flags) -c $< -o $@
-	@echo "CC   <=  $<"
 
-enclave/%.o: enclave/%.c
+enclave/%.o: enclave/%.c enclave/interface_t.h
+	@echo "CC   <=  $<"
 	@$(CC) $(Enclave_C_Flags) -c $< -o $@
-	@echo "CC   <=  $<"
 
-$(Enclave_Name): enclave/interface_t.o $(Enclave_C_Objects)
-	@$(CC) $^ -o $@ $(Enclave_Link_Flags)
+$(Enclave_Name): enclave/interface_t.o $(Enclave_C_Objects) $(Trust_Lib_Name)
 	@echo "LINK =>  $@"
+	@$(CXX) enclave/interface_t.o $(Enclave_C_Objects) -o $@ $(Enclave_Link_Flags)
 
 $(Signed_Enclave_Name): $(Enclave_Name)
-	@$(SGX_ENCLAVE_SIGNER) sign -key enclave/enclave_private.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
 	@echo "SIGN =>  $@"
+	@$(SGX_ENCLAVE_SIGNER) sign -key enclave/enclave_private.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
 
 .PHONY: clean
 
 clean:
-	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(MOAT)/*.o
+	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(MOAT)/*.o $(LOCALATTESTATION)/*.o $(LOCALATTESTATION)/*_t.*
