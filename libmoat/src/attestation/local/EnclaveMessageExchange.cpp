@@ -50,6 +50,10 @@ extern "C" {
 uint32_t message_exchange_response_generator(char* decrypted_data, char** resp_buffer, size_t* resp_length);
 uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_enclave_identity);
 
+uint32_t session_request(sgx_enclave_id_t src_enclave_id, sgx_dh_msg1_t* dh_msg1, uint32_t* session_id);
+uint32_t exchange_report(sgx_enclave_id_t src_enclave_id, sgx_dh_msg2_t* dh_msg2, sgx_dh_msg3_t* dh_msg3, uint32_t session_id);
+uint32_t end_session(sgx_enclave_id_t src_enclave_id);
+
 #ifdef __cplusplus
 }
 #endif
