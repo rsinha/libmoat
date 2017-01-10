@@ -189,7 +189,7 @@ int initialize_enclave(void)
 
 
 /* This is a debugging ocall */
-void _shal_printDebugOnHost(const char *buf)
+void print_debug_on_host_ocall(const char *buf)
 {
   printf("DEBUG: %s\n", buf);
 }
@@ -197,7 +197,7 @@ void _shal_printDebugOnHost(const char *buf)
 uint8_t blob[1024];
 size_t bloblen;
 
-void _shal_outputToHost(void *buf, size_t buflen)
+void output_to_host_ocall(void *buf, size_t buflen)
 {
   if (buflen > 1024) {
     return;
@@ -206,10 +206,25 @@ void _shal_outputToHost(void *buf, size_t buflen)
   bloblen = buflen;
 }
 
-void _shal_inputFromHost(void *buf, size_t buflen, size_t *buflen_out)
+void input_from_host_ocall(void *buf, size_t buflen, size_t *buflen_out)
 {
   *buflen_out = buflen < bloblen ? buflen : bloblen;
   memcpy(buf, &blob, *buflen_out);
+}
+
+uint32_t session_request_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id, sgx_dh_msg1_t* dh_msg1, uint32_t* session_id)
+{
+  return 0;
+}
+
+uint32_t end_session_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id)
+{
+  return 0;
+}
+
+uint32_t exchange_report_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id, sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
+{
+  return 0;
 }
 
 int test(void)
@@ -260,3 +275,4 @@ int SGX_CDECL main(int argc, char *argv[])
   getchar();
   return r;
 }
+

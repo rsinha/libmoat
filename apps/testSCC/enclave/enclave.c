@@ -5,6 +5,8 @@
 #include "libmoat.h"
 #include "common.h"
 
+#include "sgx_dh.h"
+
 uint64_t enclave_test()
 {
     blob_t blob1, blob2, blob3;
@@ -20,3 +22,9 @@ uint64_t enclave_test()
     _moat_print_debug("blob contains %" PRIu64 "\n", blob3.x);
     return 0;
 }
+
+uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_enclave_identity)
+{
+  return 0;
+}
+

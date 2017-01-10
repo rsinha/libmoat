@@ -1,34 +1,3 @@
-#
-# Copyright (C) 2011-2016 Intel Corporation. All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-#   * Redistributions of source code must retain the above copyright
-#     notice, this list of conditions and the following disclaimer.
-#   * Redistributions in binary form must reproduce the above copyright
-#     notice, this list of conditions and the following disclaimer in
-#     the documentation and/or other materials provided with the
-#     distribution.
-#   * Neither the name of Intel Corporation nor the names of its
-#     contributors may be used to endorse or promote products derived
-#     from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-#
-
 ######## SGX SDK Settings ########
 
 SGX_SDK ?= /opt/intel/sgxsdk
@@ -36,7 +5,7 @@ SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
 MOAT := ../../libmoat
-LOCALATTESTATION := ../../libmoat/attestation/local
+LOCALATTESTATION := ../../libmoat/src/attestation/local
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -70,12 +39,14 @@ endif
 
 ######## Library Settings ########
 
-Trust_Lib_Name := libLocalAttestation_Trusted.a
-TrustLib_Cpp_Files := $(wildcard ../../libmoat/attestation/local/*.cpp)
+Trust_Lib_Name := libmoat.a
+TrustLib_C_Files := $(wildcard ../../libmoat/src/*.c)
+TrustLib_Cpp_Files := $(wildcard ../../libmoat/src/attestation/local/*.cpp)
+TrustLib_C_Objects := $(TrustLib_C_Files:.c=.o)
 TrustLib_Cpp_Objects := $(TrustLib_Cpp_Files:.cpp=.o)
 TrustLib_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/epid -I./Include
-TrustLib_Compile_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector  $(TrustLib_Include_Paths)
-TrustLib_Compile_Cxx_Flags :=  -std=c++03 -nostdinc++
+TrustLib_Compile_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fPIC -fstack-protector $(TrustLib_Include_Paths)
+TrustLib_Compile_Cxx_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -nostdinc++ -Wno-unused-parameter -Wno-missing-field-initializers -fPIC -fstack-protector $(TrustLib_Include_Paths)
 
 ######## App Settings ########
 
@@ -86,7 +57,7 @@ else
 endif
 
 Host_Cpp_Files := host/host.cpp
-Host_Include_Paths := -Icommon -Ihost -I$(MOAT) -I$(SGX_SDK)/include
+Host_Include_Paths := -Icommon -Ihost -I$(SGX_SDK)/include
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
 
@@ -126,12 +97,11 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Enclave_C_Files := enclave/enclave.c $(wildcard ../../libmoat/*.c)
-Enclave_Include_Paths := -Icommon -Ienclave -I$(MOAT) -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+Enclave_C_Files := enclave/enclave.c
+Enclave_Include_Paths := -Icommon -Ienclave -I$(MOAT)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
 
-Moat_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fvisibility=hidden -fPIC -fstack-protector $(Enclave_Include_Paths)
-Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fvisibility=hidden -fPIC -fstack-protector $(Enclave_Include_Paths) -I$(MOAT)/api
-Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fvisibility=hidden -fPIC $(Enclave_Include_Paths)
+Enclave_Cpp_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc++ -fvisibility=hidden -fPIC $(Enclave_Include_Paths)
 
 # To generate a proper enclave, it is recommended to follow below guideline to link the trusted libraries:
 #    1. Link sgx_trts with the `--whole-archive' and `--no-whole-archive' options,
@@ -142,7 +112,7 @@ Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
 # Otherwise, you may get some undesirable errors.
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -L../../libmoat/attestation/local -lLocalAttestation_Trusted -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -L. -lmoat -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 \
@@ -206,20 +176,16 @@ endif
 
 ######## Library Objects ########
 
-$(LOCALATTESTATION)/LocalAttestationCode_t.c $(LOCALATTESTATION)/LocalAttestationCode_t.h : $(SGX_EDGER8R) $(LOCALATTESTATION)/LocalAttestationCode.edl
-	@echo "GEN  =>  $@"
-	@cd $(LOCALATTESTATION) && $(SGX_EDGER8R) --trusted LocalAttestationCode.edl --search-path $(SGX_SDK)/include 
-
-$(LOCALATTESTATION)/LocalAttestationCode_t.o: $(LOCALATTESTATION)/LocalAttestationCode_t.c
+$(MOAT)/src/%.o: $(MOAT)/src/%.c
 	@echo "CC   <=  $<"
-	@$(CC) $(TrustLib_Compile_Flags) -c $< -o $@
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
-$(LOCALATTESTATION)/%.o: $(LOCALATTESTATION)/%.cpp $(LOCALATTESTATION)/LocalAttestationCode_t.h
-	@echo "CC   <= $<"
-	@$(CXX) $(TrustLib_Compile_Flags) $(TrustLib_Compile_Cxx_Flags) -c $< -o $@
+$(LOCALATTESTATION)/%.o: $(LOCALATTESTATION)/%.cpp
+	@echo "CXX  <= $<"
+	@$(CXX) $(TrustLib_Compile_Cxx_Flags) -c $< -o $@
 
-$(Trust_Lib_Name): $(LOCALATTESTATION)/LocalAttestationCode_t.o $(TrustLib_Cpp_Objects)
-	@echo "GEN  =>  $@"
+$(Trust_Lib_Name): $(TrustLib_Cpp_Objects) $(TrustLib_C_Objects)
+	@echo "AR   =>  $@"
 	@$(AR) rcs $@ $^
 
 ######## App Objects ########
@@ -229,11 +195,11 @@ host/interface_u.c: $(SGX_EDGER8R) interface.edl
 	@cd host && $(SGX_EDGER8R) --untrusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 
 host/interface_u.o: host/interface_u.c
-	@echo "CC  <=  $<"
+	@echo "CC   <=  $<"
 	@$(CC) $(Host_C_Flags) -c $< -o $@
 
 host/%.o: host/%.cpp
-	@echo "CXX <=  $<"
+	@echo "CXX  <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 $(Host_Name): host/interface_u.o $(Host_Cpp_Objects)
@@ -251,10 +217,6 @@ enclave/interface_t.o: enclave/interface_t.c
 	@echo "CC   <=  $<"
 	@$(CC) $(Enclave_C_Flags) -c $< -o $@
 
-$(MOAT)/%.o: $(MOAT)/%.c
-	@echo "CC   <=  $<"
-	@$(CC) $(Moat_C_Flags) -c $< -o $@
-
 enclave/%.o: enclave/%.c enclave/interface_t.h
 	@echo "CC   <=  $<"
 	@$(CC) $(Enclave_C_Flags) -c $< -o $@
@@ -270,4 +232,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(MOAT)/*.o $(LOCALATTESTATION)/*.o $(LOCALATTESTATION)/*_t.*
+	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(MOAT)/src/*.o $(LOCALATTESTATION)/*.o

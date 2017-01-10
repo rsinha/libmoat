@@ -1,9 +1,19 @@
 enclave {
-  untrusted {
-    void _shal_printDebugOnHost([string,in] const char *str);
-    void _shal_outputToHost([in, size=len] void *buf, size_t len);
+    include "sgx_eid.h"
+    include "sgx_dh.h"
 
-    /* automatically copies unprotected memory contents into buf */
-    void _shal_inputFromHost([out, size=len_max] void *buf, size_t len_max, [out] size_t *len_actual);
-  };
+    trusted{
+        public uint32_t session_request(sgx_enclave_id_t src_enclave_id, [out] sgx_dh_msg1_t *dh_msg1, [out] uint32_t *session_id);
+        public uint32_t exchange_report(sgx_enclave_id_t src_enclave_id, [in] sgx_dh_msg2_t *dh_msg2, [out] sgx_dh_msg3_t *dh_msg3, uint32_t session_id);
+        public uint32_t end_session(sgx_enclave_id_t src_enclave_id);        
+    };
+
+    untrusted {
+        uint32_t session_request_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id, [out] sgx_dh_msg1_t *dh_msg1,[out] uint32_t *session_id);
+        uint32_t exchange_report_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id, [in] sgx_dh_msg2_t *dh_msg2, [out] sgx_dh_msg3_t *dh_msg3, uint32_t session_id);
+        uint32_t end_session_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id);
+        void print_debug_on_host_ocall([string,in] const char *str);
+        void output_to_host_ocall([in, size=len] void *buf, size_t len);
+        void input_from_host_ocall([out, size=len_max] void *buf, size_t len_max, [out] size_t *len_actual);
+    };
 };

@@ -4,8 +4,8 @@
 #include "sgx_tcrypto.h"
 #include "sgx_trts.h"
 
-#include "api/libmoat.h"
-#include "shal.h"
+#include "../api/libmoat.h"
+#include "libmoat_untrusted.h"
 
 scc_ctx_t *_moat_scc_create()
 {
@@ -42,7 +42,7 @@ void _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len)
                                         0,
                                         (sgx_aes_gcm_128bit_tag_t *) (dst_buf + SGX_AESGCM_IV_SIZE));
     assert(status == SGX_SUCCESS);
-    _shal_outputToHost(dst_buf, dst_len);
+    output_to_host_ocall(dst_buf, dst_len);
     free(dst_buf);
 }
 
@@ -53,7 +53,7 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
     size_t max_len = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
     uint8_t *ciphertext = (uint8_t *) malloc(max_len);
     assert(ciphertext != NULL);
-    _shal_inputFromHost(ciphertext, max_len, &actual_len);
+    input_from_host_ocall(ciphertext, max_len, &actual_len);
     assert (actual_len <= max_len); //although the caller cannot write past len, it may set actual to be an arbitrary value
     status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(ctx->scc_key),
                                         ciphertext + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE,
