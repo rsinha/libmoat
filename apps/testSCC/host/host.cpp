@@ -212,17 +212,17 @@ void input_from_host_ocall(void *buf, size_t buflen, size_t *buflen_out)
   memcpy(buf, &blob, *buflen_out);
 }
 
-uint32_t session_request_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id, sgx_dh_msg1_t* dh_msg1, uint32_t* session_id)
+uint32_t session_request_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, uint32_t* session_id)
 {
   return 0;
 }
 
-uint32_t end_session_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id)
+uint32_t exchange_report_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
 {
   return 0;
 }
 
-uint32_t exchange_report_ocall(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id, sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
+uint32_t end_session_ocall(uint32_t session_id)
 {
   return 0;
 }

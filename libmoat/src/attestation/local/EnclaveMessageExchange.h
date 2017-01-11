@@ -33,7 +33,6 @@
 #include "datatypes.h"
 #include "sgx_eid.h"
 #include "sgx_trts.h"
-#include <map>
 #include "dh_session_protocol.h"
 
 #ifndef LOCALATTESTATION_H_
@@ -43,8 +42,8 @@
 extern "C" {
 #endif
 
-uint32_t SGXAPI create_session(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id, dh_session_t *p_session_info);
-uint32_t SGXAPI close_session(sgx_enclave_id_t src_enclave_id, sgx_enclave_id_t dest_enclave_id);
+dh_session_t * SGXAPI create_session(sgx_measurement_t *target_enclave);
+uint32_t SGXAPI close_session(uint32_t session_id);
 
 #ifdef __cplusplus
 }

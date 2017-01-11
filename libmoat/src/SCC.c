@@ -5,17 +5,28 @@
 #include "sgx_trts.h"
 
 #include "../api/libmoat.h"
+#include "attestation/local/dh_session_protocol.h"
+#include "attestation/local/error_codes.h"
+#include "attestation/local/EnclaveMessageExchange.h"
 #include "libmoat_untrusted.h"
 
 scc_ctx_t *_moat_scc_create()
 {
-    sgx_status_t status;
+    sgx_status_t sgx_status;
+    sgx_measurement_t measurement;
+
     //allocate memory for the context
     scc_ctx_t *ctx = (scc_ctx_t *) malloc(sizeof(scc_ctx_t));
     assert(ctx != NULL);
+
+    //TODO: should also pass in the desired measurement of remote enclave
+    dh_session_t *session = create_session(&measurement);
+    assert(session != NULL);
+
     //ask CPU for some random bits to create the AES key
-    status = sgx_read_rand((unsigned char *) &(ctx->scc_key), sizeof(sgx_aes_gcm_128bit_key_t));
-    assert(status == SGX_SUCCESS);
+    sgx_status = sgx_read_rand((unsigned char *) &(ctx->scc_key), sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(sgx_status == SGX_SUCCESS);
+
     //all ok if we got here
     return ctx;
 }
@@ -71,6 +82,9 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
 
 void _moat_scc_destroy(scc_ctx_t *ctx)
 {
+    attestation_status_t status;    
+    status = close_session(0);
+    assert(status == SUCCESS);
     free(ctx);
 }
 

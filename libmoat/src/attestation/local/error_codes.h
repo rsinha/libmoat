@@ -32,7 +32,7 @@
 #ifndef ERROR_CODES_H_
 #define ERROR_CODES_H_
 
-typedef uint32_t ATTESTATION_STATUS;
+typedef uint32_t attestation_status_t;
 
 #define SUCCESS                          0x00
 #define INVALID_PARAMETER                0xE1
