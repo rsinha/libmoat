@@ -212,7 +212,7 @@ void input_from_host_ocall(void *buf, size_t buflen, size_t *buflen_out)
   memcpy(buf, &blob, *buflen_out);
 }
 
-uint32_t session_request_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, uint32_t* session_id)
+uint32_t session_request_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1)
 {
   return 0;
 }

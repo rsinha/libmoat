@@ -167,7 +167,7 @@ attestation_status_t generate_session_id(uint32_t *session_id)
 }
 
 //Create a session with the destination enclave
-uint32_t create_session(sgx_measurement_t *target_enclave)
+uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
 {
     sgx_dh_msg1_t dh_msg1;            //Diffie-Hellman Message 1
     sgx_key_128bit_t dh_aek;          // Session Key
@@ -188,30 +188,33 @@ uint32_t create_session(sgx_measurement_t *target_enclave)
     memset(&dh_msg3, 0, sizeof(sgx_dh_msg3_t));
     memset(session_info, 0, sizeof(dh_session_t));
 
+    status = (sgx_status_t) generate_session_id(&session_id);
+    if (status != SUCCESS) { free(session_info); return 0; } //no more sessions available
+
     //Intialize the session as a session initiator
     status = sgx_dh_init_session(SGX_DH_SESSION_INITIATOR, &sgx_dh_session);
-    if(SGX_SUCCESS != status) { return 0; }
+    if(SGX_SUCCESS != status) { free(session_info); return 0; }
     
-    //Ocall to request for a session with the destination enclave and obtain session id and Message 1 if successful
-    status = session_request_ocall(&retstatus, target_enclave, &dh_msg1, &session_id);
-    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { return 0; } }
-    else { return 0; }
+    //Ocall to request for a session with the destination enclave and obtain Message 1 if successful
+    status = session_request_ocall(&retstatus, target_enclave, &dh_msg1);
+    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { free(session_info); return 0; } }
+    else { free(session_info); return 0; }
 
     //Process the message 1 obtained from desination enclave and generate message 2
     status = sgx_dh_initiator_proc_msg1(&dh_msg1, &dh_msg2, &sgx_dh_session);
-    if(SGX_SUCCESS != status) { return 0; }
+    if(SGX_SUCCESS != status) { free(session_info); return 0; }
 
     //Send Message 2 to Destination Enclave and get Message 3 in return
     status = exchange_report_ocall(&retstatus, &dh_msg2, &dh_msg3, session_id);
-    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { return 0; } }
-    else { return 0; }
+    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { free(session_info); return 0; } }
+    else { free(session_info); return 0; }
 
     //Process Message 3 obtained from the destination enclave
     status = sgx_dh_initiator_proc_msg3(&dh_msg3, &sgx_dh_session, &dh_aek, &responder_identity);
-    if(SGX_SUCCESS != status) { return 0; }
+    if(SGX_SUCCESS != status) { free(session_info); return 0; }
 
     // Verify the identity of the destination enclave
-    if(verify_peer_enclave_trust(&responder_identity) != SUCCESS) { return 0; }
+    if(verify_peer_enclave_trust(&responder_identity) != SUCCESS) { free(session_info); return 0; }
 
     session_info->session_id = session_id;
     session_info->status = ACTIVE;
@@ -250,6 +253,7 @@ attestation_status_t session_request(sgx_dh_msg1_t *dh_msg1, uint32_t *session_i
     status = sgx_dh_responder_gen_msg1(dh_msg1, &sgx_dh_session);
     if(SGX_SUCCESS != status) { return status; }
 
+    session_info->session_id = *session_id;
     session_info->status = IN_PROGRESS;
     memcpy(&session_info->in_progress.dh_session, &sgx_dh_session, sizeof(sgx_dh_session_t));
 
@@ -259,7 +263,7 @@ attestation_status_t session_request(sgx_dh_msg1_t *dh_msg1, uint32_t *session_i
     return SUCCESS;
 }
 
-//Verify Message 2, generate Message3 and exchange Message 3 with Source Enclave
+//ecall: Verify Message 2, generate Message3 and exchange Message 3 with Source Enclave
 attestation_status_t exchange_report(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
 {
 
@@ -350,7 +354,7 @@ sgx_aes_gcm_128bit_key_t *get_session_key(uint32_t session_id)
     return &(session_info->active.AEK);
 }
 
-//Respond to the request from the Source Enclave to close the session
+//ecall: Respond to the request from the Source Enclave to close the session
 attestation_status_t end_session(uint32_t session_id)
 {
     dh_session_t *session_info;

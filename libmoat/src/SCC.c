@@ -10,12 +10,9 @@
 #include "attestation/local/EnclaveMessageExchange.h"
 #include "libmoat_untrusted.h"
 
-scc_ctx_t *_moat_scc_create()
+scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
-    sgx_status_t sgx_status;
-    sgx_measurement_t measurement; //TODO: set this to be remote's measurement
-
-    uint32_t session_id = create_session(&measurement);
+    uint32_t session_id = create_session(is_server, measurement);
     assert(session_id != 0);
 
     //allocate memory for the context
