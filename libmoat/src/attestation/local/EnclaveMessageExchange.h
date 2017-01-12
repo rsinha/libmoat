@@ -42,7 +42,8 @@
 extern "C" {
 #endif
 
-dh_session_t * SGXAPI create_session(sgx_measurement_t *target_enclave);
+uint32_t SGXAPI create_session(sgx_measurement_t *target_enclave);
+sgx_aes_gcm_128bit_key_t * SGXAPI get_session_key(uint32_t session_id);
 uint32_t SGXAPI close_session(uint32_t session_id);
 
 #ifdef __cplusplus

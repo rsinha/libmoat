@@ -40,8 +40,8 @@ endif
 ######## Library Settings ########
 
 Trust_Lib_Name := libmoat.a
-TrustLib_C_Files := $(wildcard ../../libmoat/src/*.c)
-TrustLib_Cpp_Files := $(wildcard ../../libmoat/src/attestation/local/*.cpp)
+TrustLib_C_Files := $(wildcard ../../libmoat/src/*.c) $(wildcard ../../libmoat/src/attestation/local/*.c)
+TrustLib_Cpp_Files := 
 TrustLib_C_Objects := $(TrustLib_C_Files:.c=.o)
 TrustLib_Cpp_Objects := $(TrustLib_Cpp_Files:.cpp=.o)
 TrustLib_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/epid -I./Include
@@ -56,7 +56,8 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-Host_Cpp_Files := host/host.cpp
+Host_Server_Cpp_Files := host/host_server.cpp
+Host_Client_Cpp_Files := host/host_client.cpp
 Host_Include_Paths := -Icommon -Ihost -I$(SGX_SDK)/include
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
@@ -74,7 +75,7 @@ else
 endif
 
 Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
-Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread 
+Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -lzmq -lczmq
 
 ifneq ($(SGX_MODE), HW)
 	Host_Link_Flags += -lsgx_uae_service_sim
@@ -82,9 +83,11 @@ else
 	Host_Link_Flags += -lsgx_uae_service
 endif
 
-Host_Cpp_Objects := $(Host_Cpp_Files:.cpp=.o)
+Host_Server_Cpp_Objects := $(Host_Server_Cpp_Files:.cpp=.o)
+Host_Client_Cpp_Objects := $(Host_Client_Cpp_Files:.cpp=.o)
 
-Host_Name := app
+Host_Server_Name := server
+Host_Client_Name := client
 
 ######## Enclave Settings ########
 
@@ -146,15 +149,16 @@ endif
 .PHONY: all run
 
 ifeq ($(Build_Mode), HW_RELEASE)
-all: $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name)
+all: $(Trust_Lib_Name) $(Host_Server_Name) $(Host_Client_Name) $(Enclave_Name)
 	@echo "The project has been built in release hardware mode."
-	@echo "Please sign the $(Enclave_Name) first with your signing key before you run the $(Host_Name) to launch and access the enclave."
+	@echo "Please sign the $(Enclave_Name) first with your signing key before you run the $(Host_Server_Name) to launch and access the enclave."
+	@echo "Please sign the $(Enclave_Name) first with your signing key before you run the $(Host_Client_Name) to launch and access the enclave."
 	@echo "To sign the enclave use the command:"
 	@echo "   $(SGX_ENCLAVE_SIGNER) sign -key <your key> -enclave $(Enclave_Name) -out <$(Signed_Enclave_Name)> -config $(Enclave_Config_File)"
 	@echo "You can also sign the enclave using an external signing tool."
 	@echo "To build the project in simulation mode set SGX_MODE=SIM. To build the project in prerelease mode set SGX_PRERELEASE=1 and SGX_MODE=HW."
 else
-all: $(Trust_Lib_Name) $(Host_Name) $(Signed_Enclave_Name)
+all: $(Trust_Lib_Name) $(Host_Server_Name) $(Host_Client_Name) $(Signed_Enclave_Name)
 ifeq ($(Build_Mode), HW_DEBUG)
 	@echo "The project has been built in debug hardware mode."
 else ifeq ($(Build_Mode), SIM_DEBUG)
@@ -170,8 +174,10 @@ endif
 
 run: all
 ifneq ($(Build_Mode), HW_RELEASE)
-	@$(CURDIR)/$(Host_Name)
-	@echo "RUN  =>  $(Host_Name) [$(SGX_MODE)|$(SGX_ARCH), OK]"
+	@echo "RUN  =>  $(Host_Server_Name) [$(SGX_MODE)|$(SGX_ARCH), OK]"
+	@echo "RUN  =>  $(Host_Client_Name) [$(SGX_MODE)|$(SGX_ARCH), OK]"
+	@$(CURDIR)/$(Host_Server_Name) &
+	@$(CURDIR)/$(Host_Client_Name) &
 endif
 
 ######## Library Objects ########
@@ -180,9 +186,9 @@ $(MOAT)/src/%.o: $(MOAT)/src/%.c
 	@echo "CC   <=  $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
-$(LOCALATTESTATION)/%.o: $(LOCALATTESTATION)/%.cpp
-	@echo "CXX  <= $<"
-	@$(CXX) $(TrustLib_Compile_Cxx_Flags) -c $< -o $@
+$(LOCALATTESTATION)/%.o: $(LOCALATTESTATION)/%.c
+	@echo "CC   <= $<"
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
 $(Trust_Lib_Name): $(TrustLib_Cpp_Objects) $(TrustLib_C_Objects)
 	@echo "AR   =>  $@"
@@ -202,7 +208,11 @@ host/%.o: host/%.cpp
 	@echo "CXX  <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
-$(Host_Name): host/interface_u.o $(Host_Cpp_Objects)
+$(Host_Server_Name): host/interface_u.o $(Host_Server_Cpp_Objects)
+	@echo "LINK =>  $@"
+	@$(CXX) $^ -o $@ $(Host_Link_Flags)
+
+$(Host_Client_Name): host/interface_u.o $(Host_Client_Cpp_Objects)
 	@echo "LINK =>  $@"
 	@$(CXX) $^ -o $@ $(Host_Link_Flags)
 
@@ -232,4 +242,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(MOAT)/src/*.o $(LOCALATTESTATION)/*.o
+	@rm -f $(Trust_Lib_Name) $(Host_Server_Name) $(Host_Client_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(MOAT)/src/*.o $(LOCALATTESTATION)/*.o

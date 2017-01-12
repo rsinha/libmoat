@@ -13,7 +13,7 @@ void LIBMOAT_API _moat_print_debug(const char *fmt, ...);
 
 typedef struct
 {
-  sgx_aes_gcm_128bit_key_t scc_key; //16 bytes
+    uint32_t session_id;
 } scc_ctx_t;
 
 scc_ctx_t * LIBMOAT_API _moat_scc_create();

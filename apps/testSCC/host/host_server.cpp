@@ -11,8 +11,6 @@
 #include "host.h"
 #include "interface_u.h"
 
-#include <czmq.h>
-
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
 

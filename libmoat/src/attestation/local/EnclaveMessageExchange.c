@@ -41,14 +41,11 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "../../libmoat_untrusted.h"
 #include "EnclaveMessageExchange.h"
 #include "error_codes.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 uint32_t message_exchange_response_generator(char* decrypted_data, char** resp_buffer, size_t* resp_length);
 uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_enclave_identity);
@@ -56,10 +53,6 @@ uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_encla
 uint32_t session_request(sgx_dh_msg1_t* dh_msg1, uint32_t* session_id);
 uint32_t exchange_report(sgx_dh_msg2_t* dh_msg2, sgx_dh_msg3_t* dh_msg3, uint32_t session_id);
 uint32_t end_session(uint32_t session_id);
-
-#ifdef __cplusplus
-}
-#endif
 
 #define MAX_SESSION_COUNT  16
 
@@ -159,12 +152,13 @@ attestation_status_t generate_session_id(uint32_t *session_id)
 
     ll_node_t *iter = g_dest_session_info;
     while (iter != NULL) {
-        occupied[iter->value->session_id] = true;
+        //session ids start at 1
+        occupied[iter->value->session_id - 1] = true;
     }
 
     for (int i = 0; i < MAX_SESSION_COUNT; i++) { 
         if (occupied[i] == false) {
-            *session_id = i;
+            *session_id = i + 1; //session ids start at 1
             return SUCCESS;
         }
     }
@@ -173,7 +167,7 @@ attestation_status_t generate_session_id(uint32_t *session_id)
 }
 
 //Create a session with the destination enclave
-dh_session_t *create_session(sgx_measurement_t *target_enclave)
+uint32_t create_session(sgx_measurement_t *target_enclave)
 {
     sgx_dh_msg1_t dh_msg1;            //Diffie-Hellman Message 1
     sgx_key_128bit_t dh_aek;          // Session Key
@@ -186,7 +180,7 @@ dh_session_t *create_session(sgx_measurement_t *target_enclave)
     sgx_dh_session_enclave_identity_t responder_identity;
 
     dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
-    if (!session_info) { return NULL; }
+    if (!session_info) { return -1; }
 
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
     memset(&dh_msg1, 0, sizeof(sgx_dh_msg1_t));
@@ -196,28 +190,28 @@ dh_session_t *create_session(sgx_measurement_t *target_enclave)
 
     //Intialize the session as a session initiator
     status = sgx_dh_init_session(SGX_DH_SESSION_INITIATOR, &sgx_dh_session);
-    if(SGX_SUCCESS != status) { return NULL; }
+    if(SGX_SUCCESS != status) { return 0; }
     
     //Ocall to request for a session with the destination enclave and obtain session id and Message 1 if successful
     status = session_request_ocall(&retstatus, target_enclave, &dh_msg1, &session_id);
-    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { return NULL; } }
-    else { return NULL; }
+    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { return 0; } }
+    else { return 0; }
 
     //Process the message 1 obtained from desination enclave and generate message 2
     status = sgx_dh_initiator_proc_msg1(&dh_msg1, &dh_msg2, &sgx_dh_session);
-    if(SGX_SUCCESS != status) { return NULL; }
+    if(SGX_SUCCESS != status) { return 0; }
 
     //Send Message 2 to Destination Enclave and get Message 3 in return
     status = exchange_report_ocall(&retstatus, &dh_msg2, &dh_msg3, session_id);
-    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { return NULL; } }
-    else { return NULL; }
+    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { return 0; } }
+    else { return 0; }
 
     //Process Message 3 obtained from the destination enclave
     status = sgx_dh_initiator_proc_msg3(&dh_msg3, &sgx_dh_session, &dh_aek, &responder_identity);
-    if(SGX_SUCCESS != status) { return NULL; }
+    if(SGX_SUCCESS != status) { return 0; }
 
     // Verify the identity of the destination enclave
-    if(verify_peer_enclave_trust(&responder_identity) != SUCCESS) { return NULL; }
+    if(verify_peer_enclave_trust(&responder_identity) != SUCCESS) { return 0; }
 
     session_info->session_id = session_id;
     session_info->status = ACTIVE;
@@ -230,7 +224,7 @@ dh_session_t *create_session(sgx_measurement_t *target_enclave)
     insert_session(session_info);
 
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
-    return session_info;
+    return session_id;
 }
 
 //ecall: Handle the request from Source Enclave for a session
@@ -242,14 +236,14 @@ attestation_status_t session_request(sgx_dh_msg1_t *dh_msg1, uint32_t *session_i
     if(!session_id || !dh_msg1) { return INVALID_PARAMETER_ERROR; }
 
     dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
-    if (!session_info) { return NULL; }
+    if (session_info == NULL) { return MALLOC_ERROR; }
 
     //Intialize the session as a session responder
     status = sgx_dh_init_session(SGX_DH_SESSION_RESPONDER, &sgx_dh_session);
     if(SGX_SUCCESS != status) { return status; }
     
     //get a new SessionID
-    status = (sgx_status_t)generate_session_id(session_id);
+    status = (sgx_status_t) generate_session_id(session_id);
     if (status != SUCCESS) { return status; } //no more sessions available
 
     //Generate Message1 that will be returned to Source Enclave
@@ -346,6 +340,14 @@ attestation_status_t close_session(uint32_t session_id)
         return ATTESTATION_SE_ERROR;
     }
     return SUCCESS;
+}
+
+sgx_aes_gcm_128bit_key_t *get_session_key(uint32_t session_id)
+{
+    dh_session_t *session_info = find_session(session_id);
+    if (session_info == NULL) { return NULL; }
+
+    return &(session_info->active.AEK);
 }
 
 //Respond to the request from the Source Enclave to close the session

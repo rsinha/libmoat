@@ -3,9 +3,9 @@
 #include <assert.h>
 #include <inttypes.h>
 
-# include <unistd.h>
-# include <pwd.h>
-# define MAX_PATH FILENAME_MAX
+#include <unistd.h>
+#include <pwd.h>
+#define MAX_PATH FILENAME_MAX
 
 #include "sgx_urts.h"
 #include "host.h"
