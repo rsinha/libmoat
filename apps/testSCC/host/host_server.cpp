@@ -219,32 +219,32 @@ int trusted(void)
   uint64_t pwerr;
 
   /* Setup enclave */
-  sgx_enclave_id_t eid;
   sgx_status_t ret;
   sgx_launch_token_t token = { 0 };
      
   int token_updated = 0;
 
-  ret = sgx_create_enclave("enclave.signed.so", SGX_DEBUG_FLAG, &token, &token_updated, &eid, NULL);
+  ret = sgx_create_enclave("enclave.signed.so", SGX_DEBUG_FLAG, &token, &token_updated, &global_eid, NULL);
   if (ret != SGX_SUCCESS)
   {
     printf("sgx_create_enclave failed: %#x\n", ret);
     return 1;
   }
+  printf("created enclave...\n");
  
-  ret = enclave_test(eid, &pwerr);
+  ret = enclave_test(global_eid, &pwerr);
   //printf("pw_check+ took %ums\n", GetTickCount() - time);
   if (ret != SGX_SUCCESS)
   {
     printf("test failed: %#x\n", ret);
-    sgx_destroy_enclave(eid);
+    sgx_destroy_enclave(global_eid);
     return 1;
   }
 
   printf("test returned %" PRIu64 "\n", pwerr);
   
   /* Destroy enclave */  
-  ret = sgx_destroy_enclave(eid);
+  ret = sgx_destroy_enclave(global_eid);
   if (ret != SGX_SUCCESS)
   {
     printf("sgx_destroy_enclave failed: %#x\n", ret);
@@ -287,7 +287,9 @@ uint32_t establish_server_connection_ocall(sgx_measurement_t *target_enclave)
 
     //ecall to populate dh_msg1 and session_id
     status = session_request(global_eid, &pwerr, &dh_msg1, &session_id); 
-    assert (status == SGX_SUCCESS && pwerr == 0);
+    printf("status: %d\n", status);
+    assert(status == SGX_SUCCESS);
+    assert(pwerr == 0);
 
     sgx_dh_msg2_t dh_msg2;
     zmq_recv(socket, &dh_msg2, sizeof(sgx_dh_msg2_t), 0);
