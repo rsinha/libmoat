@@ -22,6 +22,15 @@
 
 extern sgx_enclave_id_t global_eid;    /* global enclave id */
 
+typedef enum {
+  INVALID = 0,
+  DH_MSG_1,
+  DH_MSG_2,
+  DH_MSG_3,
+  ENCRYPTED_MSG,
+  CLOSE_SESSION
+} msg_type_t;
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
