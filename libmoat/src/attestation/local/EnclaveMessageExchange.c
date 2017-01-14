@@ -166,8 +166,16 @@ attestation_status_t generate_session_id(uint32_t *session_id)
     return NO_AVAILABLE_SESSION_ERROR;
 }
 
-//Create a session with the destination enclave
-uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
+uint32_t client_create_session(sgx_measurement_t *target_enclave)
+{
+    uint32_t session_id;
+    uint32_t status = establish_server_connection_ocall(&session_id, target_enclave);
+    assert(status == SGX_SUCCESS); 
+    assert(session_id != 0);
+    return session_id;
+}
+
+uint32_t server_create_session(sgx_measurement_t *target_enclave)
 {
     sgx_dh_msg1_t dh_msg1;            //Diffie-Hellman Message 1
     sgx_key_128bit_t dh_aek;          // Session Key
@@ -196,7 +204,7 @@ uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
     if(SGX_SUCCESS != status) { free(session_info); return 0; }
     
     //Ocall to request for a session with the destination enclave and obtain Message 1 if successful
-    status = session_request_ocall(&retstatus, target_enclave, &dh_msg1);
+    status = session_request_ocall(&retstatus, target_enclave, &dh_msg1, session_id);
     if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { free(session_info); return 0; } }
     else { free(session_info); return 0; }
 
@@ -228,6 +236,16 @@ uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
 
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
     return session_id;
+}
+
+//Create a session with the destination enclave
+uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
+{
+    if (is_server) {
+        return server_create_session(target_enclave);
+    } else {
+        return client_create_session(target_enclave);
+    }
 }
 
 //ecall: Handle the request from Source Enclave for a session

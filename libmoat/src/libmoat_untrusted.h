@@ -21,7 +21,8 @@ sgx_status_t SGX_CDECL print_debug_on_host_ocall(const char* str);
 sgx_status_t SGX_CDECL output_to_host_ocall(void* buf, size_t len);
 sgx_status_t SGX_CDECL input_from_host_ocall(void* buf, size_t len_max, size_t* len_actual);
 
-sgx_status_t SGX_CDECL session_request_ocall(uint32_t* retval, sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1);
+sgx_status_t SGX_CDECL establish_server_connection_ocall(uint32_t* retval, sgx_measurement_t *target_enclave);
+sgx_status_t SGX_CDECL session_request_ocall(uint32_t* retval, sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, uint32_t session_id);
 sgx_status_t SGX_CDECL exchange_report_ocall(uint32_t* retval, sgx_dh_msg2_t* dh_msg2, sgx_dh_msg3_t* dh_msg3, uint32_t session_id);
 sgx_status_t SGX_CDECL end_session_ocall(uint32_t* retval, uint32_t session_id);
 
