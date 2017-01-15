@@ -189,31 +189,6 @@ int initialize_enclave(void)
 }
 
 
-/* This is a debugging ocall */
-void print_debug_on_host_ocall(const char *buf)
-{
-  printf("DEBUG: %s\n", buf);
-}
-
-uint8_t blob[1024];
-size_t bloblen;
-
-void output_to_host_ocall(void *buf, size_t buflen)
-{
-  if (buflen > 1024) {
-    return;
-  }
-  memcpy(&blob, buf, buflen);
-  bloblen = buflen;
-}
-
-void input_from_host_ocall(void *buf, size_t buflen, size_t *buflen_out)
-{
-  *buflen_out = buflen < bloblen ? buflen : bloblen;
-  memcpy(buf, &blob, *buflen_out);
-}
-
-
 int trusted(void)
 {
   uint64_t pwerr;
@@ -331,7 +306,7 @@ uint32_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
 
     //send dh_msg3 from the remote (client)
     zmq_send(socket, dh_msg3, sizeof(sgx_dh_msg3_t), 0);
-    printf("Sent dh_msg2...\n");
+    printf("Sent dh_msg3...\n");
 
     return 0;
 }
@@ -341,6 +316,25 @@ uint32_t end_session_ocall(uint32_t session_id)
     //TODO
     //zmq_send(socket, &msg, sizeof(msg), 0);    
     return 0;
+}
+
+/* This is a debugging ocall */
+void print_debug_on_host_ocall(const char *buf)
+{
+  printf("DEBUG: %s\n", buf);
+}
+
+void send_msg_ocall(void *buf, size_t buflen)
+{
+    zmq_send(socket, buf, buflen, 0);
+    printf("Sent msg...\n");
+}
+
+void recv_msg_ocall(void *buf, size_t buflen, size_t *buflen_out)
+{
+    *buflen_out = buflen;
+    zmq_recv(socket, buf, buflen, 0);
+    printf("Received msg...\n");
 }
 
 void print_hex(uint8_t *buf, size_t len)
