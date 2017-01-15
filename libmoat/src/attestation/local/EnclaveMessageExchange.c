@@ -47,12 +47,8 @@
 #include "EnclaveMessageExchange.h"
 #include "error_codes.h"
 
-uint32_t message_exchange_response_generator(char* decrypted_data, char** resp_buffer, size_t* resp_length);
+//this must be implemented by the enclave
 uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_enclave_identity);
-
-uint32_t session_request(sgx_dh_msg1_t* dh_msg1, uint32_t* session_id);
-uint32_t exchange_report(sgx_dh_msg2_t* dh_msg2, sgx_dh_msg3_t* dh_msg3, uint32_t session_id);
-uint32_t end_session(uint32_t session_id);
 
 #define MAX_SESSION_COUNT  16
 
@@ -306,6 +302,11 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     return SUCCESS;
 }
 
+
+/***************************************************
+                     PUBLIC API 
+***************************************************/
+
 //Create a session with the destination enclave
 uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
 {
@@ -314,89 +315,6 @@ uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
     } else {
         return client_create_session(target_enclave);
     }
-}
-
-//ecall: Handle the request from Source Enclave for a session
-attestation_status_t session_request(sgx_dh_msg1_t *dh_msg1, uint32_t *session_id )
-{
-    sgx_dh_session_t sgx_dh_session;
-    sgx_status_t status;
-
-    if(!session_id || !dh_msg1) { return INVALID_PARAMETER_ERROR; }
-
-    dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
-    if (session_info == NULL) { return MALLOC_ERROR; }
-
-    //Intialize the session as a session responder
-    status = sgx_dh_init_session(SGX_DH_SESSION_RESPONDER, &sgx_dh_session);
-    if(SGX_SUCCESS != status) { return status; }
-    
-    //get a new SessionID
-    status = (sgx_status_t) generate_session_id(session_id);
-    if (status != SUCCESS) { return status; } //no more sessions available
-
-    //Generate Message1 that will be returned to Source Enclave
-    status = sgx_dh_responder_gen_msg1(dh_msg1, &sgx_dh_session);
-    if(SGX_SUCCESS != status) { return status; }
-
-    session_info->session_id = *session_id;
-    session_info->status = IN_PROGRESS;
-    memcpy(&session_info->in_progress.dh_session, &sgx_dh_session, sizeof(sgx_dh_session_t));
-
-    //Store the session information under the correspoding source enlave id key
-    insert_session(session_info);
-    
-    return SUCCESS;
-}
-
-//ecall: Verify Message 2, generate Message3 and exchange Message 3 with Source Enclave
-attestation_status_t exchange_report(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
-{
-
-    sgx_key_128bit_t dh_aek;   // Session key
-    dh_session_t *session_info;
-    attestation_status_t status;
-    sgx_dh_session_t sgx_dh_session;
-    sgx_dh_session_enclave_identity_t initiator_identity;
-
-    if(!dh_msg2 || !dh_msg3) { return INVALID_PARAMETER_ERROR; }
-
-    memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
-
-    do
-    {
-        //Retreive the session information for the corresponding source enclave id
-        session_info = find_session(session_id);
-        if (session_info == NULL) { status = INVALID_SESSION; break; }
-        if(session_info->status != IN_PROGRESS) { status = INVALID_SESSION; break; }
-
-        memcpy(&sgx_dh_session, &session_info->in_progress.dh_session, sizeof(sgx_dh_session_t));
-
-        dh_msg3->msg3_body.additional_prop_length = 0;
-
-        //Process message 2 from source enclave and obtain message 3
-        sgx_status_t se_ret = sgx_dh_responder_proc_msg2(dh_msg2, dh_msg3, &sgx_dh_session, &dh_aek, &initiator_identity);
-
-        if(SGX_SUCCESS != se_ret) { status = se_ret; break; }
-
-        //Verify source enclave's trust
-        if(verify_peer_enclave_trust(&initiator_identity) != SUCCESS) { status = INVALID_SESSION; break; }
-
-        //save the session ID, status and initialize the session nonce
-        //session_info->session_id = session_id;
-        session_info->status = ACTIVE;
-        session_info->active.counter = 0;
-        memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
-        memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
-        status = SUCCESS;
-    } while(0);
-
-    if(status != SUCCESS)
-    {
-        end_session(session_id);
-    }
-
-    return status;
 }
 
 //Close a current session
@@ -419,16 +337,10 @@ attestation_status_t close_session(uint32_t session_id)
     //Ocall to ask the destination enclave to end the session
     status = end_session_ocall(&retstatus, session_id);
 
-    if (status == SGX_SUCCESS)
-    {
-        if ((attestation_status_t)retstatus != SUCCESS) {
-            return ((attestation_status_t)retstatus);
-        }
-    }
-    else
-    {
+    if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) {
         return ATTESTATION_SE_ERROR;
     }
+
     return SUCCESS;
 }
 
@@ -438,23 +350,5 @@ sgx_aes_gcm_128bit_key_t *get_session_key(uint32_t session_id)
     if (session_info == NULL) { return NULL; }
 
     return &(session_info->active.AEK);
-}
-
-//ecall: Respond to the request from the Source Enclave to close the session
-attestation_status_t end_session(uint32_t session_id)
-{
-    dh_session_t *session_info;
-
-    //Get the session information from the list corresponding to the session id
-    session_info = find_session(session_id);
-    if (session_info == NULL) { return INVALID_SESSION; }
-
-    //Erase the session information for the current session
-    bool deleted_successfully = delete_session(session_info);
-    assert(deleted_successfully);
-
-    free(session_info);
-    return SUCCESS;
-
 }
 
