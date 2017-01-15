@@ -343,3 +343,11 @@ uint32_t end_session_ocall(uint32_t session_id)
     return 0;
 }
 
+void print_hex(uint8_t *buf, size_t len)
+{
+    for (size_t i = 0; i < len; i++)
+    {
+        if (i > 0) printf(":");
+        printf("%02X", buf[i]);
+    }
+}
