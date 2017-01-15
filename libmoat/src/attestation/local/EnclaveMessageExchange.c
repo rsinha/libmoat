@@ -187,6 +187,7 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
 
     status = (sgx_status_t) generate_session_id(&session_id);
     if (status != SUCCESS) { free(session_info); return 0; } //no more sessions available
+    _moat_print_debug("got here 0:%u\n", session_id);
 
     //Intialize the session as a session initiator
     status = sgx_dh_init_session(SGX_DH_SESSION_INITIATOR, &sgx_dh_session);
@@ -250,23 +251,32 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
     if (session_info == NULL) { return MALLOC_ERROR; }
 
+    //everything allocated, now lets zero them out.
+    memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
+    memset(&dh_msg1, 0, sizeof(sgx_dh_msg1_t));
+    memset(&dh_msg2, 0, sizeof(sgx_dh_msg2_t));
+    memset(&dh_msg3, 0, sizeof(sgx_dh_msg3_t));
+    memset(session_info, 0, sizeof(dh_session_t));
+    memset(&sgx_dh_session, 0, sizeof(sgx_dh_session_t));
+
     //Intialize the session as a session responder
     status = sgx_dh_init_session(SGX_DH_SESSION_RESPONDER, &sgx_dh_session);
-    if(SGX_SUCCESS != status) { return status; }
+    if(SGX_SUCCESS != status) { free(session_info); return status; }
     
     //get a new SessionID
     status = (sgx_status_t) generate_session_id(&session_id);
-    if (status != SUCCESS) { return status; } //no more sessions available
+    if (status != SUCCESS) { free(session_info); return status; } //no more sessions available
 
     //Generate Message1 that will be returned to Source Enclave
     status = sgx_dh_responder_gen_msg1(&dh_msg1, &sgx_dh_session);
-    if(SGX_SUCCESS != status) { return status; }
+    if(SGX_SUCCESS != status) { free(session_info); return status; }
 
     session_info->session_id = session_id;
     session_info->status = IN_PROGRESS;
     session_info->role = SGX_DH_SESSION_RESPONDER; //client
-    memcpy(&session_info->in_progress.dh_session, &sgx_dh_session, sizeof(sgx_dh_session_t));
+    //memcpy(&(session_info->in_progress.dh_session), &sgx_dh_session, sizeof(sgx_dh_session_t));
 
+    _moat_print_debug("client got here\n");
     //ocall to send msg 1 and get msg 2
     status = send_dh_msg1_recv_dh_msg2_ocall(&retstatus, &dh_msg1, &dh_msg2, session_id);
     if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) {
