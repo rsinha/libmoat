@@ -179,13 +179,15 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
     sgx_dh_session_enclave_identity_t responder_identity;
 
     dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
-    if (!session_info) { return -1; }
+    if (!session_info) { return 0; }
 
+    //everything allocated, now lets zero them out.
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
     memset(&dh_msg1, 0, sizeof(sgx_dh_msg1_t));
     memset(&dh_msg2, 0, sizeof(sgx_dh_msg2_t));
     memset(&dh_msg3, 0, sizeof(sgx_dh_msg3_t));
     memset(session_info, 0, sizeof(dh_session_t));
+    memset(&sgx_dh_session, 0, sizeof(sgx_dh_session_t));
 
     status = (sgx_status_t) generate_session_id(&session_id);
     if (status != SUCCESS) { free(session_info); return 0; } //no more sessions available
@@ -193,20 +195,28 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
     //Intialize the session as a session initiator
     status = sgx_dh_init_session(SGX_DH_SESSION_INITIATOR, &sgx_dh_session);
     if(SGX_SUCCESS != status) { free(session_info); return 0; }
+    _moat_print_debug("got here 1\n");
     
     //Ocall to request for a session with the destination enclave and obtain Message 1 if successful
     status = recv_dh_msg1_ocall(&retstatus, target_enclave, &dh_msg1, session_id);
-    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { free(session_info); return 0; } }
-    else { free(session_info); return 0; }
+    _moat_print_debug("got here 2\n");
+    if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) {
+        free(session_info); return 0;
+    }
+    _moat_print_debug("got here 3\n");
 
     //Process the message 1 obtained from desination enclave and generate message 2
     status = sgx_dh_initiator_proc_msg1(&dh_msg1, &dh_msg2, &sgx_dh_session);
+    _moat_print_debug("got here 4:%u\n", status);
     if(SGX_SUCCESS != status) { free(session_info); return 0; }
+    _moat_print_debug("got here 5\n");
 
     //Send Message 2 to Destination Enclave and get Message 3 in return
     status = send_dh_msg2_recv_dh_msg3_ocall(&retstatus, &dh_msg2, &dh_msg3, session_id);
-    if (status == SGX_SUCCESS) { if ((attestation_status_t)retstatus != SUCCESS) { free(session_info); return 0; } }
-    else { free(session_info); return 0; }
+    _moat_print_debug("got here 6\n");
+    if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) {
+        free(session_info); return 0;
+    }
 
     //Process Message 3 obtained from the destination enclave
     status = sgx_dh_initiator_proc_msg3(&dh_msg3, &sgx_dh_session, &dh_aek, &responder_identity);
@@ -217,10 +227,10 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
 
     session_info->session_id = session_id;
     session_info->status = ACTIVE;
-    memcpy(&session_info->measurement, target_enclave, sizeof(sgx_measurement_t));
-    session_info->role = SGX_DH_SESSION_INITIATOR;
-    memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
     session_info->active.counter = 0;
+    session_info->role = SGX_DH_SESSION_INITIATOR; //server is called initiator, idk why...
+    memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
+    memcpy(&session_info->measurement, target_enclave, sizeof(sgx_measurement_t));
 
     //save the session until it gets destroyed via close_session
     insert_session(session_info);
@@ -286,6 +296,7 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     //save the session ID, status and initialize the session nonce
     session_info->status = ACTIVE;
     session_info->active.counter = 0;
+    memcpy(&session_info->measurement, target_enclave, sizeof(sgx_measurement_t));
     memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
 
