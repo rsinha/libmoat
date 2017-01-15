@@ -3,15 +3,14 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include <unistd.h>
-#include <pwd.h>
-#define MAX_PATH FILENAME_MAX
+# include <unistd.h>
+# include <pwd.h>
+# define MAX_PATH FILENAME_MAX
 #include <zmq.h>
 
 #include "sgx_urts.h"
 #include "host.h"
 #include "interface_u.h"
-
 
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
@@ -214,6 +213,7 @@ void input_from_host_ocall(void *buf, size_t buflen, size_t *buflen_out)
   memcpy(buf, &blob, *buflen_out);
 }
 
+
 int trusted(void)
 {
   uint64_t pwerr;
@@ -230,6 +230,7 @@ int trusted(void)
     printf("sgx_create_enclave failed: %#x\n", ret);
     return 1;
   }
+  printf("created enclave...\n");
  
   ret = enclave_test(global_eid, &pwerr);
   //printf("pw_check+ took %ums\n", GetTickCount() - time);
@@ -263,8 +264,8 @@ int SGX_CDECL main(int argc, char *argv[])
     (void)(argv);
 
     zmq_ctx = zmq_ctx_new();
-    socket = zmq_socket(zmq_ctx, ZMQ_REQ);
-    int success = zmq_connect(socket, "tcp://localhost:5555");
+    socket = zmq_socket(zmq_ctx, ZMQ_REP);
+    int success = zmq_bind(socket, "tcp://*:5555");
     assert(success == 0);
     printf("Server running on tcp://localhost:5555...\n");
 
@@ -277,33 +278,8 @@ int SGX_CDECL main(int argc, char *argv[])
     return r;
 }
 
-uint32_t establish_server_connection_ocall(sgx_measurement_t *target_enclave)
-{
-    sgx_dh_msg1_t dh_msg1;
-    uint32_t session_id;
-    uint32_t pwerr;
-    sgx_status_t status;
 
-    //ecall to populate dh_msg1 and session_id
-    status = session_request(global_eid, &pwerr, &dh_msg1, &session_id); 
-    assert (status == SGX_SUCCESS && pwerr == 0);
-
-    sgx_dh_msg2_t dh_msg2;
-    zmq_recv(socket, &dh_msg2, sizeof(sgx_dh_msg2_t), 0);
-    printf("Received dh_msg2...\n");
-
-    sgx_dh_msg3_t dh_msg3;
-    //verify msg2, and generate msg3
-    status = exchange_report(global_eid, &pwerr, &dh_msg2, &dh_msg3, session_id);
-    assert (status == SGX_SUCCESS && pwerr == 0);
-
-    zmq_send(socket, &dh_msg3, sizeof(sgx_dh_msg3_t), 0);
-    printf("Sent dh_msg3...\n");
-
-    return session_id;
-}
-
-uint32_t session_request_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, uint32_t session_id)
+uint32_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, uint32_t session_id)
 {
     //get dh_msg1 from remote, and populate dh_msg1 struct
     //we need to communicate with a remote with right measurement,
@@ -319,7 +295,7 @@ uint32_t session_request_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t*
     return 0;
 }
 
-uint32_t exchange_report_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
+uint32_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
 {
     //TODO: step 1: look up socket by session_id
 
@@ -330,6 +306,32 @@ uint32_t exchange_report_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, u
     //recv dh_msg3 from the remote (client)
     zmq_recv(socket, dh_msg3, sizeof(sgx_dh_msg3_t), 0);
     printf("Received dh_msg3...\n");
+
+    return 0;
+}
+
+uint32_t send_dh_msg1_recv_dh_msg2_ocall(sgx_dh_msg1_t *dh_msg1, sgx_dh_msg2_t *dh_msg2, uint32_t session_id)
+{
+    //TODO: step 1: look up socket by session_id
+
+    //send dh_msg1 to the remote (client)
+    zmq_send(socket, dh_msg1, sizeof(sgx_dh_msg1_t), 0);
+    printf("Sent dh_msg1...\n");
+    
+    //recv dh_msg2 from the remote (client)
+    zmq_recv(socket, dh_msg2, sizeof(sgx_dh_msg2_t), 0);
+    printf("Received dh_msg2...\n");
+
+    return 0;
+}
+
+uint32_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
+{
+    //TODO: step 1: look up socket by session_id
+
+    //send dh_msg3 from the remote (client)
+    zmq_send(socket, dh_msg3, sizeof(sgx_dh_msg3_t), 0);
+    printf("Sent dh_msg2...\n");
 
     return 0;
 }
