@@ -303,7 +303,7 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     //Store the session information under the correspoding source enlave id key
     insert_session(session_info);
 
-    return SUCCESS;
+    return session_id;
 }
 
 
