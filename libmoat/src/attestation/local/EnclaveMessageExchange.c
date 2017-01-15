@@ -187,30 +187,23 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
 
     status = (sgx_status_t) generate_session_id(&session_id);
     if (status != SUCCESS) { free(session_info); return 0; } //no more sessions available
-    _moat_print_debug("got here 0:%u\n", session_id);
 
     //Intialize the session as a session initiator
     status = sgx_dh_init_session(SGX_DH_SESSION_INITIATOR, &sgx_dh_session);
     if(SGX_SUCCESS != status) { free(session_info); return 0; }
-    _moat_print_debug("got here 1\n");
     
     //Ocall to request for a session with the destination enclave and obtain Message 1 if successful
     status = recv_dh_msg1_ocall(&retstatus, target_enclave, &dh_msg1, session_id);
-    _moat_print_debug("got here 2\n");
     if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) {
         free(session_info); return 0;
     }
-    _moat_print_debug("got here 3\n");
 
     //Process the message 1 obtained from desination enclave and generate message 2
     status = sgx_dh_initiator_proc_msg1(&dh_msg1, &dh_msg2, &sgx_dh_session);
-    _moat_print_debug("got here 4:%u\n", status);
     if(SGX_SUCCESS != status) { free(session_info); return 0; }
-    _moat_print_debug("got here 5\n");
 
     //Send Message 2 to Destination Enclave and get Message 3 in return
     status = send_dh_msg2_recv_dh_msg3_ocall(&retstatus, &dh_msg2, &dh_msg3, session_id);
-    _moat_print_debug("got here 6\n");
     if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) {
         free(session_info); return 0;
     }
@@ -226,8 +219,8 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
     session_info->status = ACTIVE;
     session_info->active.counter = 0;
     session_info->role = SGX_DH_SESSION_INITIATOR; //server is called initiator, idk why...
-    memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
-    memcpy(&session_info->measurement, target_enclave, sizeof(sgx_measurement_t));
+    memcpy(&(session_info->active.AEK), &dh_aek, sizeof(sgx_key_128bit_t));
+    memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
 
     //save the session until it gets destroyed via close_session
     insert_session(session_info);
@@ -274,9 +267,8 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     session_info->session_id = session_id;
     session_info->status = IN_PROGRESS;
     session_info->role = SGX_DH_SESSION_RESPONDER; //client
-    //memcpy(&(session_info->in_progress.dh_session), &sgx_dh_session, sizeof(sgx_dh_session_t));
+    memcpy(&(session_info->in_progress.dh_session), &sgx_dh_session, sizeof(sgx_dh_session_t));
 
-    _moat_print_debug("client got here\n");
     //ocall to send msg 1 and get msg 2
     status = send_dh_msg1_recv_dh_msg2_ocall(&retstatus, &dh_msg1, &dh_msg2, session_id);
     if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) {
@@ -288,10 +280,12 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
 
     //Process message 2 from source enclave and obtain message 3
     status = sgx_dh_responder_proc_msg2(&dh_msg2, &dh_msg3, &sgx_dh_session, &dh_aek, &initiator_identity);
-    if(SGX_SUCCESS != status) { return status; }
+    if(SGX_SUCCESS != status) { free(session_info); return status; }
 
     //Verify source enclave's trust
-    if(verify_peer_enclave_trust(&initiator_identity) != SUCCESS) { return INVALID_SESSION; }
+    if(verify_peer_enclave_trust(&initiator_identity) != SUCCESS) {
+        free(session_info); return INVALID_SESSION;
+    }
 
     //ocall to send msg3
     status = send_dh_msg3_ocall(&retstatus, &dh_msg3, session_id);
@@ -302,8 +296,8 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     //save the session ID, status and initialize the session nonce
     session_info->status = ACTIVE;
     session_info->active.counter = 0;
-    memcpy(&session_info->measurement, target_enclave, sizeof(sgx_measurement_t));
-    memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
+    memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
+    memcpy(&(session_info->active.AEK), &dh_aek, sizeof(sgx_key_128bit_t));
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
 
     //Store the session information under the correspoding source enlave id key
