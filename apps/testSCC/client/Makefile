@@ -56,7 +56,7 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-Host_Cpp_Files := host/host_client.cpp
+Host_Cpp_Files := host/host_client.cpp host/libmoat_untrusted.cpp
 Host_Include_Paths := -Icommon -Ihost -I$(SGX_SDK)/include
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
