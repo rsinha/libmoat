@@ -5,10 +5,10 @@
 #include "sgx_trts.h"
 
 #include "../api/libmoat.h"
+#include "../api/libmoat_untrusted.h"
 #include "attestation/local/dh_session_protocol.h"
 #include "attestation/local/error_codes.h"
 #include "attestation/local/EnclaveMessageExchange.h"
-#include "libmoat_untrusted.h"
 
 scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {

@@ -1,7 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include "libmoat_untrusted.h"
+#include "../api/libmoat_untrusted.h"
 
 void _moat_print_debug(const char *fmt, ...)
 {

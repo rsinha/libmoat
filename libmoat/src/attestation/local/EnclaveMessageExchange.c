@@ -43,7 +43,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "../../libmoat_untrusted.h"
+#include "../../../api/libmoat_untrusted.h"
 #include "EnclaveMessageExchange.h"
 #include "error_codes.h"
 
