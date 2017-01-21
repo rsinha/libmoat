@@ -6,6 +6,6 @@ enclave {
     public uint64_t enclave_test();
   };
 
-  from "../../../../libmoat/libmoat.edl" import *;
+  from "../../../../libmoat/api/libmoat.edl" import *;
 
 };

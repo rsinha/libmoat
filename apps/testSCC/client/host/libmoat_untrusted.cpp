@@ -123,7 +123,7 @@ uint32_t end_session_ocall(uint32_t session_id)
 /* This is a debugging ocall */
 uint32_t print_debug_on_host_ocall(const char *buf)
 {
-    printf("DEBUG: %s\n", buf);
+    printf("%s", buf);
     return 0;
 }
 

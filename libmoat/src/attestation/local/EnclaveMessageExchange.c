@@ -16,9 +16,6 @@
 #include "EnclaveMessageExchange.h"
 #include "error_codes.h"
 
-//this must be implemented by the enclave
-uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_enclave_identity);
-
 #define MAX_SESSION_COUNT  16
 
 typedef struct _ll_node 
@@ -129,6 +126,17 @@ attestation_status_t generate_session_id(uint32_t *session_id)
     }
 
     return NO_AVAILABLE_SESSION_ERROR;
+}
+
+uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_enclave_identity)
+{
+    if (peer_enclave_identity->isv_prod_id != 0) { 
+        return ENCLAVE_TRUST_ERROR;
+    }
+    if (!(peer_enclave_identity->attributes.flags & SGX_FLAGS_INITTED)) { 
+        return ENCLAVE_TRUST_ERROR;
+    }
+    return SUCCESS;
 }
 
 uint32_t server_create_session(sgx_measurement_t *target_enclave)

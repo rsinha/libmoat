@@ -209,7 +209,7 @@ $(Host_Name): host/interface_u.o $(Host_Cpp_Objects)
 
 ######## Enclave Objects ########
 
-enclave/interface_t.c: $(SGX_EDGER8R) interface.edl $(MOAT)/libmoat.edl
+enclave/interface_t.c: $(SGX_EDGER8R) interface.edl $(MOAT)/api/libmoat.edl
 	@echo "GEN  =>  $@"
 	@cd enclave && $(SGX_EDGER8R) --trusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 
