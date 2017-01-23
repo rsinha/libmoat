@@ -1,0 +1,3 @@
+1. don't use random IVs, use a counter and that way we know to tear down a session once the counter wraps around.
+2. message types: MSG, TEARDOWN, etc.
+3. check measurement

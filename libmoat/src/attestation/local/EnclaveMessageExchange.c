@@ -203,9 +203,9 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
 
     session_info->session_id = session_id;
     session_info->status = ACTIVE;
-    session_info->active.counter = 0;
+    session_info->counter = 0;
     session_info->role = SGX_DH_SESSION_INITIATOR; //server is called initiator, idk why...
-    memcpy(&(session_info->active.AEK), &dh_aek, sizeof(sgx_key_128bit_t));
+    memcpy(&(session_info->AEK), &dh_aek, sizeof(sgx_key_128bit_t));
     memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
 
     //save the session until it gets destroyed via close_session
@@ -250,10 +250,10 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     status = sgx_dh_responder_gen_msg1(&dh_msg1, &sgx_dh_session);
     if(SGX_SUCCESS != status) { free(session_info); return status; }
 
-    session_info->session_id = session_id;
-    session_info->status = IN_PROGRESS;
-    session_info->role = SGX_DH_SESSION_RESPONDER; //client
-    memcpy(&(session_info->in_progress.dh_session), &sgx_dh_session, sizeof(sgx_dh_session_t));
+    //session_info->session_id = session_id;
+    //session_info->status = IN_PROGRESS;
+    //session_info->role = SGX_DH_SESSION_RESPONDER; //client
+    //memcpy(&(session_info->in_progress.dh_session), &sgx_dh_session, sizeof(sgx_dh_session_t));
 
     //ocall to send msg 1 and get msg 2
     status = send_dh_msg1_recv_dh_msg2_ocall(&retstatus, &dh_msg1, &dh_msg2, session_id);
@@ -280,10 +280,12 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     }
 
     //save the session ID, status and initialize the session nonce
+    session_info->session_id = session_id;
     session_info->status = ACTIVE;
-    session_info->active.counter = 0;
     memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
-    memcpy(&(session_info->active.AEK), &dh_aek, sizeof(sgx_key_128bit_t));
+    session_info->role = SGX_DH_SESSION_RESPONDER; //client
+    memcpy(&(session_info->AEK), &dh_aek, sizeof(sgx_key_128bit_t));
+    session_info->counter = 0;
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
 
     //Store the session information under the correspoding source enlave id key
@@ -339,6 +341,6 @@ sgx_aes_gcm_128bit_key_t *get_session_key(uint32_t session_id)
     dh_session_t *session_info = find_session(session_id);
     if (session_info == NULL) { return NULL; }
 
-    return &(session_info->active.AEK);
+    return &(session_info->AEK);
 }
 
