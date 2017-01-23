@@ -15,13 +15,13 @@
 //Session information structure
 typedef struct
 {
-    uint32_t  session_id; //Identifies the current session
-    uint32_t  status; //Indicates session is in progress, active or closed
-    sgx_measurement_t measurement; //measurement of the remote enclave
-    sgx_dh_session_role_t role; //role of this enclave: initiator or responder?
-    //sgx_dh_session_t dh_session; //save intermediate state if needed
+    uint32_t                 session_id; //Identifies the current session
+    uint32_t                 status; //Indicates session is in progress, active or closed
+    sgx_measurement_t        measurement; //measurement of the remote enclave
+    sgx_dh_session_role_t    role; //role of this enclave: initiator or responder?
     sgx_aes_gcm_128bit_key_t AEK; //Session Key
-    uint32_t counter; //Used to store Message Sequence Number
+    uint32_t                 counter; //Used to store Message Sequence Number
+    //sgx_dh_session_t       dh_session; //save intermediate state if needed
 } dh_session_t;
 
 

@@ -336,11 +336,8 @@ attestation_status_t close_session(uint32_t session_id)
     return SUCCESS;
 }
 
-sgx_aes_gcm_128bit_key_t *get_session_key(uint32_t session_id)
+dh_session_t *get_session_info(uint32_t session_id)
 {
-    dh_session_t *session_info = find_session(session_id);
-    if (session_info == NULL) { return NULL; }
-
-    return &(session_info->AEK);
+    return find_session(session_id);
 }
 
