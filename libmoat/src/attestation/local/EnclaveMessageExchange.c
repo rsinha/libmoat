@@ -133,9 +133,18 @@ uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_encla
     if (peer_enclave_identity->isv_prod_id != 0) { 
         return ENCLAVE_TRUST_ERROR;
     }
+    if (peer_enclave_identity->isv_svn != 0) {
+        return ENCLAVE_TRUST_ERROR;
+    }
     if (!(peer_enclave_identity->attributes.flags & SGX_FLAGS_INITTED)) { 
         return ENCLAVE_TRUST_ERROR;
     }
+    _moat_print_debug("remote measurement: ");
+    for (size_t i = 0; i < sizeof(sgx_measurement_t); i++)
+    {
+        _moat_print_debug("%02X", ((uint8_t *) &(peer_enclave_identity->mr_enclave))[i]);
+    }
+    _moat_print_debug("\n");
     return SUCCESS;
 }
 
