@@ -56,7 +56,9 @@ void _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len)
 
     //status = sgx_read_rand((unsigned char *) dst_buf + 0, SGX_AESGCM_IV_SIZE);
     //assert(status == SGX_SUCCESS);
-    memcpy(dst_buf + 0, &(session_info->local_counter), sizeof(session_info->local_counter));
+    uint32_t nonce = session_info->local_counter;
+    memcpy(dst_buf + 0, &nonce, sizeof(nonce));
+    memset(dst_buf + sizeof(nonce), 0, SGX_AESGCM_IV_SIZE - sizeof(nonce));
 
     /* ciphertext: IV || MAC || encrypted */
     status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK),
