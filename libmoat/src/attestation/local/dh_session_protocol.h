@@ -7,6 +7,11 @@
 #include "sgx_report.h"
 #include "sgx_attributes.h"
 
+//session status
+#define CLOSED 0x0
+#define IN_PROGRESS 0x1
+#define ACTIVE 0x2
+
 //Session information structure
 typedef struct
 {

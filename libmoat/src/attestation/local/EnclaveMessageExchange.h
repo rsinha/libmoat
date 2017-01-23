@@ -1,4 +1,3 @@
-#include "datatypes.h"
 #include "sgx_eid.h"
 #include "sgx_trts.h"
 #include "dh_session_protocol.h"
