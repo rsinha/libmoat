@@ -203,7 +203,6 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
 
     session_info->session_id = session_id;
     session_info->status = ACTIVE;
-    session_info->counter = 0;
     session_info->role = SGX_DH_SESSION_INITIATOR; //server is called initiator, idk why...
     memcpy(&(session_info->AEK), &dh_aek, sizeof(sgx_key_128bit_t));
     memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
@@ -285,7 +284,6 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
     session_info->role = SGX_DH_SESSION_RESPONDER; //client
     memcpy(&(session_info->AEK), &dh_aek, sizeof(sgx_key_128bit_t));
-    session_info->counter = 0;
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
 
     //Store the session information under the correspoding source enlave id key

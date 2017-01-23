@@ -20,7 +20,8 @@ typedef struct
     sgx_measurement_t        measurement; //measurement of the remote enclave
     sgx_dh_session_role_t    role; //role of this enclave: initiator or responder?
     sgx_aes_gcm_128bit_key_t AEK; //Session Key
-    uint32_t                 counter; //Used to store Message Sequence Number
+    uint32_t                 local_counter; //Message Sequence Number, which we use as IV
+    uint32_t                 remote_counter; //most recent remote IV, to prevent replay attacks
     //sgx_dh_session_t       dh_session; //save intermediate state if needed
 } dh_session_t;
 
