@@ -128,7 +128,7 @@ attestation_status_t generate_session_id(uint32_t *session_id)
     return NO_AVAILABLE_SESSION_ERROR;
 }
 
-uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_enclave_identity)
+uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_enclave_identity, sgx_measurement_t *target_enclave)
 {
     if (peer_enclave_identity->isv_prod_id != 0) { 
         return ENCLAVE_TRUST_ERROR;
@@ -136,15 +136,21 @@ uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t* peer_encla
     if (peer_enclave_identity->isv_svn != 0) {
         return ENCLAVE_TRUST_ERROR;
     }
-    if (!(peer_enclave_identity->attributes.flags & SGX_FLAGS_INITTED)) { 
+    if (!(peer_enclave_identity->attributes.flags & SGX_FLAGS_INITTED)) {
         return ENCLAVE_TRUST_ERROR;
     }
+#ifdef RELEASE
+    if (memcmp(target_enclave, &(peer_enclave_identity->mr_enclave), sizeof(sgx_measurement_t)) != 0) {
+        return ENCLAVE_TRUST_ERROR;
+    }
+#else
     _moat_print_debug("remote measurement: ");
     for (size_t i = 0; i < sizeof(sgx_measurement_t); i++)
     {
         _moat_print_debug("%02X", ((uint8_t *) &(peer_enclave_identity->mr_enclave))[i]);
     }
     _moat_print_debug("\n");
+#endif
     return SUCCESS;
 }
 
@@ -199,7 +205,7 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
     if(SGX_SUCCESS != status) { free(session_info); return 0; }
 
     // Verify the identity of the destination enclave
-    if(verify_peer_enclave_trust(&responder_identity) != SUCCESS) { free(session_info); return 0; }
+    if(verify_peer_enclave_trust(&responder_identity, target_enclave) != SUCCESS) { free(session_info); return 0; }
 
     session_info->session_id = session_id;
     session_info->status = ACTIVE;
@@ -255,7 +261,7 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     //memcpy(&(session_info->in_progress.dh_session), &sgx_dh_session, sizeof(sgx_dh_session_t));
 
     //ocall to send msg 1 and get msg 2
-    status = send_dh_msg1_recv_dh_msg2_ocall(&retstatus, &dh_msg1, &dh_msg2, session_id);
+    status = send_dh_msg1_recv_dh_msg2_ocall(&retstatus, target_enclave, &dh_msg1, &dh_msg2, session_id);
     if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) {
         free(session_info); return status;
     }
@@ -268,7 +274,7 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     if(SGX_SUCCESS != status) { free(session_info); return status; }
 
     //Verify source enclave's trust
-    if(verify_peer_enclave_trust(&initiator_identity) != SUCCESS) {
+    if(verify_peer_enclave_trust(&initiator_identity, target_enclave) != SUCCESS) {
         free(session_info); return INVALID_SESSION;
     }
 

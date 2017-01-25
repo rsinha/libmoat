@@ -17,7 +17,7 @@ void server_setup_socket(sgx_measurement_t *target_enclave, uint32_t session_id)
     untrusted_channel_t channel;
     channel.zmq_ctx = zmq_ctx_new();
     channel.socket = zmq_socket(channel.zmq_ctx, ZMQ_REP);
-    //memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
+    memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
 
     int success = zmq_bind(channel.socket, "tcp://*:5555");
     assert(success == 0);
@@ -31,7 +31,7 @@ void client_setup_socket(sgx_measurement_t *target_enclave, uint32_t session_id)
     untrusted_channel_t channel;
     channel.zmq_ctx = zmq_ctx_new();
     channel.socket = zmq_socket(channel.zmq_ctx, ZMQ_REQ);
-    //memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
+    memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
 
     //ideally I should be asking some name discovery service
     int success = zmq_connect(channel.socket, "tcp://localhost:5555");
@@ -55,7 +55,7 @@ uint32_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh
     //get dh_msg1 from remote, and populate dh_msg1 struct
     //we need to communicate with a remote with right measurement,
     //though we don't verify the measurement until we get inside the enclave
-    server_setup_socket(NULL, session_id);
+    server_setup_socket(target_enclave, session_id);
 
     //step 3: recv dh_msg1 from the remote (client)
     std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
@@ -82,9 +82,9 @@ uint32_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *
     return 1; //ERROR
 }
 
-uint32_t send_dh_msg1_recv_dh_msg2_ocall(sgx_dh_msg1_t *dh_msg1, sgx_dh_msg2_t *dh_msg2, uint32_t session_id)
+uint32_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t *dh_msg1, sgx_dh_msg2_t *dh_msg2, uint32_t session_id)
 {
-    client_setup_socket(NULL, session_id);
+    client_setup_socket(target_enclave, session_id);
 
     std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {

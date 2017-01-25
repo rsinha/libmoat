@@ -237,4 +237,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(LIBMOAT)/src/*.o $(LOCALATTESTATION)/*.o
+	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LOCALATTESTATION)/*.o

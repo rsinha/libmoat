@@ -19,7 +19,7 @@ extern "C" {
 
 sgx_status_t SGX_CDECL recv_dh_msg1_ocall(uint32_t* retval, sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, uint32_t session_id);
 sgx_status_t SGX_CDECL send_dh_msg2_recv_dh_msg3_ocall(uint32_t* retval, sgx_dh_msg2_t* dh_msg2, sgx_dh_msg3_t* dh_msg3, uint32_t session_id);
-sgx_status_t SGX_CDECL send_dh_msg1_recv_dh_msg2_ocall(uint32_t* retval, sgx_dh_msg1_t* dh_msg1, sgx_dh_msg2_t* dh_msg2, uint32_t session_id);
+sgx_status_t SGX_CDECL send_dh_msg1_recv_dh_msg2_ocall(uint32_t* retval, sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, sgx_dh_msg2_t* dh_msg2, uint32_t session_id);
 sgx_status_t SGX_CDECL send_dh_msg3_ocall(uint32_t* retval, sgx_dh_msg3_t* dh_msg3, uint32_t session_id);
 sgx_status_t SGX_CDECL end_session_ocall(uint32_t* retval, uint32_t session_id);
 sgx_status_t SGX_CDECL send_msg_ocall(uint32_t* retval, void* buf, size_t len, uint32_t session_id);
