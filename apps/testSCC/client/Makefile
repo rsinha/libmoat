@@ -4,7 +4,8 @@ SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
-MOAT := ../../../libmoat
+LIBMOAT := ../../../libmoat
+LIBUNTRUSTED := ../../../libuntrusted
 LOCALATTESTATION := ../../../libmoat/src/attestation/local
 
 ifeq ($(shell getconf LONG_BIT), 32)
@@ -56,7 +57,7 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-Host_Cpp_Files := host/host_client.cpp host/libmoat_untrusted.cpp
+Host_Cpp_Files := host/host_client.cpp $(LIBUNTRUSTED)/libmoat_untrusted.cpp
 Host_Include_Paths := -Icommon -Ihost -I$(SGX_SDK)/include
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
@@ -98,7 +99,7 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_C_Files := enclave/enclave.c
-Enclave_Include_Paths := -Icommon -Ienclave -I$(MOAT)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+Enclave_Include_Paths := -Icommon -Ienclave -I$(LIBMOAT)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fvisibility=hidden -fPIC $(Enclave_Include_Paths)
 Enclave_Cpp_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc++ -fvisibility=hidden -fPIC $(Enclave_Include_Paths)
@@ -176,7 +177,7 @@ endif
 
 ######## Library Objects ########
 
-$(MOAT)/src/%.o: $(MOAT)/src/%.c
+$(LIBMOAT)/src/%.o: $(LIBMOAT)/src/%.c
 	@echo "CC   <=  $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
@@ -189,6 +190,10 @@ $(Trust_Lib_Name): $(TrustLib_Cpp_Objects) $(TrustLib_C_Objects)
 	@$(AR) rcs $@ $^
 
 ######## App Objects ########
+
+$(LIBUNTRUSTED)/%.o: $(LIBUNTRUSTED)/%.cpp
+	@echo "CXX  <=  $<"
+	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 host/interface_u.c: $(SGX_EDGER8R) interface.edl
 	@echo "GEN  =>  $@"
@@ -209,7 +214,7 @@ $(Host_Name): host/interface_u.o $(Host_Cpp_Objects)
 
 ######## Enclave Objects ########
 
-enclave/interface_t.c: $(SGX_EDGER8R) interface.edl $(MOAT)/api/libmoat.edl
+enclave/interface_t.c: $(SGX_EDGER8R) interface.edl $(LIBMOAT)/api/libmoat.edl
 	@echo "GEN  =>  $@"
 	@cd enclave && $(SGX_EDGER8R) --trusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 
@@ -232,4 +237,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(MOAT)/src/*.o $(LOCALATTESTATION)/*.o
+	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(LIBMOAT)/src/*.o $(LOCALATTESTATION)/*.o
