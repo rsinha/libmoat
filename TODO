@@ -1,4 +1,9 @@
-1. implement session teardown
+1. From TLS Spec: To prevent message replay or modification attacks, the MAC is computed from the 
+   MAC key, the sequence number, the message length, the message contents, and two fixed character strings.
+   - Read section 5 of https://tools.ietf.org/html/draft-ietf-tls-tls13-07
 2. implement session renegotiation after IV wrap around
-3. message types: MSG, TEARDOWN, etc.
-4. check measurement
+3. Module-specific initialization routine e.g. list = null in attestation
+4. Bi-directional channels to allow consecutive send and consecutive read operations
+
+Future Work
+1. Concurrent
