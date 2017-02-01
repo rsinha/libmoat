@@ -34,18 +34,24 @@ scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     return ctx;
 }
 
-void _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len)
+size_t _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len)
 {
     sgx_status_t status;
     uint32_t retstatus;
 
+    //a full size record cannot exceed 2^14 bytes in TLS 1.3
+    if (len > (1<<14)) { return 1; }
+
     dh_session_t *session_info = get_session_info(ctx->session_id);
     assert(session_info != NULL);
 
+    //Section 5.5: 
+    //For AES-GCM, up to 2^24.5 full-size records (about 24 million) 
+    //may be encrypted on a given connection while keeping a safety margin 
+    //of approximately 2^-57 for Authenticated Encryption (AE) security
     //at most 2^32 invocations of AES-GCM according to NIST guidelines
-    if(session_info->local_counter > ((uint32_t) - 3)) {
-        assert(false); //TODO: ideally tear down and recreate session
-    }
+    //but we stop at 2^24 because of TLS 1.3 spec
+    if (session_info->local_counter > (1 << 24)) { return 1; }
 
     //allocate memory for ciphertext
     size_t dst_len = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
