@@ -1,6 +1,5 @@
-1. From TLS Spec: To prevent message replay or modification attacks, the MAC is computed from the 
-   MAC key, the sequence number, the message length, the message contents, and two fixed character strings.
-   - Read section 5 of https://tools.ietf.org/html/draft-ietf-tls-tls13-07
+1. implement multiple ocalls within recv(), so that recv() only returns when all requested bytes are available
+   similarly, implement buffering within recv(); so if we fetched extra bytes, they can be returned in a later call to recv
 2. implement session renegotiation after IV wrap around
 3. Module-specific initialization routine e.g. list = null in attestation
 4. Bi-directional channels to allow consecutive send and consecutive read operations
