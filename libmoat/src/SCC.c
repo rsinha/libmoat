@@ -25,6 +25,7 @@ typedef struct
     size_t length;
 } libmoat_ciphertext_header_t;
 
+
 scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
     uint32_t session_id = create_session(is_server, measurement);
@@ -100,49 +101,90 @@ size_t _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len)
     status = send_msg_ocall(&retstatus, ciphertext, dst_len, ctx->session_id);
     assert(status == SGX_SUCCESS && retstatus == 0);
     free(ciphertext);
+    return 0;
 }
 
 size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
 {
     sgx_status_t status;
     uint32_t retstatus;
-    size_t actual_len;
-    size_t max_len = sizeof(libmoat_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
-
-    uint8_t *ciphertext = (uint8_t *) malloc(max_len);
-    assert(ciphertext != NULL);
-
-    status = recv_msg_ocall(&retstatus, ciphertext, max_len, &actual_len, ctx->session_id);
-    assert(status == SGX_SUCCESS && retstatus == 0);
-    assert (actual_len <= max_len); //although the caller cannot write past len, it may set actual to be an arbitrary value
-
-    if (((libmoat_ciphertext_header_t *) ciphertext)->type != APPLICATION_DATA) { return 0; } //no bytes
-    if (((libmoat_ciphertext_header_t *) ciphertext)->length != (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len)) { return 0; }
-
-    uint8_t *payload = ciphertext + sizeof(libmoat_ciphertext_header_t);
+    size_t actual_len; //how much data has the ocall given us?
+    size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
 
     dh_session_t *session_info = get_session_info(ctx->session_id);
     assert(session_info != NULL);
+    
+    //are there any bytes remaining from the previous invocation of recv?
+    if (session_info->recv_carryover != NULL) {
+        size_t bytes_to_copy = min(session_info->recv_carryover_bytes, len);
+        memcpy(buf, session_info->recv_carryover, bytes_to_copy);
+        
+        len_completed = len_completed + bytes_to_copy;
+        session_info->recv_carryover_bytes = session_info->recv_carryover_bytes - bytes_to_copy;
+        
+        if (session_info->recv_carryover_bytes == 0) {
+            session_info->recv_carryover = NULL;
+        }
+    }
+    
+    libmoat_ciphertext_header_t *header = (libmoat_ciphertext_header_t *) malloc(sizeof(libmoat_ciphertext_header_t));
+    assert(header != NULL);
+    
+    while (len_completed < len) {
 
-    /* ciphertext: header || IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK),
-                                        payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE,
-                                        ((libmoat_ciphertext_header_t *) ciphertext)->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE),
-                                        buf,
-                                        payload,
-                                        SGX_AESGCM_IV_SIZE,
-                                        NULL,
-                                        0,
-                                        (const sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE));
-    assert(status == SGX_SUCCESS);
+        //first fetch the header to understand what to do next
+        status = recv_msg_ocall(&retstatus, header, sizeof(libmoat_ciphertext_header_t), &actual_len, ctx->session_id);
+        //the ocall succeeded, and the logic within the ocall says everything succeeded
+        assert(status == SGX_SUCCESS && retstatus == 0);
+        assert(actual_len == sizeof(libmoat_ciphertext_header_t));
 
-    uint32_t nonce;
-    memcpy(&nonce, payload, sizeof(nonce));
-    assert(nonce > session_info->remote_counter); //to prevent replay attacks
-    session_info->remote_counter = nonce;
+        if (header->type != APPLICATION_DATA) { free(header); return len_completed; } //no bytes
+        if (header->length > ((1<<14) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) { free(header); return len_completed; }
 
-    free(ciphertext);
-    return len;
+        uint8_t *ciphertext = (uint8_t *) malloc(header->length);
+        assert(ciphertext != NULL);
+
+        uint8_t *cleartext = (uint8_t *) malloc(header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE));
+        assert(cleartext != NULL);
+
+        //fetch the ciphertext
+        status = recv_msg_ocall(&retstatus, ciphertext, header->length, &actual_len, ctx->session_id);
+        assert(status == SGX_SUCCESS && retstatus == 0);
+        assert (actual_len == header->length);
+
+        /* ciphertext: header || IV || MAC || encrypted */
+        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK),
+                                            ciphertext + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
+                                            header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE), //src_len
+                                            cleartext, //dst
+                                            ciphertext, //iv
+                                            SGX_AESGCM_IV_SIZE,
+                                            NULL, //aad
+                                            0,
+                                            (const sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); //mac
+        assert(status == SGX_SUCCESS);
+        
+        uint32_t nonce;
+        memcpy(&nonce, ciphertext, sizeof(nonce)); //iv (LSB 32-bits) is the nonce
+        assert(nonce > session_info->remote_counter); //to prevent replay attacks
+        session_info->remote_counter = nonce;
+
+        size_t bytes_to_copy = min(header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE), len - len_completed);
+        memcpy(buf, cleartext, bytes_to_copy);
+        len_completed = len_completed + bytes_to_copy;
+
+        if (bytes_to_copy < header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) {
+            session_info->recv_carryover = cleartext + bytes_to_copy;
+            session_info->recv_carryover_bytes = (header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) - bytes_to_copy;
+        } else {
+            free(cleartext);
+        }
+        free(ciphertext);
+    }
+    
+    free(header);
+    return len_completed;
+    
 }
 
 void _moat_scc_destroy(scc_ctx_t *ctx)
