@@ -37,6 +37,8 @@ scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     //local_counter is used as IV, and is incremented by 2 for each invocation of AES-GCM-128
     session_info->local_counter = is_server ? 1 : 2; //server/client uses odd/even IVs
     session_info->remote_counter = 0; //haven't seen any remote IVs yet
+    session_info->recv_carryover_bytes = 0;
+    session_info->recv_carryover = NULL;
 
     //allocate memory for the context
     scc_ctx_t *ctx = (scc_ctx_t *) malloc(sizeof(scc_ctx_t));
@@ -145,7 +147,8 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
         uint8_t *ciphertext = (uint8_t *) malloc(header->length);
         assert(ciphertext != NULL);
 
-        uint8_t *cleartext = (uint8_t *) malloc(header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE));
+        size_t cleartext_length = header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
+        uint8_t *cleartext = (uint8_t *) malloc(cleartext_length);
         assert(cleartext != NULL);
 
         //fetch the ciphertext
@@ -154,14 +157,14 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
         assert (actual_len == header->length);
 
         /* ciphertext: header || IV || MAC || encrypted */
-        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK),
+        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK), //key
                                             ciphertext + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
-                                            header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE), //src_len
+                                            cleartext_length, //src_len
                                             cleartext, //dst
                                             ciphertext, //iv
-                                            SGX_AESGCM_IV_SIZE,
+                                            SGX_AESGCM_IV_SIZE, //12 bytes
                                             NULL, //aad
-                                            0,
+                                            0, //0 bytes of AAD
                                             (const sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); //mac
         assert(status == SGX_SUCCESS);
         
@@ -170,13 +173,13 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
         assert(nonce > session_info->remote_counter); //to prevent replay attacks
         session_info->remote_counter = nonce;
 
-        size_t bytes_to_copy = min(header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE), len - len_completed);
+        size_t bytes_to_copy = min(cleartext_length, len - len_completed);
         memcpy(buf, cleartext, bytes_to_copy);
         len_completed = len_completed + bytes_to_copy;
 
-        if (bytes_to_copy < header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) {
+        if (bytes_to_copy < cleartext_length) {
             session_info->recv_carryover = cleartext + bytes_to_copy;
-            session_info->recv_carryover_bytes = (header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) - bytes_to_copy;
+            session_info->recv_carryover_bytes = cleartext_length - bytes_to_copy;
         } else {
             free(cleartext);
         }
