@@ -123,6 +123,7 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
         session_info->recv_carryover_bytes = session_info->recv_carryover_bytes - bytes_to_copy;
         
         if (session_info->recv_carryover_bytes == 0) {
+            free(session_info->recv_carryover);
             session_info->recv_carryover = NULL;
         }
     }
