@@ -49,8 +49,9 @@ def access(op, a, data):
 			S.add((a_p,d_p))
 	
 	if (op == WRITE):
-		data_old = filter(lambda (a_p,_): a_p == a, S)[0]
-		S.remove((a, data_old))
+		data_old = filter(lambda (a_p,_): a_p == a, S)
+		if (len(data_old) == 1):
+			S.remove((a, data_old[0]))
 		S.add((a,data))
 	else:
 		data = filter(lambda (a_p,_): a_p == a, S)[0]
@@ -59,7 +60,7 @@ def access(op, a, data):
 	for l in levels:
 		S_p = filter(lambda (a_p,_): P(x,l) == P(position[a_p],l), S)
 		S_p_sz = min(len(S_p), Z)
-		for i in range(0,len(S) - S_p_sz):
+		for i in range(0,len(S_p) - S_p_sz):
 			S_p.pop()
 		for (a_p, d_p) in S_p:
 			S.remove((a_p,d_p))
