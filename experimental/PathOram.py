@@ -24,9 +24,11 @@ storage = {} #maps bucket id to Z blocks
 #######################################################
 
 def ReadBucket(bucket):
+	print ("reading from " + str(bucket))
 	return filter(lambda block: block != dummyBlock(), storage[bucket])
 
 def WriteBucket(bucket, blocks):
+	print ("writing to " + str(bucket))
 	storage[bucket] = blocks + ([dummyBlock()] * (Z - len(blocks)))
 
 def dummyBlock():
@@ -82,8 +84,10 @@ def initialize_server():
 def main():
 	initialize_client()
 	initialize_server()
-	access(WRITE, 1, "boom")
-	result = access(READ, 1, None)
-	print result
+	print "#################################"
+	print "WRITE(1): " + str(access(WRITE, 1, "boom1"))
+	print "WRITE(2): " + str(access(WRITE, 2, "boom2"))
+	print "READ(1): " + str(access(READ, 1, None))
+	print "READ(2): " + str(access(READ, 2, None))
 
 if __name__ == "__main__": main()
