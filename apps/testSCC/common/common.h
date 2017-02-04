@@ -3,7 +3,8 @@
 
 typedef struct
 {
-    uint64_t x;
+    uint64_t x1;
+    uint64_t x2;
 } blob_t;
 
 #endif

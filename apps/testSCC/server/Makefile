@@ -58,7 +58,7 @@ else
 endif
 
 Host_Cpp_Files := host/host_server.cpp $(LIBUNTRUSTED)/libmoat_untrusted.cpp
-Host_Include_Paths := -Icommon -Ihost -I$(SGX_SDK)/include
+Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
 
@@ -99,7 +99,7 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_C_Files := enclave/enclave.c
-Enclave_Include_Paths := -Icommon -Ienclave -I$(LIBMOAT)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+Enclave_Include_Paths := -I../common -Ienclave -I$(LIBMOAT)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fvisibility=hidden -fPIC $(Enclave_Include_Paths)
 Enclave_Cpp_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc++ -fvisibility=hidden -fPIC $(Enclave_Include_Paths)
