@@ -25,6 +25,7 @@ typedef struct
     size_t length;
 } libmoat_ciphertext_header_t;
 
+size_t min(size_t a, size_t b) { return (a < b ? a : b); }
 
 scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
@@ -134,7 +135,6 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
     assert(header != NULL);
     
     while (len_completed < len) {
-
         //first fetch the header to understand what to do next
         status = recv_msg_ocall(&retstatus, header, sizeof(libmoat_ciphertext_header_t), &actual_len, ctx->session_id);
         //the ocall succeeded, and the logic within the ocall says everything succeeded
