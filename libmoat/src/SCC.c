@@ -2,6 +2,7 @@
 //TLS 1.3 Spec: https://tlswg.github.io/tls13-spec/
 
 #include <stddef.h> 
+#include <inttypes.h> 
 
 #include <assert.h>
 #include <string.h>
@@ -38,8 +39,9 @@ scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     //local_counter is used as IV, and is incremented by 2 for each invocation of AES-GCM-128
     session_info->local_counter = is_server ? 1 : 2; //server/client uses odd/even IVs
     session_info->remote_counter = 0; //haven't seen any remote IVs yet
+    session_info->recv_carryover_start = NULL;
+    session_info->recv_carryover_ptr = NULL;
     session_info->recv_carryover_bytes = 0;
-    session_info->recv_carryover = NULL;
 
     //allocate memory for the context
     scc_ctx_t *ctx = (scc_ctx_t *) malloc(sizeof(scc_ctx_t));
@@ -118,16 +120,18 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
     assert(session_info != NULL);
     
     //are there any bytes remaining from the previous invocation of recv?
-    if (session_info->recv_carryover != NULL) {
+    if (session_info->recv_carryover_ptr != NULL) {
         size_t bytes_to_copy = min(session_info->recv_carryover_bytes, len);
-        memcpy(buf, session_info->recv_carryover, bytes_to_copy);
+        memcpy(buf, session_info->recv_carryover_ptr, bytes_to_copy);
+	_moat_print_debug("copying %" PRIu64 " bytes from previous message\n", bytes_to_copy);
         
         len_completed = len_completed + bytes_to_copy;
         session_info->recv_carryover_bytes = session_info->recv_carryover_bytes - bytes_to_copy;
         
         if (session_info->recv_carryover_bytes == 0) {
-            free(session_info->recv_carryover);
-            session_info->recv_carryover = NULL;
+            free(session_info->recv_carryover_start);
+            session_info->recv_carryover_start = NULL;
+            session_info->recv_carryover_ptr = NULL;
         }
     }
     
@@ -178,7 +182,8 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
         len_completed = len_completed + bytes_to_copy;
 
         if (bytes_to_copy < cleartext_length) {
-            session_info->recv_carryover = cleartext + bytes_to_copy;
+            session_info->recv_carryover_start = cleartext;
+            session_info->recv_carryover_ptr = cleartext + bytes_to_copy;
             session_info->recv_carryover_bytes = cleartext_length - bytes_to_copy;
         } else {
             free(cleartext);
