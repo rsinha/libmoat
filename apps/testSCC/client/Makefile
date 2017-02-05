@@ -85,7 +85,7 @@ endif
 
 Host_Cpp_Objects := $(Host_Cpp_Files:.cpp=.o)
 
-Host_Name := client
+Host_Name := client.out
 
 ######## Enclave Settings ########
 
