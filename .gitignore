@@ -6,3 +6,5 @@
 *_t.h
 *_t.c
 *.out
+*.pyc
+venv
