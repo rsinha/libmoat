@@ -35,15 +35,10 @@ position = {} #defined for {1,..,N}
 
 # server state
 storage = {} #maps bucket id to Z blocks
-seen = []
 
 #######################################################
 # Server API
 #######################################################
-
-def hasDuplicates(l):
-	duplicates = [k for k,v in Counter(l).items() if v>1]
-	return len(duplicates) > 0
 
 def ReadBucketServer(bucket_id):
 	#print("server read request for bucket " + str(bucket_id) + " value: " + str(storage[bucket_id]))
@@ -51,12 +46,8 @@ def ReadBucketServer(bucket_id):
 	return storage[bucket_id]
 
 def WriteBucketServer(bucket_id, blocks):
-	global seen
 	#print("server write request for bucket " + str(bucket_id) + " value: " + str(blocks))
 	print("server write request for bucket " + str(bucket_id))
-	seen += blocks
-	if hasDuplicates(seen):
-		print("WARNING")
 	storage[bucket_id] = blocks
 
 #######################################################
