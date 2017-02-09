@@ -1,7 +1,5 @@
-"""Crypto functions for implementing your secure file store client.
-
-.. note::
-    **Do not change any code in this file!**
+""" Crypto functions for implementing your secure file store client.
+    Taken from CS 161 Project 2 framework
 """
 
 import os
