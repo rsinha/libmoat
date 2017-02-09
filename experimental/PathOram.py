@@ -6,7 +6,8 @@ Security Definition:
   their access patterns A(y) and A(z) are computationally indistinguishable by the server
 Additional Guarantees:
   For confidentiality, we will encrypt each block within WriteBucket using randomized encryption
-  For integrity, we will overlay a Merkle tree by including a hash in each bucket:
+  For authenticity, we will use a MAC, or better yet use AES-GCM for authenticated encryption
+  For freshness, we will overlay a Merkle tree by including a hash in each bucket:
   H(b1 || b2 || ... || bz || h1 || h2), where 
     - h1 and h2 are hashes of left and right child (0 for leaf)
     - bi, i in {1,...,Z}, are the blocks in the bucket
@@ -53,8 +54,11 @@ def WriteBucketServer(bucket_id, blocks):
 # Client Logic
 #######################################################
 
-def ReadBucketClient(bucket_id):
-	encrypted_bucket = ReadBucketServer(bucket_id)
+def ReadBucketClient(bkt_id):
+	encrypted_bucket = ReadBucketServer(bkt_id)
+	expected_hash = sha(getHashArgument(bkt_id, encrypted_bucket))
+	if not (expected_hash == merkle_tree[bkt_id]):
+		raise IntegrityError
 	cleartext_bucket = list(map(lambda blk: authdec(blk, keys, ''), encrypted_bucket))
 	readable_bucket = list(map(lambda blk: util.from_json_string(blk), cleartext_bucket))
 	return list(filter(lambda blk: not isDummyBlock(blk), readable_bucket))
@@ -63,18 +67,16 @@ def WriteBucketClient(bkt_id, blocks):
 	readable_bucket = blocks + [getDummyBlock()] * (Z - len(blocks))
 	cleartext_bucket = list(map(lambda blk: util.to_json_string(blk), readable_bucket))
 	encrypted_bucket = list(map(lambda blk: authenc(blk, keys, ''), cleartext_bucket))
-	WriteBucketServer(bkt_id, encrypted_bucket)
 	merkle_tree[bkt_id] = sha(getHashArgument(bkt_id, encrypted_bucket))
-	print("merkle tree[" + str(bkt_id) + "]: " + merkle_tree[bkt_id])
+	WriteBucketServer(bkt_id, encrypted_bucket)
+	#print("merkle tree[" + str(bkt_id) + "]: " + merkle_tree[bkt_id])
 
 def getHashArgument(bkt_id, encrypted_bucket):
 	to_hash = ''.join(list(encrypted_bucket))
 	if (bkt_id >= 2**L):
-		to_hash = to_hash + '0'*64
-		to_hash = to_hash + '0'*64
+		to_hash = to_hash + '0'*64 + '0'*64
 	else:
-		to_hash = merkle_tree[2*bkt_id]
-		to_hash = merkle_tree[2*bkt_id + 1]
+		to_hash = to_hash + merkle_tree[2*bkt_id] + merkle_tree[2*bkt_id + 1]
 	return to_hash
 
 def isDummyBlock(b):
