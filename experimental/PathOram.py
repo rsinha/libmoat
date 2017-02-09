@@ -14,10 +14,8 @@ Additional Guarantees:
 '''
 
 import random
-from crypto import Crypto
-from crypto import CryptoError
+from crypto import Crypto, CryptoError
 import util
-from collections import Counter
 
 # Block's address ranges from {1,..,N}
 # Bucket's id ranges from {1,..,N}
