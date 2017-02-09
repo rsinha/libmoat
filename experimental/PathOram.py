@@ -28,25 +28,24 @@ N = 7 #number of blocks outsourced to a server
 L = 2 #number of levels
 
 # client state
-crypto = Crypto()
-keys = ""
-S = set()
-position = {} #defined for {1,..,N}
+crypto = Crypto()  #crypto module
+keys = ""          #client's encryption key
+S = set()          #client stash
+position = {}      #defined for blocks {1,...,N}
+merkle_tree = {}   #defined for buckets {1,...,N}
 
 # server state
-storage = {} #maps bucket id to Z blocks
+storage = {}       #maps bucket id to Z blocks
 
 #######################################################
 # Server API
 #######################################################
 
 def ReadBucketServer(bucket_id):
-	#print("server read request for bucket " + str(bucket_id) + " value: " + str(storage[bucket_id]))
 	print("server read request for bucket " + str(bucket_id))
 	return storage[bucket_id]
 
 def WriteBucketServer(bucket_id, blocks):
-	#print("server write request for bucket " + str(bucket_id) + " value: " + str(blocks))
 	print("server write request for bucket " + str(bucket_id))
 	storage[bucket_id] = blocks
 
@@ -56,15 +55,27 @@ def WriteBucketServer(bucket_id, blocks):
 
 def ReadBucketClient(bucket_id):
 	encrypted_bucket = ReadBucketServer(bucket_id)
-	cleartext_bucket = map(lambda blk: authdec(blk, keys, ''), encrypted_bucket)
-	readable_bucket = map(lambda blk: util.from_json_string(blk), cleartext_bucket)
-	return filter(lambda blk: not isDummyBlock(blk), readable_bucket)
+	cleartext_bucket = list(map(lambda blk: authdec(blk, keys, ''), encrypted_bucket))
+	readable_bucket = list(map(lambda blk: util.from_json_string(blk), cleartext_bucket))
+	return list(filter(lambda blk: not isDummyBlock(blk), readable_bucket))
 
-def WriteBucketClient(bucket_id, blocks):
+def WriteBucketClient(bkt_id, blocks):
 	readable_bucket = blocks + [getDummyBlock()] * (Z - len(blocks))
-	cleartext_bucket = map(lambda blk: util.to_json_string(blk), readable_bucket)
-	encrypted_bucket = map(lambda blk: authenc(blk, keys, ''), cleartext_bucket)
-	WriteBucketServer(bucket_id, set(encrypted_bucket))
+	cleartext_bucket = list(map(lambda blk: util.to_json_string(blk), readable_bucket))
+	encrypted_bucket = list(map(lambda blk: authenc(blk, keys, ''), cleartext_bucket))
+	WriteBucketServer(bkt_id, encrypted_bucket)
+	merkle_tree[bkt_id] = sha(getHashArgument(bkt_id, encrypted_bucket))
+	print("merkle tree[" + str(bkt_id) + "]: " + merkle_tree[bkt_id])
+
+def getHashArgument(bkt_id, encrypted_bucket):
+	to_hash = ''.join(list(encrypted_bucket))
+	if (bkt_id >= 2**L):
+		to_hash = to_hash + '0'*64
+		to_hash = to_hash + '0'*64
+	else:
+		to_hash = merkle_tree[2*bkt_id]
+		to_hash = merkle_tree[2*bkt_id + 1]
+	return to_hash
 
 def isDummyBlock(b):
 	return getAddr(b) == 0
@@ -119,6 +130,9 @@ def access(op, a, data):
 # Crypto Primitives
 #######################################################
 
+def sha(m):
+	return crypto.cryptographic_hash(m, hash_name='SHA256')
+
 def aes_encrypt(m, k):
 	iv = crypto.get_random_bytes(16)
 	return iv + crypto.symmetric_encrypt(m, k, cipher_name='AES', mode_name='CBC', IV=iv)
@@ -158,7 +172,9 @@ def initialize_client():
 		position[a] = random.randint(0, 2**L-1)
 
 def initialize_server():
-	for bucket in range(1,N+1):
+	buckets = list(range(1,N+1))
+	buckets.reverse()
+	for bucket in buckets:
 		WriteBucketClient(bucket, [getDummyBlock()] * Z)
 
 def main():
