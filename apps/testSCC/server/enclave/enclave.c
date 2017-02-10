@@ -17,13 +17,11 @@ uint64_t enclave_test()
     scc_ctx_t *ctx = _moat_scc_create(true, &measurement);
     _moat_print_debug("ECDHE+AES-GCM-128 channel established with client...\n");
 
-    uint64_t x1, x2;
-
-    //server used for adding 1 to the secret input
-    _moat_scc_recv(ctx, &x1, sizeof(x1));
-    _moat_scc_recv(ctx, &x2, sizeof(x2));
+    blob_t blob;
+    _moat_scc_recv(ctx, &blob.x1, sizeof(blob.x1));
+    _moat_scc_recv(ctx, &blob.x2, sizeof(blob.x2));
     _moat_print_debug("Received input...\n");
-    uint64_t result = x1 + x2;
+    uint64_t result = blob.x1 + blob.x2;
     _moat_scc_send(ctx, &result, sizeof(result));
     _moat_print_debug("Sent result...\n");
 
