@@ -1,8 +1,6 @@
-1. implement multiple ocalls within recv(), so that recv() only returns when all requested bytes are available
-   similarly, implement buffering within recv(); so if we fetched extra bytes, they can be returned in a later call to recv
-2. implement session renegotiation after IV wrap around
-3. Module-specific initialization routine e.g. list = null in attestation
-4. Bi-directional channels to allow consecutive send and consecutive read operations
+1. use separate AES keys for both directions. Derive keys from DH secret AEK.
+1. implement session renegotiation after IV wrap around
+2. Module-specific initialization routine e.g. list = null in attestation
 
 Future Work
 1. Concurrent
