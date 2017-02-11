@@ -15,13 +15,13 @@ void LIBMOAT_API _moat_print_debug(const char *fmt, ...);
 typedef struct
 {
     uint32_t session_id;
-} scc_ctx_t;
+} scc_handle_t;
 
-scc_ctx_t * LIBMOAT_API _moat_scc_create(bool is_server, sgx_measurement_t *target_enclave);
-size_t LIBMOAT_API _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len);
-size_t LIBMOAT_API _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len);
-void LIBMOAT_API _moat_scc_destroy(scc_ctx_t *ctx);
+scc_handle_t * LIBMOAT_API _moat_scc_create(bool is_server, sgx_measurement_t *target_enclave);
+size_t LIBMOAT_API _moat_scc_send(scc_handle_t *handle, void *buf, size_t len);
+size_t LIBMOAT_API _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len);
+void LIBMOAT_API _moat_scc_destroy(scc_handle_t *handle);
 
-/* Key Value Store */
+
 
 #endif

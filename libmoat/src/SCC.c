@@ -1,8 +1,8 @@
 //NIST guidelines: http://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf
 //TLS 1.3 Spec: https://tlswg.github.io/tls13-spec/
 
-#include <stddef.h> 
-#include <inttypes.h> 
+#include <stddef.h>
+#include <inttypes.h>
 
 #include <assert.h>
 #include <string.h>
@@ -26,9 +26,7 @@ typedef struct
     size_t length;
 } libmoat_ciphertext_header_t;
 
-size_t min(size_t a, size_t b) { return (a < b ? a : b); }
-
-scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
+scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
     uint32_t session_id = create_session(is_server, measurement);
     assert(session_id != 0);
@@ -44,15 +42,15 @@ scc_ctx_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     session_info->recv_carryover_bytes = 0;
 
     //allocate memory for the context
-    scc_ctx_t *ctx = (scc_ctx_t *) malloc(sizeof(scc_ctx_t));
-    assert(ctx != NULL);
-    ctx->session_id = session_id;
+    scc_handle_t *handle = (scc_handle_t *) malloc(sizeof(scc_handle_t));
+    assert(handle != NULL);
+    handle->session_id = session_id;
     
     //all ok if we got here
-    return ctx;
+    return handle;
 }
 
-size_t _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len)
+size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
 {
     sgx_status_t status;
     uint32_t retstatus;
@@ -60,7 +58,7 @@ size_t _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len)
     //a full size record cannot exceed 2^14 bytes in TLS 1.3
     if (len > (1<<14)) { return 1; }
 
-    dh_session_t *session_info = get_session_info(ctx->session_id);
+    dh_session_t *session_info = get_session_info(handle->session_id);
     assert(session_info != NULL);
 
     //Section 5.5: 
@@ -103,20 +101,20 @@ size_t _moat_scc_send(scc_ctx_t *ctx, void *buf, size_t len)
     //so we don't reuse IVs
     session_info->local_counter = session_info->local_counter + 2;
 
-    status = send_msg_ocall(&retstatus, ciphertext, dst_len, ctx->session_id);
+    status = send_msg_ocall(&retstatus, ciphertext, dst_len, handle->session_id);
     assert(status == SGX_SUCCESS && retstatus == 0);
     free(ciphertext);
     return 0;
 }
 
-size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
+size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 {
     sgx_status_t status;
     uint32_t retstatus;
     size_t actual_len; //how much data has the ocall given us?
     size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
 
-    dh_session_t *session_info = get_session_info(ctx->session_id);
+    dh_session_t *session_info = get_session_info(handle->session_id);
     assert(session_info != NULL);
     
     //are there any bytes remaining from the previous invocation of recv?
@@ -140,7 +138,7 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
     
     while (len_completed < len) {
         //first fetch the header to understand what to do next
-        status = recv_msg_ocall(&retstatus, header, sizeof(libmoat_ciphertext_header_t), &actual_len, ctx->session_id);
+        status = recv_msg_ocall(&retstatus, header, sizeof(libmoat_ciphertext_header_t), &actual_len, handle->session_id);
         //the ocall succeeded, and the logic within the ocall says everything succeeded
         assert(status == SGX_SUCCESS && retstatus == 0);
         assert(actual_len == sizeof(libmoat_ciphertext_header_t));
@@ -156,7 +154,7 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
         assert(cleartext != NULL);
 
         //fetch the ciphertext
-        status = recv_msg_ocall(&retstatus, ciphertext, header->length, &actual_len, ctx->session_id);
+        status = recv_msg_ocall(&retstatus, ciphertext, header->length, &actual_len, handle->session_id);
         assert(status == SGX_SUCCESS && retstatus == 0);
         assert (actual_len == header->length);
 
@@ -196,11 +194,11 @@ size_t _moat_scc_recv(scc_ctx_t *ctx, void *buf, size_t len)
     
 }
 
-void _moat_scc_destroy(scc_ctx_t *ctx)
+void _moat_scc_destroy(scc_handle_t *handle)
 {
     attestation_status_t status;    
     status = close_session(0);
     assert(status == SUCCESS);
-    free(ctx);
+    free(handle);
 }
 
