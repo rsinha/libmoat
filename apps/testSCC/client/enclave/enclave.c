@@ -25,7 +25,6 @@ uint64_t enclave_test()
     _moat_scc_recv(handle, &result, sizeof(result));
     _moat_print_debug("result: %" PRIu64 "\n", result);
     _moat_scc_destroy(handle);
-
     return 0;
 }
 

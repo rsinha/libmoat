@@ -1,28 +1,37 @@
 //NIST guidelines: http://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf
 //TLS 1.3 Spec: https://tlswg.github.io/tls13-spec/
 
-#include <stddef.h>
-#include <inttypes.h>
-
-#include <assert.h>
-#include <string.h>
 #include "sgx_tcrypto.h"
 #include "sgx_trts.h"
+
+#include <stddef.h>
+#include <inttypes.h>
+#include <assert.h>
+#include <string.h>
 
 #include "../api/libmoat.h"
 #include "../api/libmoat_untrusted.h"
 #include "attestation/api/dh_session_protocol.h"
 
-typedef enum { RESET = 0,
-               TEARDOWN = 1,
-               APPLICATION_DATA = 2
-             } libmoat_ciphertext_type_t;
+/***************************************************
+            DEFINITIONS FOR INTERNAL USE
+ ***************************************************/
+
+typedef enum {
+    RESET = 0,
+    TEARDOWN = 1,
+    APPLICATION_DATA = 2
+} scc_ciphertext_type_t;
 
 typedef struct
 {
     size_t type;
     size_t length;
-} libmoat_ciphertext_header_t;
+} scc_ciphertext_header_t;
+
+/***************************************************
+            PUBLIC API IMPLEMENTATION
+ ***************************************************/
 
 scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
@@ -68,16 +77,16 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     if (session_info->local_counter > (1 << 24)) { return 1; }
 
     //allocate memory for ciphertext
-    size_t dst_len = sizeof(libmoat_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
+    size_t dst_len = sizeof(scc_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
     //look for overflows
     assert(dst_len > len);
     uint8_t *ciphertext = (uint8_t *) malloc(dst_len);
     assert (ciphertext != NULL);
 
-    ((libmoat_ciphertext_header_t *) ciphertext)->type = APPLICATION_DATA;
-    ((libmoat_ciphertext_header_t *) ciphertext)->length = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
+    ((scc_ciphertext_header_t *) ciphertext)->type = APPLICATION_DATA;
+    ((scc_ciphertext_header_t *) ciphertext)->length = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
 
-    uint8_t *payload = ciphertext + sizeof(libmoat_ciphertext_header_t);
+    uint8_t *payload = ciphertext + sizeof(scc_ciphertext_header_t);
 
     uint32_t nonce = session_info->local_counter;
     //nonce is 64 bits of 0 followed by the message sequence number
@@ -131,15 +140,15 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
         }
     }
     
-    libmoat_ciphertext_header_t *header = (libmoat_ciphertext_header_t *) malloc(sizeof(libmoat_ciphertext_header_t));
+    scc_ciphertext_header_t *header = (scc_ciphertext_header_t *) malloc(sizeof(scc_ciphertext_header_t));
     assert(header != NULL);
     
     while (len_completed < len) {
         //first fetch the header to understand what to do next
-        status = recv_msg_ocall(&retstatus, header, sizeof(libmoat_ciphertext_header_t), &actual_len, handle->session_id);
+        status = recv_msg_ocall(&retstatus, header, sizeof(scc_ciphertext_header_t), &actual_len, handle->session_id);
         //the ocall succeeded, and the logic within the ocall says everything succeeded
         assert(status == SGX_SUCCESS && retstatus == 0);
-        assert(actual_len == sizeof(libmoat_ciphertext_header_t));
+        assert(actual_len == sizeof(scc_ciphertext_header_t));
 
         if (header->type != APPLICATION_DATA) { free(header); return len_completed; } //no bytes
         if (header->length > ((1<<14) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) { free(header); return len_completed; }
