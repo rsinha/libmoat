@@ -12,8 +12,7 @@
 #include <stdbool.h>
 
 #include "../../../api/libmoat_untrusted.h"
-#include "dh_session_protocol.h"
-#include "EnclaveMessageExchange.h"
+#include "../api/dh_session_protocol.h"
 
 /***************************************************
         DEFINITIONS FOR INTERNAL USE

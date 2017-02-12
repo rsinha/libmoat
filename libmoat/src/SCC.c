@@ -11,8 +11,7 @@
 
 #include "../api/libmoat.h"
 #include "../api/libmoat_untrusted.h"
-#include "attestation/local/dh_session_protocol.h"
-#include "attestation/local/EnclaveMessageExchange.h"
+#include "attestation/api/dh_session_protocol.h"
 
 typedef enum { RESET = 0,
                TEARDOWN = 1,
