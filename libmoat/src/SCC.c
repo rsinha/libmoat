@@ -12,7 +12,6 @@
 #include "../api/libmoat.h"
 #include "../api/libmoat_untrusted.h"
 #include "attestation/local/dh_session_protocol.h"
-#include "attestation/local/error_codes.h"
 #include "attestation/local/EnclaveMessageExchange.h"
 
 typedef enum { RESET = 0,
@@ -196,9 +195,8 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 
 void _moat_scc_destroy(scc_handle_t *handle)
 {
-    attestation_status_t status;    
-    status = close_session(0);
-    assert(status == SUCCESS);
+    uint32_t status = close_session(0);
+    assert(status == 0);
     free(handle);
 }
 
