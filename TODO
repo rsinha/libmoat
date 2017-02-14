@@ -1,6 +1,7 @@
 1. use separate AES keys for both directions. Derive keys from DH secret AEK.
-1. implement session renegotiation after IV wrap around
-2. Module-specific initialization routine e.g. list = null in attestation
+2. implement session renegotiation after IV wrap around
+3. Module-specific initialization routine e.g. list = null in attestation
+4. error codes and error messages (print them in debug mode)
 
 Future Work
 1. Concurrent

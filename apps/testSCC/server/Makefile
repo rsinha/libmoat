@@ -4,9 +4,10 @@ SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
-LIBMOAT := ../../../libmoat
 LIBUNTRUSTED := ../../../libuntrusted
-LOCALATTESTATION := ../../../libmoat/src/attestation/local
+LIBMOAT := ../../../libmoat
+LIBMOAT_LOCALATTESTATION := ../../../libmoat/src/attestation/local
+LIBMOAT_UTILS := ../../../libmoat/src/utils
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -41,7 +42,7 @@ endif
 ######## Library Settings ########
 
 Trust_Lib_Name := libmoat.a
-TrustLib_C_Files := $(wildcard ../../../libmoat/src/*.c) $(wildcard ../../../libmoat/src/attestation/local/*.c)
+TrustLib_C_Files := $(wildcard ../../../libmoat/src/*.c) $(wildcard ../../../libmoat/src/attestation/local/*.c) $(wildcard ../../../libmoat/src/utils/*.c)
 TrustLib_Cpp_Files := 
 TrustLib_C_Objects := $(TrustLib_C_Files:.c=.o)
 TrustLib_Cpp_Objects := $(TrustLib_Cpp_Files:.cpp=.o)
@@ -181,7 +182,11 @@ $(LIBMOAT)/src/%.o: $(LIBMOAT)/src/%.c
 	@echo "CC   <=  $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
-$(LOCALATTESTATION)/%.o: $(LOCALATTESTATION)/%.c
+$(LIBMOAT_UTILS)/%.o: $(LIBMOAT_UTILS)/%.c
+	@echo "CC   <= $<"
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
+
+$(LIBMOAT_LOCALATTESTATION)/%.o: $(LIBMOAT_LOCALATTESTATION)/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
@@ -237,4 +242,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LOCALATTESTATION)/*.o
+	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o

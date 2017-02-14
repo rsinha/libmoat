@@ -13,6 +13,7 @@
 
 #include "../../../api/libmoat_untrusted.h"
 #include "../api/dh_session_protocol.h"
+#include "../../utils/api/Utils.h"
 
 /***************************************************
         DEFINITIONS FOR INTERNAL USE
@@ -39,18 +40,12 @@ typedef uint32_t attestation_status_t;
 #define ENCRYPT_DECRYPT_ERROR            0xEE
 #define DUPLICATE_SESSION                0xEF
 
-typedef struct _ll_node 
-{
-  dh_session_t *value;
-  struct _ll_node *next;
-} ll_node_t;
-
 /***************************************************
                 INTERNAL STATE
  ***************************************************/
 
 //Map between the source enclave id and the session information associated with that particular session
-static ll_node_t *g_dest_session_info = NULL;
+static ll_t *g_dest_session_info = NULL;
 
 /***************************************************
                 PRIVATE METHODS
@@ -58,76 +53,32 @@ static ll_node_t *g_dest_session_info = NULL;
 
 static uint32_t number_of_active_sessions()
 {
-    ll_node_t *iter = g_dest_session_info;
-    uint32_t count = 0;
-    while (iter != NULL)
-    {
-        iter = iter->next;
-        count += 1;
-    }
-    return count;
+    return list_size(g_dest_session_info);
 }
 
 static void insert_session(dh_session_t *session)
 {
-    ll_node_t *node = (ll_node_t *) malloc(sizeof(ll_node_t));
-    node->value = session;
-    node->next = NULL; //we are always going to insert at the tail
-
-    if (g_dest_session_info == NULL) {
-        g_dest_session_info = node; //empty list
-    }
-
-    //if we got here, then we have a list of size >= 1
-    ll_node_t *iter = g_dest_session_info;
-    ll_node_t *iter_next = g_dest_session_info->next;
-    while (iter_next != NULL)
-    {
-        iter_next = iter_next->next;
-        iter = iter->next;
-    }
-    
-    //at this poimt. iter is at the tail and iter_next is NULL
-    iter->next = node;
+    insert_value(g_dest_session_info, session);
 }
 
 //removes session from the linked list
 static bool delete_session(dh_session_t *session)
 {
-    if (g_dest_session_info == NULL) { return false; }
-
-    //if we got here, then we have a list of size >= 1
-    ll_node_t *iter = g_dest_session_info;
-    ll_node_t *iter_next = g_dest_session_info->next;
-
-    //is the head what we are looking for?
-    if (iter->value == session) { g_dest_session_info = iter->next; return true; }
-
-    while (iter_next != NULL)
-    {
-        if (iter_next->value == session) {
-            iter->next = iter_next->next;
-            free(iter_next); //session must be freed outside
-            return true;
-        }
-        iter_next = iter_next->next;
-        iter = iter->next;
-    }
-
-    return false;
+    return delete_value(g_dest_session_info, session);
 }
 
 //finds session in the linked list
 static dh_session_t *find_session(uint32_t session_id)
 {
-    ll_node_t *iter = g_dest_session_info;
-    while (iter != NULL)
+    ll_iterator_t *iter = create_iterator(g_dest_session_info);
+    while (has_next(iter))
     {
-        if (iter->value->session_id == session_id) {
-            return iter->value;
+        dh_session_t *tmp = (dh_session_t *) get_next(iter);
+        if (tmp->session_id == session_id) {
+            return tmp;
         }
-        iter = iter->next;
     }
+    destroy_iterator(iter);
     return NULL; //didn't find this session id
 }
 
@@ -141,10 +92,12 @@ attestation_status_t generate_session_id(uint32_t *session_id)
         occupied[i] = false;
     }
 
-    ll_node_t *iter = g_dest_session_info;
-    while (iter != NULL) {
+    ll_iterator_t *iter = create_iterator(g_dest_session_info);
+    while (has_next(iter))
+    {
+        dh_session_t *tmp = (dh_session_t *) get_next(iter);
         //session ids start at 1
-        occupied[iter->value->session_id - 1] = true;
+        occupied[tmp->session_id - 1] = true;
     }
 
     for (int i = 0; i < MAX_SESSION_COUNT; i++) { 

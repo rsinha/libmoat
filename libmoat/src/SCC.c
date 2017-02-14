@@ -12,6 +12,7 @@
 #include "../api/libmoat.h"
 #include "../api/libmoat_untrusted.h"
 #include "attestation/api/dh_session_protocol.h"
+#include "utils/api/Utils.h"
 
 /***************************************************
             DEFINITIONS FOR INTERNAL USE
@@ -128,7 +129,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
     if (session_info->recv_carryover_ptr != NULL) {
         size_t bytes_to_copy = min(session_info->recv_carryover_bytes, len);
         memcpy(buf, session_info->recv_carryover_ptr, bytes_to_copy);
-	_moat_print_debug("copying %" PRIu64 " bytes from previous message\n", bytes_to_copy);
+        _moat_print_debug("copying %" PRIu64 " bytes from previous message\n", bytes_to_copy);
         
         len_completed = len_completed + bytes_to_copy;
         session_info->recv_carryover_bytes = session_info->recv_carryover_bytes - bytes_to_copy;

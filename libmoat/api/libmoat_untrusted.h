@@ -8,7 +8,7 @@
 #include "sgx_eid.h"
 #include "sgx_dh.h"
 
-#include <stdlib.h> /* for size_t */
+#include <stdlib.h>
 
 #define SGX_CAST(type, item) ((type)(item))
 
