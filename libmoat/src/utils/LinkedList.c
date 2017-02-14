@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 /***************************************************
- DEFINITIONS FOR INTERNAL USE
+            DEFINITIONS FOR INTERNAL USE
  ***************************************************/
 
 typedef struct _ll_node
@@ -12,7 +12,7 @@ typedef struct _ll_node
 } ll_node_t;
 
 /***************************************************
- PUBLIC API
+            PUBLIC API IMPLEMENTATION
  ***************************************************/
 
 //returns the size of the linked list
@@ -135,3 +135,59 @@ void *get_next(ll_iterator_t *iter)
         return NULL;
     }
 }
+
+/***************************************************
+                    UNIT TESTS
+ ***************************************************/
+
+bool test0()
+{
+    int values[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    ll_t *g_list = NULL;
+    ll_iterator_t *iter = NULL;
+    
+    g_list = malloc(sizeof(ll_t));
+    g_list->head = NULL;
+    
+    insert_value(g_list, &values[0]);
+    insert_value(g_list, &values[1]);
+    insert_value(g_list, &values[2]);
+    assert(list_size(g_list) == 3);
+    iter = create_iterator(l);
+    //while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
+    destroy_iterator(iter);
+    
+    delete_value(g_list, &values[2]);
+    assert(list_size(g_list) == 2);
+    iter = create_iterator(l);
+    //while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
+    destroy_iterator(iter);
+    
+    insert_value(g_list, &values[3]);
+    assert(list_size(g_list) == 3);
+    iter = create_iterator(l);
+    //while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
+    destroy_iterator(iter);
+    
+    delete_value(g_list, &values[0]);
+    assert(list_size(g_list) == 2);
+    iter = create_iterator(l);
+    //while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
+    destroy_iterator(iter);
+    
+    insert_value(g_list, &values[5]);
+    assert(list_size(g_list) == 3);
+    iter = create_iterator(l);
+    //while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
+    destroy_iterator(iter);
+    
+    delete_value(g_list, &values[1]);
+    delete_value(g_list, &values[3]);
+    delete_value(g_list, &values[5]);
+    assert(list_size(g_list) == 0);
+    iter = create_iterator(l);
+    //while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
+    destroy_iterator(iter);
+}
+
+
