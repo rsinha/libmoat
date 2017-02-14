@@ -285,6 +285,13 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
             PUBLIC API IMPLEMENTATION
 ***************************************************/
 
+void local_attestation_module_init()
+{
+    g_dest_session_info = malloc(sizeof(ll_t));
+    assert(g_dest_session_info != NULL);
+    g_dest_session_info->head = NULL;
+}
+
 //Create a session with the destination enclave
 uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
 {

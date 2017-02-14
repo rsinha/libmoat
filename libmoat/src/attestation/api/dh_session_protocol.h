@@ -30,6 +30,7 @@ typedef struct
     size_t                   recv_carryover_bytes;
 } dh_session_t;
 
+void local_attestation_module_init();
 uint32_t SGXAPI create_session(bool is_server, sgx_measurement_t *target_enclave);
 dh_session_t* SGXAPI get_session_info(uint32_t session_id);
 uint32_t SGXAPI close_session(uint32_t session_id);

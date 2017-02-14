@@ -4,6 +4,11 @@
 
 #include "../api/libmoat_untrusted.h"
 
+void _moat_debug_module_init()
+{
+    return;
+}
+
 void _moat_print_debug(const char *fmt, ...)
 {
     uint32_t retstatus;

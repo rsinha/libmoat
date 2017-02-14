@@ -43,6 +43,11 @@ static ll_t *g_files = NULL; //list of files
  PUBLIC API IMPLEMENTATION
  ***************************************************/
 
+void _moat_fs_module_init()
+{
+    return;
+}
+
 fs_handle_t *_moat_fs_open(char *name)
 {
     return NULL;

@@ -34,6 +34,11 @@ typedef struct
             PUBLIC API IMPLEMENTATION
  ***************************************************/
 
+void _moat_scc_module_init()
+{
+    local_attestation_module_init();
+}
+
 scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
     uint32_t session_id = create_session(is_server, measurement);
@@ -204,7 +209,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 
 void _moat_scc_destroy(scc_handle_t *handle)
 {
-    uint32_t status = close_session(0);
+    uint32_t status = close_session(handle->session_id);
     assert(status == 0);
     free(handle);
 }

@@ -9,6 +9,9 @@
 
 uint64_t enclave_test()
 {
+    _moat_debug_module_init();
+    _moat_scc_module_init();
+
     //ideally some authority (e.g. CA) will tell us this
     sgx_measurement_t measurement = { .m = { 0x6A,0xD5,0x51,0xD6,0x40,0x9F,0xA1,0x9B,
                                              0x96,0x2A,0x5B,0x5B,0xCB,0x2E,0xD4,0x08,
