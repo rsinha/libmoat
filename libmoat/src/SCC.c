@@ -207,10 +207,11 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
     
 }
 
-void _moat_scc_destroy(scc_handle_t *handle)
+size_t _moat_scc_destroy(scc_handle_t *handle)
 {
     size_t status = close_session(handle->session_id);
     assert(status == 0);
     free(handle);
+    return 0;
 }
 
