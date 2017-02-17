@@ -58,7 +58,7 @@ size_t read_access(size_t addr, block_t data)
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
     /* ciphertext: header || IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_decrypt(g_key, //key
+    status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &g_key, //key
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
                                         sizeof(block_t), //src_len
                                         data, //dst
@@ -96,7 +96,7 @@ size_t write_access(size_t addr, block_t data)
     memset(payload + sizeof(g_local_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(g_local_counter));
     
     /* ciphertext: IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_encrypt(g_key,
+    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &g_key,
                                         data, /* input */
                                         sizeof(block_t), /* input length */
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */

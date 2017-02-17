@@ -8,6 +8,7 @@ LIBUNTRUSTED := ../../../libuntrusted
 LIBMOAT := ../../../libmoat
 LIBMOAT_LOCALATTESTATION := ../../../libmoat/src/attestation/local
 LIBMOAT_UTILS := ../../../libmoat/src/utils
+LIBMOAT_STORAGE := ../../../libmoat/src/storage
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -42,7 +43,7 @@ endif
 ######## Library Settings ########
 
 Trust_Lib_Name := libmoat.a
-TrustLib_C_Files := $(wildcard ../../../libmoat/src/*.c) $(wildcard ../../../libmoat/src/attestation/local/*.c) $(wildcard ../../../libmoat/src/utils/*.c)
+TrustLib_C_Files := $(wildcard ../../../libmoat/src/*.c) $(wildcard ../../../libmoat/src/attestation/local/*.c) $(wildcard ../../../libmoat/src/utils/*.c) $(wildcard ../../../libmoat/src/storage/*.c)
 TrustLib_Cpp_Files := 
 TrustLib_C_Objects := $(TrustLib_C_Files:.c=.o)
 TrustLib_Cpp_Objects := $(TrustLib_Cpp_Files:.cpp=.o)
@@ -186,6 +187,10 @@ $(LIBMOAT_UTILS)/%.o: $(LIBMOAT_UTILS)/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
+$(LIBMOAT_STORAGE)/%.o: $(LIBMOAT_STORAGE)/%.c
+	@echo "CC   <= $<"
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
+
 $(LIBMOAT_LOCALATTESTATION)/%.o: $(LIBMOAT_LOCALATTESTATION)/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
@@ -242,4 +247,6 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name) host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o
+	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
+	@rm -f host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o
+	@rm -f $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o $(LIBMOAT_STORAGE)/*.o
