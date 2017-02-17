@@ -17,14 +17,14 @@ extern "C" {
 #endif
 
 
-sgx_status_t SGX_CDECL recv_dh_msg1_ocall(uint32_t* retval, sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, uint32_t session_id);
-sgx_status_t SGX_CDECL send_dh_msg2_recv_dh_msg3_ocall(uint32_t* retval, sgx_dh_msg2_t* dh_msg2, sgx_dh_msg3_t* dh_msg3, uint32_t session_id);
-sgx_status_t SGX_CDECL send_dh_msg1_recv_dh_msg2_ocall(uint32_t* retval, sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, sgx_dh_msg2_t* dh_msg2, uint32_t session_id);
-sgx_status_t SGX_CDECL send_dh_msg3_ocall(uint32_t* retval, sgx_dh_msg3_t* dh_msg3, uint32_t session_id);
-sgx_status_t SGX_CDECL end_session_ocall(uint32_t* retval, uint32_t session_id);
-sgx_status_t SGX_CDECL send_msg_ocall(uint32_t* retval, void* buf, size_t len, uint32_t session_id);
-sgx_status_t SGX_CDECL recv_msg_ocall(uint32_t* retval, void* buf, size_t len_max, size_t* len_actual, uint32_t session_id);
-sgx_status_t SGX_CDECL print_debug_on_host_ocall(uint32_t* retval, const char* str);
+sgx_status_t SGX_CDECL recv_dh_msg1_ocall(size_t* retval, sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, size_t session_id);
+sgx_status_t SGX_CDECL send_dh_msg2_recv_dh_msg3_ocall(size_t* retval, sgx_dh_msg2_t* dh_msg2, sgx_dh_msg3_t* dh_msg3, size_t session_id);
+sgx_status_t SGX_CDECL send_dh_msg1_recv_dh_msg2_ocall(size_t* retval, sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, sgx_dh_msg2_t* dh_msg2, size_t session_id);
+sgx_status_t SGX_CDECL send_dh_msg3_ocall(size_t* retval, sgx_dh_msg3_t* dh_msg3, size_t session_id);
+sgx_status_t SGX_CDECL end_session_ocall(size_t* retval, size_t session_id);
+sgx_status_t SGX_CDECL send_msg_ocall(size_t* retval, void* buf, size_t len, size_t session_id);
+sgx_status_t SGX_CDECL recv_msg_ocall(size_t* retval, void* buf, size_t len_max, size_t* len_actual, size_t session_id);
+sgx_status_t SGX_CDECL print_debug_on_host_ocall(size_t* retval, const char* str);
 
 #ifdef __cplusplus
 }

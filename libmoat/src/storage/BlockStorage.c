@@ -39,7 +39,7 @@ static sgx_aes_gcm_128bit_key_t g_key;
 size_t read_access(size_t addr, block_t data)
 {
     sgx_status_t status;
-    uint32_t retstatus;
+    size_t retstatus;
     size_t actual_len; //how much data has the ocall given us?
 
     //allocate memory for ciphertext
@@ -51,7 +51,7 @@ size_t read_access(size_t addr, block_t data)
     
     //fetch the ciphertext
     //status = read_file_ocall(&retstatus, ciphertext, header->length, &actual_len, ...);
-    assert(status == SGX_SUCCESS && retstatus == 0);
+    //assert(status == SGX_SUCCESS && retstatus == 0);
     assert(((fs_ciphertext_header_t *) ciphertext)->length ==
            sizeof(block_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
     
@@ -77,7 +77,7 @@ size_t read_access(size_t addr, block_t data)
 size_t write_access(size_t addr, block_t data)
 {
     sgx_status_t status;
-    uint32_t retstatus;
+    size_t retstatus;
     
     //allocate memory for ciphertext
     uint8_t *ciphertext = (uint8_t *) malloc(sizeof(fs_ciphertext_header_t) +

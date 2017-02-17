@@ -21,7 +21,7 @@
 
 #define MAX_SESSION_COUNT  16
 
-typedef uint32_t attestation_status_t;
+typedef size_t attestation_status_t;
 
 #define SUCCESS                          0x00
 #define INVALID_PARAMETER                0xE1
@@ -51,39 +51,39 @@ static ll_t *g_dest_session_info = NULL;
                 PRIVATE METHODS
  ***************************************************/
 
-static uint32_t number_of_active_sessions()
+static size_t number_of_active_sessions()
 {
     return list_size(g_dest_session_info);
 }
 
 static void insert_session(dh_session_t *session)
 {
-    insert_value(g_dest_session_info, session);
+    list_insert_value(g_dest_session_info, session);
 }
 
 //removes session from the linked list
 static bool delete_session(dh_session_t *session)
 {
-    return delete_value(g_dest_session_info, session);
+    return list_delete_value(g_dest_session_info, session);
 }
 
 //finds session in the linked list
-static dh_session_t *find_session(uint32_t session_id)
+static dh_session_t *find_session(size_t session_id)
 {
-    ll_iterator_t *iter = create_iterator(g_dest_session_info);
-    while (has_next(iter))
+    ll_iterator_t *iter = list_create_iterator(g_dest_session_info);
+    while (list_has_next(iter))
     {
-        dh_session_t *tmp = (dh_session_t *) get_next(iter);
+        dh_session_t *tmp = (dh_session_t *) list_get_next(iter);
         if (tmp->session_id == session_id) {
             return tmp;
         }
     }
-    destroy_iterator(iter);
+    list_destroy_iterator(iter);
     return NULL; //didn't find this session id
 }
 
 //Returns a new sessionID for the source destination session
-attestation_status_t generate_session_id(uint32_t *session_id)
+attestation_status_t generate_unique_session_id(size_t *session_id)
 {
     if(!session_id) { return INVALID_PARAMETER_ERROR; }
 
@@ -92,14 +92,15 @@ attestation_status_t generate_session_id(uint32_t *session_id)
         occupied[i] = false;
     }
 
-    ll_iterator_t *iter = create_iterator(g_dest_session_info);
-    while (has_next(iter))
+    ll_iterator_t *iter = list_create_iterator(g_dest_session_info);
+    while (list_has_next(iter))
     {
-        dh_session_t *tmp = (dh_session_t *) get_next(iter);
+        dh_session_t *tmp = (dh_session_t *) list_get_next(iter);
         //session ids start at 1
         occupied[tmp->session_id - 1] = true;
     }
-
+    list_destroy_iterator(iter);
+    
     for (int i = 0; i < MAX_SESSION_COUNT; i++) { 
         if (occupied[i] == false) {
             *session_id = i + 1; //session ids start at 1
@@ -136,14 +137,14 @@ attestation_status_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t
     return SUCCESS;
 }
 
-uint32_t server_create_session(sgx_measurement_t *target_enclave)
+size_t server_create_session(sgx_measurement_t *target_enclave)
 {
     sgx_dh_msg1_t dh_msg1;            //Diffie-Hellman Message 1
     sgx_dh_msg2_t dh_msg2;            //Diffie-Hellman Message 2
     sgx_dh_msg3_t dh_msg3;            //Diffie-Hellman Message 3
     sgx_key_128bit_t dh_aek;          // Session Key
-    uint32_t session_id;
-    uint32_t retstatus;
+    size_t session_id;
+    size_t retstatus;
     sgx_status_t status = SGX_SUCCESS;
     sgx_dh_session_t sgx_dh_session;
     sgx_dh_session_enclave_identity_t responder_identity;
@@ -159,7 +160,7 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
     memset(session_info, 0, sizeof(dh_session_t));
     memset(&sgx_dh_session, 0, sizeof(sgx_dh_session_t));
 
-    status = (sgx_status_t) generate_session_id(&session_id);
+    status = (sgx_status_t) generate_unique_session_id(&session_id);
     if (status != SUCCESS) { free(session_info); return 0; } //no more sessions available
 
     //Intialize the session as a session initiator
@@ -190,7 +191,6 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
     if(verify_peer_enclave_trust(&responder_identity, target_enclave) != SUCCESS) { free(session_info); return 0; }
 
     session_info->session_id = session_id;
-    session_info->status = ACTIVE;
     session_info->role = SGX_DH_SESSION_INITIATOR; //server is called initiator, idk why...
     memcpy(&(session_info->AEK), &dh_aek, sizeof(sgx_key_128bit_t));
     memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
@@ -202,17 +202,17 @@ uint32_t server_create_session(sgx_measurement_t *target_enclave)
     return session_id;
 }
 
-uint32_t client_create_session(sgx_measurement_t *target_enclave)
+size_t client_create_session(sgx_measurement_t *target_enclave)
 {
     sgx_dh_msg1_t dh_msg1;            //Diffie-Hellman Message 1
     sgx_dh_msg2_t dh_msg2;            //Diffie-Hellman Message 2
     sgx_dh_msg3_t dh_msg3;            //Diffie-Hellman Message 3
     sgx_key_128bit_t dh_aek;          //Session Key
     sgx_dh_session_t sgx_dh_session;
-    uint32_t session_id;
+    size_t session_id;
     sgx_dh_session_enclave_identity_t initiator_identity;
     sgx_status_t status;
-    uint32_t retstatus;
+    size_t retstatus;
 
     dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
     if (session_info == NULL) { return 0; }
@@ -230,17 +230,12 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
     if(SGX_SUCCESS != status) { free(session_info); return 0; }
     
     //get a new SessionID
-    status = (sgx_status_t) generate_session_id(&session_id);
+    status = (sgx_status_t) generate_unique_session_id(&session_id);
     if (status != SUCCESS) { free(session_info); return 0; } //no more sessions available
 
     //Generate Message1 that will be returned to Source Enclave
     status = sgx_dh_responder_gen_msg1(&dh_msg1, &sgx_dh_session);
     if(SGX_SUCCESS != status) { free(session_info); return 0; }
-
-    //session_info->session_id = session_id;
-    //session_info->status = IN_PROGRESS;
-    //session_info->role = SGX_DH_SESSION_RESPONDER; //client
-    //memcpy(&(session_info->in_progress.dh_session), &sgx_dh_session, sizeof(sgx_dh_session_t));
 
     //ocall to send msg 1 and get msg 2
     status = send_dh_msg1_recv_dh_msg2_ocall(&retstatus, target_enclave, &dh_msg1, &dh_msg2, session_id);
@@ -268,7 +263,6 @@ uint32_t client_create_session(sgx_measurement_t *target_enclave)
 
     //save the session ID, status and initialize the session nonce
     session_info->session_id = session_id;
-    session_info->status = ACTIVE;
     memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
     session_info->role = SGX_DH_SESSION_RESPONDER; //client
     memcpy(&(session_info->AEK), &dh_aek, sizeof(sgx_key_128bit_t));
@@ -293,7 +287,7 @@ void local_attestation_module_init()
 }
 
 //Create a session with the destination enclave
-uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
+size_t create_session(bool is_server, sgx_measurement_t *target_enclave)
 {
     if (is_server) {
         return server_create_session(target_enclave);
@@ -303,10 +297,10 @@ uint32_t create_session(bool is_server, sgx_measurement_t *target_enclave)
 }
 
 //Close a current session
-attestation_status_t close_session(uint32_t session_id)
+size_t close_session(size_t session_id)
 {
     sgx_status_t status;
-    uint32_t retstatus;
+    size_t retstatus;
     dh_session_t *session_info;
 
     //Get the session information from the list corresponding to the session id
@@ -329,7 +323,7 @@ attestation_status_t close_session(uint32_t session_id)
     return SUCCESS;
 }
 
-dh_session_t *get_session_info(uint32_t session_id)
+dh_session_t *get_session_info(size_t session_id)
 {
     return find_session(session_id);
 }

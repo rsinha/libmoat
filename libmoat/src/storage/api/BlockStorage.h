@@ -3,7 +3,10 @@
 
 #include <stddef.h>
 
-typedef uint8_t block_t[4096];
+#define NUM_BLOCKS 15
+#define BLOCK_SIZE 4096
+typedef uint8_t block_t[BLOCK_SIZE];
+
 #define READ 1
 #define WRITE 2
 

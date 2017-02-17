@@ -41,7 +41,7 @@ void _moat_scc_module_init()
 
 scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
-    uint32_t session_id = create_session(is_server, measurement);
+    size_t session_id = create_session(is_server, measurement);
     assert(session_id != 0);
 
     dh_session_t *session_info = get_session_info(session_id);
@@ -66,7 +66,7 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
 {
     sgx_status_t status;
-    uint32_t retstatus;
+    size_t retstatus;
 
     //a full size record cannot exceed 2^14 bytes in TLS 1.3
     if (len > (1<<14)) { return 1; }
@@ -123,7 +123,7 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
 size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 {
     sgx_status_t status;
-    uint32_t retstatus;
+    size_t retstatus;
     size_t actual_len; //how much data has the ocall given us?
     size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
 
@@ -209,7 +209,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 
 void _moat_scc_destroy(scc_handle_t *handle)
 {
-    uint32_t status = close_session(handle->session_id);
+    size_t status = close_session(handle->session_id);
     assert(status == 0);
     free(handle);
 }

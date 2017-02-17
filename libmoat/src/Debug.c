@@ -11,7 +11,7 @@ void _moat_debug_module_init()
 
 void _moat_print_debug(const char *fmt, ...)
 {
-    uint32_t retstatus;
+    size_t retstatus;
     char buf[256] = {0};
     va_list ap;
     va_start(ap, fmt);

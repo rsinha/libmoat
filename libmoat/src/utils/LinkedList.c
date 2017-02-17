@@ -17,12 +17,12 @@ typedef struct _ll_node
  ***************************************************/
 
 //returns the size of the linked list
-uint32_t list_size(ll_t *list)
+size_t list_size(ll_t *list)
 {
     if (list == NULL) { return 0; }
     
     ll_node_t *iter = list->head;
-    uint32_t count = 0;
+    size_t count = 0;
     
     while (iter != NULL)
     {
@@ -33,7 +33,7 @@ uint32_t list_size(ll_t *list)
 }
 
 //inserts value at the tail of the linked list
-void insert_value(ll_t *list, void *value)
+void list_insert_value(ll_t *list, void *value)
 {
     if (list == NULL || value == NULL) { return; } //error-checking on inputs
     
@@ -59,7 +59,7 @@ void insert_value(ll_t *list, void *value)
 }
 
 //removes value from the linked list
-bool delete_value(ll_t *list, void *value)
+bool list_delete_value(ll_t *list, void *value)
 {
     if (list == NULL || value == NULL) { return false; } //error-checking on inputs
     
@@ -91,7 +91,7 @@ bool delete_value(ll_t *list, void *value)
 }
 
 //finds first node in the linked list which satisfies pred
-void *find_value(ll_t *list, bool (*pred)(void *))
+void *list_find_value(ll_t *list, bool (*pred)(void *))
 {
     if(list == NULL || pred == NULL) { return NULL; } //error-checking on inputs
     
@@ -106,25 +106,25 @@ void *find_value(ll_t *list, bool (*pred)(void *))
     return NULL; //didn't find anything
 }
 
-ll_iterator_t *create_iterator(ll_t *list)
+ll_iterator_t *list_create_iterator(ll_t *list)
 {
     ll_iterator_t *iter = malloc(sizeof(ll_iterator_t));
     iter->next_node = list->head;
     return iter;
 }
 
-void destroy_iterator(ll_iterator_t *iter)
+void list_destroy_iterator(ll_iterator_t *iter)
 {
     if (iter == NULL) { return; }
     free(iter);
 }
 
-bool has_next(ll_iterator_t *iter)
+bool list_has_next(ll_iterator_t *iter)
 {
     return (iter->next_node != NULL);
 }
 
-void *get_next(ll_iterator_t *iter)
+void *list_get_next(ll_iterator_t *iter)
 {
     if (iter == NULL) { return NULL; }
     
@@ -150,45 +150,45 @@ bool test0()
     g_list = malloc(sizeof(ll_t));
     g_list->head = NULL;
     
-    insert_value(g_list, &values[0]);
-    insert_value(g_list, &values[1]);
-    insert_value(g_list, &values[2]);
+    list_insert_value(g_list, &values[0]);
+    list_insert_value(g_list, &values[1]);
+    list_insert_value(g_list, &values[2]);
     assert(list_size(g_list) == 3);
-    iter = create_iterator(g_list);
-    while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
-    destroy_iterator(iter);
+    iter = list_create_iterator(g_list);
+    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    list_destroy_iterator(iter);
     
-    delete_value(g_list, &values[2]);
+    list_delete_value(g_list, &values[2]);
     assert(list_size(g_list) == 2);
-    iter = create_iterator(g_list);
-    while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
-    destroy_iterator(iter);
+    iter = list_create_iterator(g_list);
+    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    list_destroy_iterator(iter);
     
-    insert_value(g_list, &values[3]);
+    list_insert_value(g_list, &values[3]);
     assert(list_size(g_list) == 3);
-    iter = create_iterator(g_list);
-    while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
-    destroy_iterator(iter);
+    iter = list_create_iterator(g_list);
+    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    list_destroy_iterator(iter);
     
-    delete_value(g_list, &values[0]);
+    list_delete_value(g_list, &values[0]);
     assert(list_size(g_list) == 2);
-    iter = create_iterator(g_list);
-    while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
-    destroy_iterator(iter);
+    iter = list_create_iterator(g_list);
+    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    list_destroy_iterator(iter);
     
-    insert_value(g_list, &values[5]);
+    list_insert_value(g_list, &values[5]);
     assert(list_size(g_list) == 3);
-    iter = create_iterator(g_list);
-    while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
-    destroy_iterator(iter);
+    iter = list_create_iterator(g_list);
+    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    list_destroy_iterator(iter);
     
-    delete_value(g_list, &values[1]);
-    delete_value(g_list, &values[3]);
-    delete_value(g_list, &values[5]);
+    list_delete_value(g_list, &values[1]);
+    list_delete_value(g_list, &values[3]);
+    list_delete_value(g_list, &values[5]);
     assert(list_size(g_list) == 0);
-    iter = create_iterator(g_list);
-    while(has_next(iter)) { _moat_print_debug("%d,", *((int *) get_next(iter))); } _moat_print_debug("\n");
-    destroy_iterator(iter);
+    iter = list_create_iterator(g_list);
+    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    list_destroy_iterator(iter);
 }
 
 

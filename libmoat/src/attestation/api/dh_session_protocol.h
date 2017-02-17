@@ -10,16 +10,11 @@
 #include "sgx_attributes.h"
 #include <stdbool.h>
 
-//session status
-#define CLOSED 0x0
-#define IN_PROGRESS 0x1
-#define ACTIVE 0x2
 
 //Session information structure
 typedef struct
 {
-    uint32_t                 session_id; //Identifies the current session
-    uint32_t                 status; //Indicates session is in progress, active or closed
+    size_t                   session_id; //Identifies the current session
     sgx_measurement_t        measurement; //measurement of the remote enclave
     sgx_dh_session_role_t    role; //role of this enclave: initiator or responder?
     sgx_aes_gcm_128bit_key_t AEK; //Session Key
@@ -31,9 +26,9 @@ typedef struct
 } dh_session_t;
 
 void local_attestation_module_init();
-uint32_t SGXAPI create_session(bool is_server, sgx_measurement_t *target_enclave);
-dh_session_t* SGXAPI get_session_info(uint32_t session_id);
-uint32_t SGXAPI close_session(uint32_t session_id);
+size_t create_session(bool is_server, sgx_measurement_t *target_enclave);
+dh_session_t* get_session_info(size_t session_id);
+size_t close_session(size_t session_id);
 
 
 #endif

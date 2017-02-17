@@ -26,20 +26,20 @@ typedef struct
 } ll_iterator_t;
 
 //returns the size of the linked list
-uint32_t list_size(ll_t *list);
+size_t list_size(ll_t *list);
 //inserts value at the tail of the linked list
-void insert_value(ll_t *list, void *value);
+void list_insert_value(ll_t *list, void *value);
 //removes value from the linked list
-bool delete_value(ll_t *list, void *value);
+bool list_delete_value(ll_t *list, void *value);
 //finds first node in the linked list which satisfies pred
-void *find_value(ll_t *list, bool (*pred)(void *));
+void *list_find_value(ll_t *list, bool (*pred)(void *));
 //iterator to invoke has_next and get_next
-ll_iterator_t *create_iterator(ll_t *list);
+ll_iterator_t *list_create_iterator(ll_t *list);
 //free resources used by the iterator
-void destroy_iterator(ll_iterator_t *iter);
+void list_destroy_iterator(ll_iterator_t *iter);
 //does the list have a next item not yet consumed by iter?
-bool has_next(ll_iterator_t *iter);
+bool list_has_next(ll_iterator_t *iter);
 //return the next item in the list
-void *get_next(ll_iterator_t *iter);
+void *list_get_next(ll_iterator_t *iter);
 
 #endif

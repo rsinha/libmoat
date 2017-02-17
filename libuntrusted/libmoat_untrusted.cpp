@@ -18,9 +18,9 @@ typedef struct {
     sgx_measurement_t target_enclave; //measurement of remote enclave
 } untrusted_channel_t;
 
-std::map<uint32_t, untrusted_channel_t> channels; 
+std::map<size_t, untrusted_channel_t> channels;
 
-void server_setup_socket(sgx_measurement_t *target_enclave, uint32_t session_id)
+void server_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
 {
     //ideally I should be asking some name discovery service
     untrusted_channel_t channel;
@@ -36,10 +36,10 @@ void server_setup_socket(sgx_measurement_t *target_enclave, uint32_t session_id)
     assert(zmq_connect(channel.zmq_skt_inbound, "tcp://localhost:5556") == 0);
     printf("Connected to client running on tcp://localhost:5556...\n");
 
-    channels.insert(std::pair<uint32_t, untrusted_channel_t>(session_id, channel));
+    channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
 }
 
-void client_setup_socket(sgx_measurement_t *target_enclave, uint32_t session_id)
+void client_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
 {
     //ideally I should be asking some name discovery service
     untrusted_channel_t channel;
@@ -56,12 +56,12 @@ void client_setup_socket(sgx_measurement_t *target_enclave, uint32_t session_id)
     printf("client running on tcp://localhost:5556...\n");
 
 
-    channels.insert(std::pair<uint32_t, untrusted_channel_t>(session_id, channel));
+    channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
 }
 
-void teardown_channel(uint32_t session_id)
+void teardown_channel(size_t session_id)
 {
-    std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
+    std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         zmq_close(iter->second.zmq_skt_outbound);
         zmq_ctx_destroy(iter->second.zmq_ctx_outbound);
@@ -71,7 +71,7 @@ void teardown_channel(uint32_t session_id)
     }
 }
 
-uint32_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, uint32_t session_id)
+size_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, size_t session_id)
 {
     //get dh_msg1 from remote, and populate dh_msg1 struct
     //we need to communicate with a remote with right measurement,
@@ -79,7 +79,7 @@ uint32_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh
     server_setup_socket(target_enclave, session_id);
 
     //step 3: recv dh_msg1 from the remote (client)
-    std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
+    std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         zmq_recv(iter->second.zmq_skt_inbound, dh_msg1, sizeof(sgx_dh_msg1_t), 0);
         printf("Received dh_msg1...\n");
@@ -88,9 +88,9 @@ uint32_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh
     return 1; //ERROR
 }
 
-uint32_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
+size_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, size_t session_id)
 {
-    std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
+    std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         //send dh_msg2 to the remote (client)
         zmq_send(iter->second.zmq_skt_outbound, dh_msg2, sizeof(sgx_dh_msg2_t), 0);
@@ -103,11 +103,11 @@ uint32_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *
     return 1; //ERROR
 }
 
-uint32_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t *dh_msg1, sgx_dh_msg2_t *dh_msg2, uint32_t session_id)
+size_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t *dh_msg1, sgx_dh_msg2_t *dh_msg2, size_t session_id)
 {
     client_setup_socket(target_enclave, session_id);
 
-    std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
+    std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         //send dh_msg1 to the remote (client)
          zmq_send(iter->second.zmq_skt_outbound, dh_msg1, sizeof(sgx_dh_msg1_t), 0);
@@ -120,10 +120,10 @@ uint32_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_enclave, sgx_
     return 1; //ERROR
 }
 
-uint32_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
+size_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, size_t session_id)
 {
     //send dh_msg3 from the remote (client)
-    std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
+    std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         zmq_send(iter->second.zmq_skt_outbound, dh_msg3, sizeof(sgx_dh_msg3_t), 0);
         printf("Sent dh_msg3...\n");
@@ -132,7 +132,7 @@ uint32_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, uint32_t session_id)
     return 1;
 }
 
-uint32_t end_session_ocall(uint32_t session_id)
+size_t end_session_ocall(size_t session_id)
 {
     //TODO: zmq_send(zmq_skt_outbound, &msg, sizeof(msg), 0);
 
@@ -141,15 +141,15 @@ uint32_t end_session_ocall(uint32_t session_id)
 }
 
 /* This is a debugging ocall */
-uint32_t print_debug_on_host_ocall(const char *buf)
+size_t print_debug_on_host_ocall(const char *buf)
 {
     printf("%s", buf);
     return 0;
 }
 
-uint32_t send_msg_ocall(void *buf, size_t buflen, uint32_t session_id)
+size_t send_msg_ocall(void *buf, size_t buflen, size_t session_id)
 {
-    std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
+    std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, sizeof(libmoat_ciphertext_header_t), 0);
         zmq_send(iter->second.zmq_skt_outbound, ((uint8_t *) buf) + sizeof(libmoat_ciphertext_header_t), buflen - sizeof(libmoat_ciphertext_header_t), 0);
@@ -159,9 +159,9 @@ uint32_t send_msg_ocall(void *buf, size_t buflen, uint32_t session_id)
     return 1;
 }
 
-uint32_t recv_msg_ocall(void *buf, size_t buflen, size_t *buflen_out, uint32_t session_id)
+size_t recv_msg_ocall(void *buf, size_t buflen, size_t *buflen_out, size_t session_id)
 {
-    std::map<uint32_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
+    std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         *buflen_out = buflen;
         zmq_recv(iter->second.zmq_skt_inbound, buf, buflen, 0);

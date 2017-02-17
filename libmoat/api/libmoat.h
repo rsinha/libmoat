@@ -19,7 +19,7 @@ void LIBMOAT_API _moat_print_debug(const char *fmt, ...);
  ***************************************************/
 
 typedef struct {
-    uint32_t session_id;
+    size_t session_id;
 } scc_handle_t;
 
 void LIBMOAT_API _moat_scc_module_init();
@@ -33,7 +33,7 @@ void LIBMOAT_API _moat_scc_destroy(scc_handle_t *handle);
  ***************************************************/
 
 typedef struct {
-    uint32_t file_descriptor;
+    size_t file_descriptor;
 } fs_handle_t;
 
 void LIBMOAT_API _moat_fs_module_init();
