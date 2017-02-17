@@ -12,7 +12,7 @@
  ***************************************************/
 
 void LIBMOAT_API _moat_debug_module_init();
-void LIBMOAT_API _moat_print_debug(const char *fmt, ...);
+size_t LIBMOAT_API _moat_print_debug(const char *fmt, ...);
 
 /***************************************************
         SECURE COMMUNICATION CHANNEL

@@ -69,7 +69,7 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     size_t retstatus;
 
     //a full size record cannot exceed 2^14 bytes in TLS 1.3
-    if (len > (1<<14)) { return 1; }
+    if (len > (1<<14)) { return -1; }
 
     dh_session_t *session_info = get_session_info(handle->session_id);
     assert(session_info != NULL);
@@ -80,7 +80,7 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     //of approximately 2^-57 for Authenticated Encryption (AE) security
     //at most 2^32 invocations of AES-GCM according to NIST guidelines
     //but we stop at 2^24 because of TLS 1.3 spec
-    if (session_info->local_counter > (1 << 24)) { return 1; }
+    if (session_info->local_counter > (1 << 24)) { return -1; }
 
     //allocate memory for ciphertext
     size_t dst_len = sizeof(scc_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
@@ -156,8 +156,8 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
         assert(status == SGX_SUCCESS && retstatus == 0);
         assert(actual_len == sizeof(scc_ciphertext_header_t));
 
-        if (header->type != APPLICATION_DATA) { free(header); return len_completed; } //no bytes
-        if (header->length > ((1<<14) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) { free(header); return len_completed; }
+        if (header->type != APPLICATION_DATA) { free(header); return -1; } //no bytes
+        if (header->length > ((1<<14) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) { free(header); return -1; }
 
         uint8_t *ciphertext = (uint8_t *) malloc(header->length);
         assert(ciphertext != NULL);
@@ -203,7 +203,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
     }
     
     free(header);
-    return len_completed;
+    return 0;
     
 }
 
