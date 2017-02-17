@@ -51,22 +51,6 @@ static ll_t *g_dest_session_info = NULL;
                 PRIVATE METHODS
  ***************************************************/
 
-static size_t number_of_active_sessions()
-{
-    return list_size(g_dest_session_info);
-}
-
-static void insert_session(dh_session_t *session)
-{
-    list_insert_value(g_dest_session_info, session);
-}
-
-//removes session from the linked list
-static bool delete_session(dh_session_t *session)
-{
-    return list_delete_value(g_dest_session_info, session);
-}
-
 //finds session in the linked list
 static dh_session_t *find_session(size_t session_id)
 {
@@ -196,7 +180,7 @@ size_t server_create_session(sgx_measurement_t *target_enclave)
     memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
 
     //save the session until it gets destroyed via close_session
-    insert_session(session_info);
+    list_insert_value(g_dest_session_info, session_info);
 
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
     return session_id;
@@ -269,7 +253,7 @@ size_t client_create_session(sgx_measurement_t *target_enclave)
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
 
     //Store the session information under the correspoding source enlave id key
-    insert_session(session_info);
+    list_insert_value(g_dest_session_info, session_info);
 
     return session_id;
 }
@@ -301,14 +285,13 @@ size_t close_session(size_t session_id)
 {
     sgx_status_t status;
     size_t retstatus;
-    dh_session_t *session_info;
 
     //Get the session information from the list corresponding to the session id
-    session_info = find_session(session_id);
+    dh_session_t *session_info = find_session(session_id);
     if (session_info == NULL) { return INVALID_SESSION; }
 
     //Erase the session information for the current session
-    bool deleted_successfully = delete_session(session_info);
+    bool deleted_successfully = list_delete_value(g_dest_session_info, session_info);
     assert(deleted_successfully);
 
     free(session_info);

@@ -55,7 +55,7 @@ size_t generate_unique_file_descriptor(size_t *result)
     while (list_has_next(iter))
     {
         fs_file_t *current_file = (fs_file_t *) list_get_next(iter);
-        //session ids start at 1
+        //file descriptors start at 1
         occupied[current_file->file_descriptor - 1] = true;
     }
     list_destroy_iterator(iter);
@@ -74,22 +74,30 @@ size_t generate_unique_block_id(size_t *result)
 {
     if(!result) { return -1; }
     
-    bool occupied[MAX_FILE_COUNT];
-    for (int i = 0; i < MAX_FILE_COUNT; i++)
+    bool occupied[NUM_BLOCKS];
+    for (int i = 0; i < NUM_BLOCKS; i++)
     {
         occupied[i] = false;
     }
     
-    ll_iterator_t *iter = list_create_iterator(g_files);
-    while (list_has_next(iter))
+    ll_iterator_t *file_iter = list_create_iterator(g_files);
+    while (list_has_next(file_iter))
     {
-        fs_file_t *current_file = (fs_file_t *) list_get_next(iter);
-        //session ids start at 1
-        occupied[current_file->file_descriptor - 1] = true;
+        fs_file_t *current_file = (fs_file_t *) list_get_next(file_iter);
+        ll_iterator_t *block_iter = list_create_iterator(current_file->blocks);
+
+        while (list_has_next(block_iter))
+        {
+            fs_block_t *current_block = (fs_block_t *) list_get_next(block_iter);
+            //file descriptors start at 1
+            occupied[current_block->addr - 1] = true;
+        }
+
+        list_destroy_iterator(block_iter);
     }
-    list_destroy_iterator(iter);
+    list_destroy_iterator(file_iter);
     
-    for (int i = 0; i < MAX_FILE_COUNT; i++) {
+    for (int i = 0; i < NUM_BLOCKS; i++) {
         if (occupied[i] == false) {
             *result = i + 1; //session ids start at 1
             return 0;
@@ -167,6 +175,7 @@ size_t _moat_fs_read(fs_handle_t *handle, size_t offset, void* buf, size_t len)
         {
             //once we find the first block, we can read from offset 0 in the second block, and so on.
             size_t offset_within_block = (offset_reached < offset) ? offset - offset_reached : 0;
+            //we either copy enough bytes to fulfill len, or enough available bytes after the offset_within_block
             size_t num_bytes_to_copy = min(len - len_completed, block->len - offset_within_block);
             
             size_t status = access(READ, block->addr, block_data);
@@ -203,20 +212,24 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
     while (list_has_next(iter))
     {
         fs_block_t *block = (fs_block_t *) list_get_next(iter);
+        //invariant maintained by _moat_fs_write
+        assert(block->len <= BLOCK_SIZE);
+        //only last block is allowed to be less than BLOCK_SIZE: block->len != BLOCK_SIZE ==> !list_has_next(iter)
+        assert(block->len == BLOCK_SIZE || !list_has_next(iter));
         
         //should we grab some bytes from this block?
-        if ((offset_reached + block->len - 1) >= offset)
+        if ((offset_reached + BLOCK_SIZE - 1) >= offset)
         {
             //once we find the first block, we can read from offset 0 in the second block, and so on.
             size_t offset_within_block = (offset_reached < offset) ? offset - offset_reached : 0;
             //we either copy enough bytes to fulfill len, or enough available bytes after the offset_within_block
-            size_t num_bytes_to_copy = min(len - len_completed, block->len - offset_within_block);
+            size_t num_bytes_to_copy = min(len - len_completed, BLOCK_SIZE - offset_within_block);
             
             //if we are going to overwrite the entire block, then no point reading
-            if (num_bytes_to_copy < block->len)
+            //read either if block has bytes after or before the written region
+            if (num_bytes_to_copy < block->len || offset_within_block > 0)
             {
-                //read old data
-                status = access(READ, block->addr, block_data);
+                status = access(READ, block->addr, block_data); //read old data
                 assert(status == 0);
             }
             
@@ -227,6 +240,7 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
             status = access(WRITE, block->addr, block_data);
             assert(status == 0);
             
+            block->len = max(block->len, num_bytes_to_copy + offset_within_block);
             len_completed += num_bytes_to_copy;
         }
         
@@ -235,31 +249,49 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
         if (len_completed == len) { break; }
     }
     list_destroy_iterator(iter);
-    
+
     //we ran out of existing blocks to place the new data. Let's allocate some new blocks.
     while (len_completed < len)
     {
+        size_t num_bytes_to_copy = min(len - len_completed, BLOCK_SIZE);
+
         fs_block_t *block = (fs_block_t *) malloc(sizeof(fs_block_t));
-        block->addr = 0;
-        block->len = BLOCK_SIZE;
+        size_t success = generate_unique_block_id(&(block->addr));
+        assert(success == 0);
+        block->len = num_bytes_to_copy;
+        list_insert_value(fd->blocks, block);
+
+        memcpy(((uint8_t *) block_data), ((uint8_t *) buf) + len_completed, num_bytes_to_copy);
         
         //write the entire block back to untrusted storage
         size_t status = access(WRITE, block->addr, block_data);
-        
-        list_insert_value(fd->blocks, block);
+        assert(status == 0);
+
         len_completed += block->len;
     }
     
     return 0;
 }
 
-void _moat_fs_close(fs_handle_t *handle)
+size_t _moat_fs_close(fs_handle_t *handle)
 {
-    free(handle);
-    return;
-}
+    fs_file_t *fd = find_file_descriptor(handle);
+    if (fd == NULL) { return -1; } //this needs an error code
 
-size_t _moat_fs_delete(fs_handle_t *handle)
-{
+    ll_iterator_t *block_iter = list_create_iterator(fd->blocks);
+    while (list_has_next(block_iter))
+    {
+        fs_block_t *current_block = (fs_block_t *) list_get_next(block_iter);
+        bool deleted_successfully = list_delete_value(fd->blocks, current_block);
+        assert(deleted_successfully);
+        free(current_block);
+    }
+    list_destroy_iterator(block_iter);
+
+    bool deleted_successfully = list_delete_value(g_files, fd);
+    assert(deleted_successfully);
+    free(fd);
+    free(handle);
     return 0;
 }
+

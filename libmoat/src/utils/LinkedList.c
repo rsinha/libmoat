@@ -58,7 +58,7 @@ void list_insert_value(ll_t *list, void *value)
     iter->next = node;
 }
 
-//removes value from the linked list
+//removes value from the linked list, but doesn't free the value (caller's responsibility)
 bool list_delete_value(ll_t *list, void *value)
 {
     if (list == NULL || value == NULL) { return false; } //error-checking on inputs
@@ -121,7 +121,7 @@ void list_destroy_iterator(ll_iterator_t *iter)
 
 bool list_has_next(ll_iterator_t *iter)
 {
-    return (iter->next_node != NULL);
+    return (iter->next_node != NULL) ? true : false;
 }
 
 void *list_get_next(ll_iterator_t *iter)
