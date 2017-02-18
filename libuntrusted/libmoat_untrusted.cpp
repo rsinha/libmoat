@@ -159,11 +159,10 @@ size_t send_msg_ocall(void *buf, size_t buflen, size_t session_id)
     return 1;
 }
 
-size_t recv_msg_ocall(void *buf, size_t buflen, size_t *buflen_out, size_t session_id)
+size_t recv_msg_ocall(void *buf, size_t buflen, size_t session_id)
 {
     std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
-        *buflen_out = buflen;
         zmq_recv(iter->second.zmq_skt_inbound, buf, buflen, 0);
         printf("Received msg...\n");
         return 0;

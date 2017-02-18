@@ -124,7 +124,6 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 {
     sgx_status_t status;
     size_t retstatus;
-    size_t actual_len; //how much data has the ocall given us?
     size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
 
     dh_session_t *session_info = get_session_info(handle->session_id);
@@ -151,10 +150,9 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
     
     while (len_completed < len) {
         //first fetch the header to understand what to do next
-        status = recv_msg_ocall(&retstatus, header, sizeof(scc_ciphertext_header_t), &actual_len, handle->session_id);
+        status = recv_msg_ocall(&retstatus, header, sizeof(scc_ciphertext_header_t), handle->session_id);
         //the ocall succeeded, and the logic within the ocall says everything succeeded
         assert(status == SGX_SUCCESS && retstatus == 0);
-        assert(actual_len == sizeof(scc_ciphertext_header_t));
 
         if (header->type != APPLICATION_DATA) { free(header); return -1; } //no bytes
         if (header->length > ((1<<14) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) { free(header); return -1; }
@@ -167,9 +165,8 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
         assert(cleartext != NULL);
 
         //fetch the ciphertext
-        status = recv_msg_ocall(&retstatus, ciphertext, header->length, &actual_len, handle->session_id);
+        status = recv_msg_ocall(&retstatus, ciphertext, header->length, handle->session_id);
         assert(status == SGX_SUCCESS && retstatus == 0);
-        assert (actual_len == header->length);
 
         /* ciphertext: header || IV || MAC || encrypted */
         status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK), //key
