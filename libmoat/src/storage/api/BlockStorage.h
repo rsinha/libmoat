@@ -10,7 +10,7 @@ typedef uint8_t block_t[BLOCK_SIZE];
 #define READ 1
 #define WRITE 2
 
-size_t access(size_t op, size_t addr, block_t data);
+size_t access(size_t op, size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key);
 
 #endif
 

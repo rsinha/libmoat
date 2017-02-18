@@ -13,7 +13,9 @@
  PUBLIC API
  ***************************************************/
 
-size_t access(size_t op, size_t addr, block_t data)
+/*
+size_t access(size_t op, size_t addr, block_t data, const sgx_aes_gcm_128bit_key_t *key)
 {
     return 0;
 }
+*/

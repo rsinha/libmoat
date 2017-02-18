@@ -30,13 +30,12 @@ typedef struct
  ***************************************************/
 
 static size_t g_local_counter = 0;
-static sgx_aes_gcm_128bit_key_t g_key;
 
 /***************************************************
                 PRIVATE METHODS
  ***************************************************/
 
-size_t read_access(size_t addr, block_t data)
+size_t read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
 {
     sgx_status_t status;
     size_t retstatus;
@@ -58,7 +57,7 @@ size_t read_access(size_t addr, block_t data)
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
     /* ciphertext: header || IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &g_key, //key
+    status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) key, //key
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
                                         sizeof(block_t), //src_len
                                         data, //dst
@@ -74,7 +73,7 @@ size_t read_access(size_t addr, block_t data)
 }
 
 //performs authenticated encryption of data, and writes it as a file
-size_t write_access(size_t addr, block_t data)
+size_t write_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
 {
     sgx_status_t status;
     size_t retstatus;
@@ -96,7 +95,7 @@ size_t write_access(size_t addr, block_t data)
     memset(payload + sizeof(g_local_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(g_local_counter));
     
     /* ciphertext: IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &g_key,
+    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) key,
                                         data, /* input */
                                         sizeof(block_t), /* input length */
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
@@ -121,12 +120,12 @@ size_t write_access(size_t addr, block_t data)
                     PUBLIC API
  ***************************************************/
 
-size_t access(size_t op, size_t addr, block_t data)
+size_t access(size_t op, size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
 {
     if (op == READ) {
-        return read_access(addr, data);
+        return read_access(addr, data, key);
     } else if (op == WRITE) {
-        return write_access(addr, data);
+        return write_access(addr, data, key);
     } else {
         return 1;
     }
