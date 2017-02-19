@@ -2,6 +2,8 @@
 #include "interface_u.h"
 #include <zmq.h>
 #include <map>
+#include <iostream>
+#include <fstream>
 #include <assert.h>
 
 typedef struct
@@ -147,26 +149,53 @@ size_t print_debug_on_host_ocall(const char *buf)
     return 0;
 }
 
-size_t send_msg_ocall(void *buf, size_t buflen, size_t session_id)
+size_t send_msg_ocall(void *buf, size_t len, size_t session_id)
 {
     std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, sizeof(libmoat_ciphertext_header_t), 0);
-        zmq_send(iter->second.zmq_skt_outbound, ((uint8_t *) buf) + sizeof(libmoat_ciphertext_header_t), buflen - sizeof(libmoat_ciphertext_header_t), 0);
+        zmq_send(iter->second.zmq_skt_outbound, ((uint8_t *) buf) + sizeof(libmoat_ciphertext_header_t), len - sizeof(libmoat_ciphertext_header_t), 0);
         printf("Sent msg...\n");
         return 0;
     }
     return 1;
 }
 
-size_t recv_msg_ocall(void *buf, size_t buflen, size_t session_id)
+size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
 {
     std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
-        zmq_recv(iter->second.zmq_skt_inbound, buf, buflen, 0);
+        zmq_recv(iter->second.zmq_skt_inbound, buf, len, 0);
         printf("Received msg...\n");
         return 0;
     }
     return 1;
 }
 
+size_t write_block_ocall(void *buf, size_t len, size_t addr)
+{
+    std::ofstream fout;
+
+    std::string prefix = "/tmp/libmoat";
+    std::string filename = prefix + std::to_string(addr);
+
+    fout.open(filename.c_str(), std::ios::binary | std::ios::out);
+
+    fout.write((char *) buf, (std::streamsize) len);
+    fout.close();
+    return 0;
+}
+
+size_t read_block_ocall(void *buf, size_t len, size_t addr)
+{
+    std::ifstream fin;
+
+    std::string prefix = "/tmp/libmoat";
+    std::string filename = prefix + std::to_string(addr);
+
+    fin.open(filename, std::ios::binary | std::ios::in);
+
+    fin.read((char *) buf, (std::streamsize) len);
+    fin.close();
+    return 0;
+}

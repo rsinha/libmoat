@@ -23,6 +23,7 @@ typedef struct
 {
     size_t type;
     size_t length;
+    size_t addr;
 } fs_ciphertext_header_t;
 
 /***************************************************
@@ -39,20 +40,18 @@ size_t read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
 {
     sgx_status_t status;
     size_t retstatus;
-    size_t actual_len; //how much data has the ocall given us?
 
+    size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
     //allocate memory for ciphertext
-    uint8_t *ciphertext = (uint8_t *) malloc(sizeof(fs_ciphertext_header_t) +
-                                             SGX_AESGCM_IV_SIZE +
-                                             SGX_AESGCM_MAC_SIZE +
-                                             sizeof(block_t));
+    uint8_t *ciphertext = (uint8_t *) malloc(len);
     assert(ciphertext != NULL);
     
-    //fetch the ciphertext
-    //status = read_file_ocall(&retstatus, ciphertext, header->length, &actual_len, ...);
-    //assert(status == SGX_SUCCESS && retstatus == 0);
-    assert(((fs_ciphertext_header_t *) ciphertext)->length ==
-           sizeof(block_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
+    status = read_block_ocall(&retstatus, ciphertext, len, addr);
+    assert(status == SGX_SUCCESS && retstatus == 0);
+
+    assert(((fs_ciphertext_header_t *) ciphertext)->type == APPLICATION_DATA);
+    assert(((fs_ciphertext_header_t *) ciphertext)->length == sizeof(block_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
+    assert(((fs_ciphertext_header_t *) ciphertext)->addr == addr);
     
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
@@ -78,15 +77,14 @@ size_t write_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
     sgx_status_t status;
     size_t retstatus;
     
+    size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
     //allocate memory for ciphertext
-    uint8_t *ciphertext = (uint8_t *) malloc(sizeof(fs_ciphertext_header_t) +
-                                             SGX_AESGCM_IV_SIZE +
-                                             SGX_AESGCM_MAC_SIZE +
-                                             sizeof(block_t));
+    uint8_t *ciphertext = (uint8_t *) malloc(len);
     assert (ciphertext != NULL);
     
     ((fs_ciphertext_header_t *) ciphertext)->type = APPLICATION_DATA;
     ((fs_ciphertext_header_t *) ciphertext)->length = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
+    ((fs_ciphertext_header_t *) ciphertext)->addr = addr;
     
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
@@ -109,8 +107,8 @@ size_t write_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
     //so we don't reuse IVs
     g_local_counter = g_local_counter + 1;
     
-    //status = write_file_ocall(retstatus, ...);
-    //assert(status == SGX_SUCCESS && retstatus == 0);
+    status = write_block_ocall(&retstatus, ciphertext, len, addr);
+    assert(status == SGX_SUCCESS && retstatus == 0);
     
     free(ciphertext);
     return 0;
@@ -127,6 +125,6 @@ size_t access(size_t op, size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *ke
     } else if (op == WRITE) {
         return write_access(addr, data, key);
     } else {
-        return 1;
+        return -1;
     }
 }

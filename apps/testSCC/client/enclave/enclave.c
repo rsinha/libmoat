@@ -11,6 +11,7 @@ uint64_t enclave_test()
 {
     _moat_debug_module_init();
     _moat_scc_module_init();
+    _moat_fs_module_init();
 
     blob_t blob1;
     //ideally some authority (e.g. CA) will tell us this
@@ -30,6 +31,11 @@ uint64_t enclave_test()
     api_result = _moat_scc_recv(handle, &result, sizeof(result)); assert(api_result == 0);
     api_result = _moat_print_debug("result: %" PRIu64 "\n", result); assert(api_result == 0);
     api_result = _moat_scc_destroy(handle); assert(api_result == 0);
+
+    //save result in a file
+    fs_handle_t *fd = _moat_fs_open("tmpfile");
+    api_result = _moat_fs_write(fd, 0, &result, sizeof(result));
+
     return 0;
 }
 

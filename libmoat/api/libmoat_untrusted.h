@@ -24,6 +24,8 @@ sgx_status_t SGX_CDECL send_dh_msg3_ocall(size_t* retval, sgx_dh_msg3_t* dh_msg3
 sgx_status_t SGX_CDECL end_session_ocall(size_t* retval, size_t session_id);
 sgx_status_t SGX_CDECL send_msg_ocall(size_t* retval, void* buf, size_t len, size_t session_id);
 sgx_status_t SGX_CDECL recv_msg_ocall(size_t* retval, void* buf, size_t len, size_t session_id);
+sgx_status_t SGX_CDECL write_block_ocall(size_t* retval, void* buf, size_t len, size_t addr);
+sgx_status_t SGX_CDECL read_block_ocall(size_t* retval, void* buf, size_t len, size_t addr);
 sgx_status_t SGX_CDECL print_debug_on_host_ocall(size_t* retval, const char* str);
 
 #ifdef __cplusplus
