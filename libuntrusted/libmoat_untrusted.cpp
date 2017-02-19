@@ -155,10 +155,10 @@ size_t send_msg_ocall(void *buf, size_t len, size_t session_id)
     if (iter != channels.end()) {
         zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, sizeof(libmoat_ciphertext_header_t), 0);
         zmq_send(iter->second.zmq_skt_outbound, ((uint8_t *) buf) + sizeof(libmoat_ciphertext_header_t), len - sizeof(libmoat_ciphertext_header_t), 0);
-        printf("Sent msg...\n");
+        printf("Sent %zu bytes in session %zu\n", len, session_id);
         return 0;
     }
-    return 1;
+    return -1;
 }
 
 size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
@@ -166,10 +166,10 @@ size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
     std::map<size_t, untrusted_channel_t>::iterator iter = channels.find(session_id);
     if (iter != channels.end()) {
         zmq_recv(iter->second.zmq_skt_inbound, buf, len, 0);
-        printf("Received msg...\n");
+        printf("Received %zu bytes in session %zu\n", len, session_id);
         return 0;
     }
-    return 1;
+    return -1;
 }
 
 size_t write_block_ocall(void *buf, size_t len, size_t addr)
@@ -180,8 +180,9 @@ size_t write_block_ocall(void *buf, size_t len, size_t addr)
     std::string filename = prefix + std::to_string(addr);
 
     fout.open(filename.c_str(), std::ios::binary | std::ios::out);
-
     fout.write((char *) buf, (std::streamsize) len);
+    printf("Wrote %zu bytes to %s\n", len, filename.c_str());
+
     fout.close();
     return 0;
 }
@@ -194,8 +195,9 @@ size_t read_block_ocall(void *buf, size_t len, size_t addr)
     std::string filename = prefix + std::to_string(addr);
 
     fin.open(filename, std::ios::binary | std::ios::in);
-
     fin.read((char *) buf, (std::streamsize) len);
+    printf("Read %zu bytes from %s\n", len, filename.c_str());
+
     fin.close();
     return 0;
 }

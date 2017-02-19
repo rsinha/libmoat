@@ -34,7 +34,10 @@ uint64_t enclave_test()
 
     //save result in a file
     fs_handle_t *fd = _moat_fs_open("tmpfile");
-    api_result = _moat_fs_write(fd, 0, &result, sizeof(result));
+    api_result = _moat_fs_write(fd, 0, &result, sizeof(result)); assert(api_result == 0);
+    uint64_t reload;
+    api_result = _moat_fs_read(fd, 0, &reload, sizeof(reload)); assert(api_result == 0);
+    assert(reload == result);
 
     return 0;
 }

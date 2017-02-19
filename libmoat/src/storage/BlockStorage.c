@@ -30,7 +30,7 @@ typedef struct
                 INTERNAL STATE
  ***************************************************/
 
-static size_t g_local_counter = 0;
+static uint32_t g_local_counter = 0;
 
 /***************************************************
                 PRIVATE METHODS
@@ -40,6 +40,9 @@ size_t read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
 {
     sgx_status_t status;
     size_t retstatus;
+
+    //NIST guidelines for using AES-GCM
+    if (g_local_counter > ((size_t) -2)) { return -1; }
 
     size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
     //allocate memory for ciphertext
@@ -64,7 +67,7 @@ size_t read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
                                         SGX_AESGCM_IV_SIZE, //12 bytes
                                         NULL, //aad
                                         0, //0 bytes of AAD
-                                        (const sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); //mac
+                                        (const sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); //mac
     assert(status == SGX_SUCCESS);
     
     free(ciphertext);
