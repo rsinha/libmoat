@@ -59,10 +59,8 @@ int SGX_CDECL main(int argc, char *argv[])
     (void)(argc);
     (void)(argv);
 
-
     int r = enclave_computation();
 
-    getchar();
     return r;
 }
 
