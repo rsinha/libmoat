@@ -1,6 +1,8 @@
 1. use separate AES keys for both directions. Derive keys from DH secret AEK.
 2. implement session renegotiation after IV wrap around
-3. error codes and error messages (print them in debug mode)
+3. Implement file system re-encryption after IV wrap around
+4. Implement a Merkle Tree for replay protection
+5. error codes and error messages (print them in debug mode)
 
 Future Work
 1. Concurrent
