@@ -1,7 +1,6 @@
 1. use separate AES keys for both directions. Derive keys from DH secret AEK.
 2. implement session renegotiation after IV wrap around
 3. error codes and error messages (print them in debug mode)
-4. implement file create and delete APIs
 
 Future Work
 1. Concurrent
