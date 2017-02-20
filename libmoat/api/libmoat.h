@@ -41,5 +41,6 @@ fs_handle_t * LIBMOAT_API _moat_fs_open(char *name);
 size_t LIBMOAT_API _moat_fs_read(fs_handle_t *handle, size_t offset, void* buf, size_t len);
 size_t LIBMOAT_API _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len);
 size_t LIBMOAT_API _moat_fs_close(fs_handle_t *handle);
+size_t LIBMOAT_API _moat_fs_delete(fs_handle_t *handle);
 
 #endif

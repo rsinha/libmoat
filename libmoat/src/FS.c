@@ -108,14 +108,35 @@ size_t generate_unique_block_id(size_t *result)
     return -1;
 }
 
-fs_file_t *find_file_descriptor(fs_handle_t *handle)
+fs_file_t *find_file_by_descriptor(size_t file_descriptor)
 {
     ll_iterator_t *iter = list_create_iterator(g_files);
     fs_file_t *fd = NULL;
     while (list_has_next(iter)) //search for the file descriptor within g_files
     {
         fd = (fs_file_t *) list_get_next(iter);
-        if (fd->file_descriptor == handle->file_descriptor) { return fd; }
+        if (fd->file_descriptor == file_descriptor)
+        {
+            list_destroy_iterator(iter);
+            return fd;
+        }
+    }
+    list_destroy_iterator(iter);
+
+    return NULL; //didn't find anything
+}
+
+fs_file_t *find_file_by_name(char *name)
+{
+    ll_iterator_t *iter = list_create_iterator(g_files);
+    fs_file_t *fd = NULL;
+    while (list_has_next(iter)) //search for the file descriptor within g_files
+    {
+        fd = (fs_file_t *) list_get_next(iter);
+        if (strcmp(name, fd->filename) == 0) {
+            list_destroy_iterator(iter);
+            return fd;
+        }
     }
     list_destroy_iterator(iter);
     
@@ -137,16 +158,21 @@ void _moat_fs_module_init()
 
 fs_handle_t *_moat_fs_open(char *name)
 {
-    fs_file_t *fd = (fs_file_t *) malloc(sizeof(fs_file_t));
+    fs_file_t *fd = find_file_by_name(name);
     
-    fd->blocks = malloc(sizeof(ll_t));
-    assert(fd->blocks != NULL);
-    fd->blocks->head = NULL;
-    fd->filename = name;
-    size_t success = generate_unique_file_descriptor(&(fd->file_descriptor));
-    assert(success == 0);
-    
-    list_insert_value(g_files, fd);
+    if (fd == NULL) //else file already exists by that name
+    {
+        fd = (fs_file_t *) malloc(sizeof(fs_file_t));
+        assert(fd != NULL);
+        fd->blocks = malloc(sizeof(ll_t));
+        assert(fd->blocks != NULL);
+        fd->blocks->head = NULL;
+        fd->filename = name;
+        size_t success = generate_unique_file_descriptor(&(fd->file_descriptor));
+        assert(success == 0);
+
+        list_insert_value(g_files, fd);
+    }
     
     //allocate memory for the context
     fs_handle_t *handle = (fs_handle_t *) malloc(sizeof(fs_handle_t));
@@ -161,7 +187,7 @@ size_t _moat_fs_read(fs_handle_t *handle, size_t offset, void* buf, size_t len)
     if (offset + len < offset) { return -1; } //can't have a file larger than 2^64
     if (offset + BLOCK_SIZE < offset) { return -1; } //this will prevent overflows in the code
     
-    fs_file_t *fd = find_file_descriptor(handle);
+    fs_file_t *fd = find_file_by_descriptor(handle->file_descriptor);
     if (fd == NULL) { return -1; } //this needs an error code
     
     //we need to iterate through all blocks that hold the requested data
@@ -204,7 +230,7 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
     if (offset + len < offset) { return -1; } //can't have a file larger than 2^64
     if (offset + BLOCK_SIZE < offset) { return -1; } //this will prevent overflows in the code
     
-    fs_file_t *fd = find_file_descriptor(handle);
+    fs_file_t *fd = find_file_by_descriptor(handle->file_descriptor);
     if (fd == NULL) { return -1; } //this needs an error code
     
     //we need to iterate through all blocks that hold the requested data
@@ -278,7 +304,13 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
 
 size_t _moat_fs_close(fs_handle_t *handle)
 {
-    fs_file_t *fd = find_file_descriptor(handle);
+    free(handle);
+    return 0;
+}
+
+size_t _moat_fs_delete(fs_handle_t *handle)
+{
+    fs_file_t *fd = find_file_by_descriptor(handle->file_descriptor);
     if (fd == NULL) { return -1; } //this needs an error code
 
     ll_iterator_t *block_iter = list_create_iterator(fd->blocks);
@@ -291,10 +323,10 @@ size_t _moat_fs_close(fs_handle_t *handle)
     }
     list_destroy_iterator(block_iter);
 
+    free(fd->blocks);
     bool deleted_successfully = list_delete_value(g_files, fd);
     assert(deleted_successfully);
     free(fd);
-    free(handle);
     return 0;
 }
 
