@@ -31,11 +31,13 @@ typedef struct
  ***************************************************/
 
 static uint32_t g_local_counter = 0;
+static sgx_aes_gcm_128bit_tag_t macs[NUM_BLOCKS];
 
 /***************************************************
                 PRIVATE METHODS
  ***************************************************/
 
+//NOTE: addr ranges from 1 to NUM_BLOCKS
 size_t read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
 {
     sgx_status_t status;
@@ -48,7 +50,7 @@ size_t read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
     //allocate memory for ciphertext
     uint8_t *ciphertext = (uint8_t *) malloc(len);
     assert(ciphertext != NULL);
-    
+
     status = read_block_ocall(&retstatus, ciphertext, len, addr);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
@@ -58,6 +60,9 @@ size_t read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
     
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
+    //preventing rollback attacks
+    assert(memcmp(&(macs[addr - 1]), payload + SGX_AESGCM_IV_SIZE, SGX_AESGCM_MAC_SIZE) == 0);
+
     /* ciphertext: header || IV || MAC || encrypted */
     status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) key, //key
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
@@ -74,6 +79,7 @@ size_t read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
     return 0;
 }
 
+//NOTE: addr ranges from 1 to NUM_BLOCKS
 //performs authenticated encryption of data, and writes it as a file
 size_t write_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
 {
@@ -107,6 +113,9 @@ size_t write_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
                                         (sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); /* mac */
     assert(status == SGX_SUCCESS);
     
+    //saving MAC for checking freshness of ciphertexts
+    memcpy(&(macs[addr - 1]), payload + SGX_AESGCM_IV_SIZE, SGX_AESGCM_MAC_SIZE);
+
     //so we don't reuse IVs
     g_local_counter = g_local_counter + 1;
     

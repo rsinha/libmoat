@@ -100,7 +100,7 @@ size_t generate_unique_block_id(size_t *result)
     
     for (int i = 0; i < NUM_BLOCKS; i++) {
         if (occupied[i] == false) {
-            *result = i + 1; //session ids start at 1
+            *result = i + 1; //block ids start at 1
             return 0;
         }
     }
