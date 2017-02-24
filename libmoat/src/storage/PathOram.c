@@ -13,9 +13,12 @@
  PUBLIC API
  ***************************************************/
 
-/*
-size_t access(size_t op, size_t addr, block_t data, const sgx_aes_gcm_128bit_key_t *key)
+void path_oram_storage_module_init()
 {
-    return 0;
+    return;
 }
-*/
+
+size_t path_oram_storage_access(size_t op, size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
+{
+    return -1;
+}

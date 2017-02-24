@@ -36,7 +36,7 @@ typedef struct
  ***************************************************/
 
 static ll_t *g_files = NULL; //list of fs_file_t
-static sgx_aes_gcm_128bit_key_t g_key;
+static sgx_aes_gcm_128bit_key_t *g_key;
 
 /***************************************************
  PRIVATE METHODS
@@ -152,8 +152,14 @@ void _moat_fs_module_init()
     g_files = malloc(sizeof(ll_t));
     assert(g_files != NULL);
     g_files->head = NULL;
-    sgx_status_t status = sgx_read_rand((uint8_t *) &g_key, sizeof(sgx_aes_gcm_128bit_key_t));
+
+    g_key = malloc(sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(g_key != NULL);
+
+    sgx_status_t status = sgx_read_rand((uint8_t *) g_key, sizeof(sgx_aes_gcm_128bit_key_t));
     assert(status == SGX_SUCCESS);
+
+    block_storage_module_init();
 }
 
 fs_handle_t *_moat_fs_open(char *name)
@@ -207,7 +213,7 @@ size_t _moat_fs_read(fs_handle_t *handle, size_t offset, void* buf, size_t len)
             //we either copy enough bytes to fulfill len, or enough available bytes after the offset_within_block
             size_t num_bytes_to_copy = min(len - len_completed, block->len - offset_within_block);
             
-            size_t status = access(READ, block->addr, block_data, &g_key);
+            size_t status = block_storage_access(READ, block->addr, block_data, g_key);
             assert(status == 0);
             
             memcpy(((uint8_t *) buf) + len_completed, ((uint8_t *) block_data) + offset_within_block, num_bytes_to_copy);
@@ -258,7 +264,7 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
             //read either if block has bytes after or before the written region
             if (num_bytes_to_copy < block->len || offset_within_block > 0)
             {
-                status = access(READ, block->addr, block_data, &g_key); //read old data
+                status = block_storage_access(READ, block->addr, block_data, g_key); //read old data
                 assert(status == 0);
             }
             
@@ -266,7 +272,7 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
             memcpy(((uint8_t *) block_data) + offset_within_block, ((uint8_t *) buf) + len_completed, num_bytes_to_copy);
             
             //write the entire block back to untrusted storage
-            status = access(WRITE, block->addr, block_data, &g_key);
+            status = block_storage_access(WRITE, block->addr, block_data, g_key);
             assert(status == 0);
             
             block->len = max(block->len, num_bytes_to_copy + offset_within_block);
@@ -293,7 +299,7 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
         memcpy(((uint8_t *) block_data), ((uint8_t *) buf) + len_completed, num_bytes_to_copy);
         
         //write the entire block back to untrusted storage
-        size_t status = access(WRITE, block->addr, block_data, &g_key);
+        size_t status = block_storage_access(WRITE, block->addr, block_data, g_key);
         assert(status == 0);
 
         len_completed += block->len;
