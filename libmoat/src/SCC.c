@@ -49,7 +49,7 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 
     //local_counter is used as IV, and is incremented by 2 for each invocation of AES-GCM-128
     session_info->local_counter = is_server ? 1 : 2; //server/client uses odd/even IVs
-    session_info->remote_counter = 0; //haven't seen any remote IVs yet
+    session_info->remote_counter = is_server ? 2 : 1; //haven't seen any remote IVs yet
     session_info->recv_carryover_start = NULL;
     session_info->recv_carryover_ptr = NULL;
     session_info->recv_carryover_bytes = 0;
@@ -105,8 +105,8 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
                                         payload + 0, /* IV */
                                         SGX_AESGCM_IV_SIZE, /* 12 bytes of IV */
-                                        NULL, /* additional data */
-                                        0, /* zero bytes of additional data */
+                                        (uint8_t *) &(session_info->local_counter), /* additional data */
+                                        sizeof(session_info->local_counter), /* zero bytes of additional data */
                                         (sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); /* mac */
     assert(status == SGX_SUCCESS);
 
@@ -174,15 +174,13 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
                                             cleartext, //dst
                                             ciphertext, //iv
                                             SGX_AESGCM_IV_SIZE, //12 bytes
-                                            NULL, //aad
-                                            0, //0 bytes of AAD
+                                            (uint8_t *) &(session_info->remote_counter), //aad
+                                            sizeof(session_info->remote_counter), //0 bytes of AAD
                                             (const sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); //mac
         assert(status == SGX_SUCCESS);
 
-        assert(*((uint64_t *) ciphertext) > session_info->remote_counter); //to prevent replay attacks
-        assert(session_info->remote_counter == 0 || //if we have received a message before
-               *((uint64_t *) ciphertext) == session_info->remote_counter + 2); //let's be precise
-        session_info->remote_counter = *((uint64_t *) ciphertext);
+        assert(*((uint64_t *) ciphertext) == session_info->remote_counter); //to prevent replay attacks
+        session_info->remote_counter = session_info->remote_counter + 2;
 
         size_t bytes_to_copy = min(cleartext_length, len - len_completed);
         memcpy(buf, cleartext, bytes_to_copy);
