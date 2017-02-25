@@ -35,8 +35,8 @@ typedef struct
  INTERNAL STATE
  ***************************************************/
 
-static ll_t *g_files = NULL; //list of fs_file_t
-static sgx_aes_gcm_128bit_key_t *g_key;
+static ll_t                     *g_files; //list of fs_file_t
+static sgx_aes_gcm_128bit_key_t *g_key;   //key used to protect file contents
 
 /***************************************************
  PRIVATE METHODS

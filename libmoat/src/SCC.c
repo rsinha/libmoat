@@ -94,10 +94,9 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
 
     uint8_t *payload = ciphertext + sizeof(scc_ciphertext_header_t);
 
-    uint32_t nonce = session_info->local_counter;
-    //nonce is 64 bits of 0 followed by the message sequence number
-    memcpy(payload + 0, &nonce, sizeof(nonce));
-    memset(payload + sizeof(nonce), 0, SGX_AESGCM_IV_SIZE - sizeof(nonce));
+    //nonce is 32 bits of 0 followed by the message sequence number
+    memcpy(payload + 0, &(session_info->local_counter), sizeof(session_info->local_counter));
+    memset(payload + sizeof(session_info->local_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(session_info->local_counter));
 
     /* ciphertext: IV || MAC || encrypted */
     status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK),
@@ -179,11 +178,11 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
                                             0, //0 bytes of AAD
                                             (const sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); //mac
         assert(status == SGX_SUCCESS);
-        
-        uint32_t nonce;
-        memcpy(&nonce, ciphertext, sizeof(nonce)); //iv (LSB 32-bits) is the nonce
-        assert(nonce > session_info->remote_counter); //to prevent replay attacks
-        session_info->remote_counter = nonce;
+
+        assert(*((uint64_t *) ciphertext) > session_info->remote_counter); //to prevent replay attacks
+        assert(session_info->remote_counter == 0 || //if we have received a message before
+               *((uint64_t *) ciphertext) == session_info->remote_counter + 2); //let's be precise
+        session_info->remote_counter = *((uint64_t *) ciphertext);
 
         size_t bytes_to_copy = min(cleartext_length, len - len_completed);
         memcpy(buf, cleartext, bytes_to_copy);

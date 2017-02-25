@@ -4,6 +4,10 @@
 
 #include "../api/libmoat_untrusted.h"
 
+/***************************************************
+ PUBLIC API IMPLEMENTATION
+ ***************************************************/
+
 void _moat_debug_module_init()
 {
     return;

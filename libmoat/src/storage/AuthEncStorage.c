@@ -30,8 +30,8 @@ typedef struct
  INTERNAL STATE
  ***************************************************/
 
-static uint32_t g_local_counter = 0;
-static sgx_sha256_hash_t *g_latest_hash;
+static uint64_t           g_local_counter; //used as IV
+static sgx_sha256_hash_t *g_latest_hash;   //for freshness
 
 /***************************************************
  PRIVATE METHODS
@@ -44,7 +44,7 @@ size_t auth_enc_storage_read_access(size_t addr, block_t data, sgx_aes_gcm_128bi
     size_t retstatus;
     
     //NIST guidelines for using AES-GCM
-    if (g_local_counter > ((size_t) -2)) { return -1; }
+    if (g_local_counter > ((uint32_t) -2)) { return -1; }
     
     size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
     //allocate memory for ciphertext
@@ -100,7 +100,7 @@ size_t auth_enc_storage_write_access(size_t addr, block_t data, sgx_aes_gcm_128b
     
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
-    //nonce is 64 bits of 0 followed by the message sequence number
+    //nonce is 32 bits of 0 followed by the message sequence number
     memcpy(payload + 0, &g_local_counter, sizeof(g_local_counter));
     memset(payload + sizeof(g_local_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(g_local_counter));
     

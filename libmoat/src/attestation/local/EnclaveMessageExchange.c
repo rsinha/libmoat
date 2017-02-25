@@ -45,7 +45,7 @@ typedef size_t attestation_status_t;
  ***************************************************/
 
 //Map between the source enclave id and the session information associated with that particular session
-static ll_t *g_dest_session_info = NULL;
+static ll_t *g_dest_session_info;
 
 /***************************************************
                 PRIVATE METHODS
