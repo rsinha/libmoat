@@ -68,9 +68,9 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     //size_t hkdf(uint8_t *ikm, size_t ikm_len, uint8_t *info, size_t info_len, uint8_t *okm, size_t okm_len);
     //static const char iv_label[] = "iv";
 
-    //local_counter is used as IV, and is incremented by 1 for each invocation of AES-GCM-128
-    session_info->local_counter = 0;
-    session_info->remote_counter = 0;
+    //local_seq_number is used as IV, and is incremented by 1 for each invocation of AES-GCM-128
+    session_info->local_seq_number = 0;
+    session_info->remote_seq_number = 0;
     session_info->recv_carryover_start = NULL;
     session_info->recv_carryover_ptr = NULL;
     session_info->recv_carryover_bytes = 0;
@@ -122,7 +122,7 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     //of approximately 2^-57 for Authenticated Encryption (AE) security
     //at most 2^32 invocations of AES-GCM according to NIST guidelines
     //but we stop at 2^24 because of TLS 1.3 spec
-    if (session_info->local_counter > (1 << 24)) { return -1; }
+    if (session_info->local_seq_number > (1 << 24)) { return -1; }
 
     //allocate memory for ciphertext
     size_t dst_len = sizeof(scc_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
@@ -137,8 +137,8 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     uint8_t *payload = ciphertext + sizeof(scc_ciphertext_header_t);
 
     //nonce is 32 bits of 0 followed by the message sequence number
-    memcpy(payload + 0, &(session_info->local_counter), sizeof(session_info->local_counter));
-    memset(payload + sizeof(session_info->local_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(session_info->local_counter));
+    memcpy(payload + 0, &(session_info->local_seq_number), sizeof(session_info->local_seq_number));
+    memset(payload + sizeof(session_info->local_seq_number), 0, SGX_AESGCM_IV_SIZE - sizeof(session_info->local_seq_number));
 
     /* ciphertext: IV || MAC || encrypted */
     status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->local_key),
@@ -147,13 +147,13 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
                                         payload + 0, /* IV */
                                         SGX_AESGCM_IV_SIZE, /* 12 bytes of IV */
-                                        (uint8_t *) &(session_info->local_counter), /* additional data */
-                                        sizeof(session_info->local_counter), /* zero bytes of additional data */
+                                        (uint8_t *) &(session_info->local_seq_number), /* additional data */
+                                        sizeof(session_info->local_seq_number), /* zero bytes of additional data */
                                         (sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); /* mac */
     assert(status == SGX_SUCCESS);
 
     //so we don't reuse IVs
-    session_info->local_counter = session_info->local_counter + 1;
+    session_info->local_seq_number = session_info->local_seq_number + 1;
 
     status = send_msg_ocall(&retstatus, ciphertext, dst_len, handle->session_id);
     assert(status == SGX_SUCCESS && retstatus == 0);
@@ -216,13 +216,13 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
                                             cleartext, //dst
                                             ciphertext, //iv
                                             SGX_AESGCM_IV_SIZE, //12 bytes
-                                            (uint8_t *) &(session_info->remote_counter), //aad
-                                            sizeof(session_info->remote_counter), //0 bytes of AAD
+                                            (uint8_t *) &(session_info->remote_seq_number), //aad
+                                            sizeof(session_info->remote_seq_number), //0 bytes of AAD
                                             (const sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); //mac
         assert(status == SGX_SUCCESS);
 
-        assert(*((uint64_t *) ciphertext) == session_info->remote_counter); //to prevent replay attacks
-        session_info->remote_counter = session_info->remote_counter + 1;
+        assert(*((uint64_t *) ciphertext) == session_info->remote_seq_number); //to prevent replay attacks
+        session_info->remote_seq_number = session_info->remote_seq_number + 1;
 
         size_t bytes_to_copy = min(cleartext_length, len - len_completed);
         memcpy(buf, cleartext, bytes_to_copy);

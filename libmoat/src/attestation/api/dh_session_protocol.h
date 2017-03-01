@@ -20,8 +20,8 @@ typedef struct
     sgx_aes_gcm_128bit_key_t AEK; //Session master secret
     sgx_aes_gcm_128bit_key_t local_key; //Session local key
     sgx_aes_gcm_128bit_key_t remote_key; //Session remote key
-    uint64_t                 local_counter; //Message Sequence Number, which we use as IV
-    uint64_t                 remote_counter; //most recent remote IV, to prevent replay attacks
+    uint64_t                 local_seq_number; //Message Sequence Number, which we use as IV
+    uint64_t                 remote_seq_number; //most recent remote IV, to prevent replay attacks
     uint8_t                  *recv_carryover_start;
     uint8_t                  *recv_carryover_ptr;
     size_t                   recv_carryover_bytes;
