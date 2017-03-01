@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "sgx_tcrypto.h"
 
 /***************************************************
                 MATH UTILITIES
@@ -42,5 +43,12 @@ void list_destroy_iterator(ll_iterator_t *iter);
 bool list_has_next(ll_iterator_t *iter);
 //return the next item in the list
 void *list_get_next(ll_iterator_t *iter);
+
+/***************************************************
+            CRYPTO UTILITIES
+ ***************************************************/
+
+size_t hkdf(uint8_t *ikm, size_t ikm_len, uint8_t *info, size_t info_len, uint8_t *okm, size_t okm_len);
+size_t hmac_sha256(uint8_t *key, size_t key_len, uint8_t *msg, size_t msg_len, sgx_sha256_hash_t *out);
 
 #endif
