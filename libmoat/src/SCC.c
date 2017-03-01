@@ -47,12 +47,54 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     dh_session_t *session_info = get_session_info(session_id);
     assert(session_info != NULL);
 
-    //local_counter is used as IV, and is incremented by 2 for each invocation of AES-GCM-128
-    session_info->local_counter = is_server ? 1 : 2; //server/client uses odd/even IVs
-    session_info->remote_counter = is_server ? 2 : 1; //haven't seen any remote IVs yet
+    //derive server and client keys
+    uint8_t* okm = malloc(2 * sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(okm != NULL);
+
+    static const char key_label[] = "key";
+    size_t status = hkdf(((uint8_t *) &(session_info->AEK)),
+                         sizeof(sgx_aes_gcm_128bit_key_t),
+                         (uint8_t *) key_label,
+                         strlen(key_label),
+                         okm,
+                         2 * sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(status == 0);
+    size_t local_key_offset = is_server ? sizeof(sgx_aes_gcm_128bit_key_t) : 0;
+    size_t remote_key_offset = is_server ? 0 : sizeof(sgx_aes_gcm_128bit_key_t);
+    memcpy(((uint8_t *) &(session_info->local_key)), okm + local_key_offset, sizeof(sgx_aes_gcm_128bit_key_t));
+    memcpy(((uint8_t *) &(session_info->remote_key)), okm + remote_key_offset, sizeof(sgx_aes_gcm_128bit_key_t));
+    free(okm);
+
+    //size_t hkdf(uint8_t *ikm, size_t ikm_len, uint8_t *info, size_t info_len, uint8_t *okm, size_t okm_len);
+    //static const char iv_label[] = "iv";
+
+    //local_counter is used as IV, and is incremented by 1 for each invocation of AES-GCM-128
+    session_info->local_counter = 0;
+    session_info->remote_counter = 0;
     session_info->recv_carryover_start = NULL;
     session_info->recv_carryover_ptr = NULL;
     session_info->recv_carryover_bytes = 0;
+
+#ifndef RELEASE
+    _moat_print_debug("master secret: ");
+    for (size_t i = 0; i < sizeof(sgx_aes_gcm_128bit_key_t); i++)
+    {
+        _moat_print_debug("0x%02X,", ((uint8_t *) &(session_info->AEK))[i]);
+    }
+    _moat_print_debug("\n");
+    _moat_print_debug("local key: ");
+    for (size_t i = 0; i < sizeof(sgx_aes_gcm_128bit_key_t); i++)
+    {
+        _moat_print_debug("0x%02X,", ((uint8_t *) &(session_info->local_key))[i]);
+    }
+    _moat_print_debug("\n");
+    _moat_print_debug("remote key: ");
+    for (size_t i = 0; i < sizeof(sgx_aes_gcm_128bit_key_t); i++)
+    {
+        _moat_print_debug("0x%02X,", ((uint8_t *) &(session_info->remote_key))[i]);
+    }
+    _moat_print_debug("\n");
+#endif
 
     //allocate memory for the context
     scc_handle_t *handle = (scc_handle_t *) malloc(sizeof(scc_handle_t));
@@ -99,7 +141,7 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     memset(payload + sizeof(session_info->local_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(session_info->local_counter));
 
     /* ciphertext: IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK),
+    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->local_key),
                                         buf, /* input */
                                         len, /* input length */
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
@@ -111,7 +153,7 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     assert(status == SGX_SUCCESS);
 
     //so we don't reuse IVs
-    session_info->local_counter = session_info->local_counter + 2;
+    session_info->local_counter = session_info->local_counter + 1;
 
     status = send_msg_ocall(&retstatus, ciphertext, dst_len, handle->session_id);
     assert(status == SGX_SUCCESS && retstatus == 0);
@@ -168,7 +210,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
         assert(status == SGX_SUCCESS && retstatus == 0);
 
         /* ciphertext: header || IV || MAC || encrypted */
-        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->AEK), //key
+        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->remote_key), //key
                                             ciphertext + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
                                             cleartext_length, //src_len
                                             cleartext, //dst
@@ -180,7 +222,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
         assert(status == SGX_SUCCESS);
 
         assert(*((uint64_t *) ciphertext) == session_info->remote_counter); //to prevent replay attacks
-        session_info->remote_counter = session_info->remote_counter + 2;
+        session_info->remote_counter = session_info->remote_counter + 1;
 
         size_t bytes_to_copy = min(cleartext_length, len - len_completed);
         memcpy(buf, cleartext, bytes_to_copy);

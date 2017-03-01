@@ -111,7 +111,7 @@ attestation_status_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t
         return ENCLAVE_TRUST_ERROR;
     }
 #else
-    _moat_print_debug("remote measurement: ");
+    _moat_print_debug("peer identity: ");
     for (size_t i = 0; i < sizeof(sgx_measurement_t); i++)
     {
         _moat_print_debug("0x%02X,", ((uint8_t *) &(peer_enclave_identity->mr_enclave))[i]);

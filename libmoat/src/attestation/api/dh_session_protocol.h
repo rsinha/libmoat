@@ -17,7 +17,9 @@ typedef struct
     size_t                   session_id; //Identifies the current session
     sgx_measurement_t        measurement; //measurement of the remote enclave
     sgx_dh_session_role_t    role; //role of this enclave: initiator or responder?
-    sgx_aes_gcm_128bit_key_t AEK; //Session Key
+    sgx_aes_gcm_128bit_key_t AEK; //Session master secret
+    sgx_aes_gcm_128bit_key_t local_key; //Session local key
+    sgx_aes_gcm_128bit_key_t remote_key; //Session remote key
     uint64_t                 local_counter; //Message Sequence Number, which we use as IV
     uint64_t                 remote_counter; //most recent remote IV, to prevent replay attacks
     uint8_t                  *recv_carryover_start;
