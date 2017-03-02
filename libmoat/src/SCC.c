@@ -41,6 +41,8 @@ void _moat_scc_module_init()
 
 scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
+    size_t status;
+
     size_t session_id = create_session(is_server, measurement);
     assert(session_id != 0);
 
@@ -52,21 +54,36 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     assert(okm != NULL);
 
     static const char key_label[] = "key";
-    size_t status = hkdf(((uint8_t *) &(session_info->AEK)),
-                         sizeof(sgx_aes_gcm_128bit_key_t),
-                         (uint8_t *) key_label,
-                         strlen(key_label),
-                         okm,
-                         2 * sizeof(sgx_aes_gcm_128bit_key_t));
+    status = hkdf(((uint8_t *) &(session_info->AEK)),
+                  sizeof(sgx_aes_gcm_128bit_key_t),
+                  (uint8_t *) key_label,
+                  strlen(key_label),
+                  okm,
+                  2 * sizeof(sgx_aes_gcm_128bit_key_t));
     assert(status == 0);
     size_t local_key_offset = is_server ? sizeof(sgx_aes_gcm_128bit_key_t) : 0;
     size_t remote_key_offset = is_server ? 0 : sizeof(sgx_aes_gcm_128bit_key_t);
     memcpy(((uint8_t *) &(session_info->local_key)), okm + local_key_offset, sizeof(sgx_aes_gcm_128bit_key_t));
     memcpy(((uint8_t *) &(session_info->remote_key)), okm + remote_key_offset, sizeof(sgx_aes_gcm_128bit_key_t));
+
     free(okm);
 
-    //size_t hkdf(uint8_t *ikm, size_t ikm_len, uint8_t *info, size_t info_len, uint8_t *okm, size_t okm_len);
-    //static const char iv_label[] = "iv";
+    //derive iv constant
+    uint8_t* iv_constant = malloc(2 * SGX_AESGCM_IV_SIZE);
+    assert(iv_constant != NULL);
+
+    static const char iv_label[] = "iv";
+    status = hkdf(((uint8_t *) &(session_info->AEK)),
+                  sizeof(sgx_aes_gcm_128bit_key_t),
+                  (uint8_t *) iv_label,
+                  strlen(iv_label),
+                  iv_constant,
+                  2 * SGX_AESGCM_IV_SIZE);
+    assert(status == 0);
+    size_t iv_offset = is_server ? SGX_AESGCM_IV_SIZE : 0;
+    memcpy(((uint8_t *) &(session_info->iv_constant)), iv_constant + iv_offset, SGX_AESGCM_IV_SIZE);
+
+    free(iv_constant);
 
     //local_seq_number is used as IV, and is incremented by 1 for each invocation of AES-GCM-128
     session_info->local_seq_number = 0;
@@ -136,9 +153,18 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
 
     uint8_t *payload = ciphertext + sizeof(scc_ciphertext_header_t);
 
-    //nonce is 32 bits of 0 followed by the message sequence number
-    memcpy(payload + 0, &(session_info->local_seq_number), sizeof(session_info->local_seq_number));
+    //compute the per-record nonce
+    //(1) The 64-bit record sequence number is encoded in network byte order and padded to the left with zeroes to iv_length.
+    for (size_t i = 0; i < sizeof(session_info->local_seq_number); i++)
+    {
+        payload[i] = (session_info->local_seq_number >> (56 - i * 8)) & 0xFF;
+    }
     memset(payload + sizeof(session_info->local_seq_number), 0, SGX_AESGCM_IV_SIZE - sizeof(session_info->local_seq_number));
+    //(2) The padded sequence number is XORed with the static client_write_iv or server_write_iv, depending on the role.
+    for (size_t i = 0; i < SGX_AESGCM_IV_SIZE; i++)
+    {
+        payload[i] = payload[i] ^ (session_info->iv_constant)[i];
+    }
 
     /* ciphertext: IV || MAC || encrypted */
     status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->local_key),
@@ -221,7 +247,6 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
                                             (const sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); //mac
         assert(status == SGX_SUCCESS);
 
-        assert(*((uint64_t *) ciphertext) == session_info->remote_seq_number); //to prevent replay attacks
         session_info->remote_seq_number = session_info->remote_seq_number + 1;
 
         size_t bytes_to_copy = min(cleartext_length, len - len_completed);
