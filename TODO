@@ -1,8 +1,7 @@
-1. use HKDF to derive client and server IVs
-2. implement session renegotiation after IV wrap around
-3. Implement file system re-encryption after IV wrap around
-4. Implement a Merkle Tree for replay protection
-5. error codes and error messages (print them in debug mode)
+1. implement session renegotiation after IV wrap around
+2. Implement file system re-encryption after IV wrap around
+3. Implement a Merkle Tree for replay protection
+4. error codes and error messages (print them in debug mode)
 
 Future Work
 1. Concurrent
