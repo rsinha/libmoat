@@ -37,6 +37,20 @@ static sgx_sha256_hash_t *g_latest_hash;   //for freshness
  PRIVATE METHODS
  ***************************************************/
 
+void integrity_check_freshness(size_t addr, uint8_t *ciphertext, size_t len)
+{
+    sgx_sha256_hash_t computed_hash;
+    status = sgx_sha256_msg(ciphertext, len, &computed_hash);
+    assert(status == SGX_SUCCESS);
+    assert(memcmp(&(g_latest_hash[addr - 1]), &computed_hash, sizeof(computed_hash)) == 0);
+}
+
+void integrity_record_freshness(size_t addr, uint8_t *ciphertext, size_t len)
+{
+    status = sgx_sha256_msg(ciphertext, len, &(g_latest_hash[addr - 1]));
+    assert(status == SGX_SUCCESS);
+}
+
 //NOTE: addr ranges from 1 to NUM_BLOCKS
 size_t auth_enc_storage_read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
 {
@@ -61,10 +75,7 @@ size_t auth_enc_storage_read_access(size_t addr, block_t data, sgx_aes_gcm_128bi
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
     //preventing rollback attacks
-    sgx_sha256_hash_t computed_hash;
-    status = sgx_sha256_msg(ciphertext, len, &computed_hash);
-    assert(status == SGX_SUCCESS);
-    assert(memcmp(&(g_latest_hash[addr - 1]), &computed_hash, sizeof(computed_hash)) == 0);
+    integrity_check_freshness(addr, ciphertext, len);
     
     /* ciphertext: header || IV || MAC || encrypted */
     status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) key, //key
@@ -116,9 +127,8 @@ size_t auth_enc_storage_write_access(size_t addr, block_t data, sgx_aes_gcm_128b
                                         (sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); /* mac */
     assert(status == SGX_SUCCESS);
     
-    //saving MAC for checking freshness of ciphertexts
-    status = sgx_sha256_msg(ciphertext, len, &(g_latest_hash[addr - 1]));
-    assert(status == SGX_SUCCESS);
+    //saving SHA-256 hash for future freshness checks
+    integrity_record_freshness(addr, ciphertext, len);
     
     //so we don't reuse IVs
     g_local_counter = g_local_counter + 1;
