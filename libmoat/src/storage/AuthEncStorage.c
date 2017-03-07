@@ -61,7 +61,7 @@ void integrity_check_freshness(size_t addr, uint8_t *ciphertext, size_t len)
 
         size_t merkle_height = 0, width = 1;
         size_t left_low = addr, left_high = addr, right_low = addr, right_high = addr;
-        while(merkle_height <= log_base_2(NUM_BLOCKS))
+        while(merkle_height < log_base_2(NUM_BLOCKS))
         {
             size_t next_width = width * 2;
             size_t div = (addr - 1) / next_width;
@@ -153,6 +153,9 @@ void integrity_record_freshness(size_t addr, uint8_t *ciphertext, size_t len)
             width = next_width;
             merkle_height = merkle_height + 1;
         }
+
+        //save the new root
+        memcpy(g_latest_hash, &computed_hash, sizeof(sgx_sha256_hash_t));
 
         //ocall to outsource written_merkle_nodes
         status = write_merkle_ocall(&retstatus, addr, written_merkle_nodes, log_base_2(NUM_BLOCKS) + 1);
