@@ -26,7 +26,7 @@ size_t path_oram_storage_access(size_t op, size_t addr, block_t data, sgx_aes_gc
 
 void block_storage_module_init()
 {
-    auth_enc_storage_module_init();
+    auth_enc_storage_module_init(false);
     //path_oram_storage_module_init();
 }
 
