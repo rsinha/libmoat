@@ -33,32 +33,37 @@ uint64_t enclave_test()
     api_result = _moat_print_debug("result: %" PRIu64 "\n", result); assert(api_result == 0);
     api_result = _moat_scc_destroy(handle); assert(api_result == 0);
 
-    //save result in a file
+    /* FS test 1 */
     fs_handle_t *fd = _moat_fs_open("tmpfile");
     api_result = _moat_fs_write(fd, 0, &result, sizeof(result));
     assert(api_result == 0);
     uint64_t reload_result;
     api_result = _moat_fs_read(fd, 0, &reload_result, sizeof(reload_result));
     assert(api_result == 0);
-
     assert(reload_result == result);
     _moat_print_debug("FS check 1 successful\n");
 
+    /* FS test 2 */
     size_t offset = 0;
     while (offset < 20000) {
         api_result = _moat_fs_write(fd, offset, &measurement, sizeof(sgx_measurement_t));
         assert(api_result == 0);
         offset += 32;
     }
-
     offset = 4224;
     sgx_measurement_t reload_measurement;
     api_result = _moat_fs_read(fd, offset, &reload_measurement, sizeof(reload_measurement));
     assert(api_result == 0);
-
     assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) == 0);
     _moat_print_debug("FS check 2 successful\n");
 
+    /* FS test 3 */
+    api_result = _moat_fs_read(fd, 40, &reload_measurement, sizeof(reload_measurement));
+    assert(api_result == 0);
+    assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) != 0);
+    _moat_print_debug("FS check 3 successful\n");
+
+    /* FS test 4 */
     offset = 4224;
     while (offset < 20000) {
         api_result = _moat_fs_read(fd, offset, &reload_measurement, sizeof(reload_measurement));
@@ -66,7 +71,7 @@ uint64_t enclave_test()
         assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) == 0);
         offset += 32;
     }
-    _moat_print_debug("FS check 3 successful\n");
+    _moat_print_debug("FS check 4 successful\n");
 
     return 0;
 }
