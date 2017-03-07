@@ -126,7 +126,7 @@ void integrity_record_freshness(size_t addr, uint8_t *ciphertext, size_t len)
         size_t merkle_height = 0, width = 1;
         size_t left_low = addr, left_high = addr, right_low = addr, right_high = addr;
 
-        while(merkle_height <= log_base_2(NUM_BLOCKS))
+        while(merkle_height < log_base_2(NUM_BLOCKS))
         {
             size_t next_width = width * 2;
             size_t div = (addr - 1) / next_width;
