@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include "libmoat.h"
 #include "common.h"
@@ -34,10 +35,38 @@ uint64_t enclave_test()
 
     //save result in a file
     fs_handle_t *fd = _moat_fs_open("tmpfile");
-    api_result = _moat_fs_write(fd, 0, &result, sizeof(result)); assert(api_result == 0);
-    uint64_t reload;
-    api_result = _moat_fs_read(fd, 0, &reload, sizeof(reload)); assert(api_result == 0);
-    assert(reload == result);
+    api_result = _moat_fs_write(fd, 0, &result, sizeof(result));
+    assert(api_result == 0);
+    uint64_t reload_result;
+    api_result = _moat_fs_read(fd, 0, &reload_result, sizeof(reload_result));
+    assert(api_result == 0);
+
+    assert(reload_result == result);
+    _moat_print_debug("FS check 1 successful\n");
+
+    size_t offset = 0;
+    while (offset < 20000) {
+        api_result = _moat_fs_write(fd, offset, &measurement, sizeof(sgx_measurement_t));
+        assert(api_result == 0);
+        offset += 32;
+    }
+
+    offset = 4224;
+    sgx_measurement_t reload_measurement;
+    api_result = _moat_fs_read(fd, offset, &reload_measurement, sizeof(reload_measurement));
+    assert(api_result == 0);
+
+    assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) == 0);
+    _moat_print_debug("FS check 2 successful\n");
+
+    offset = 4224;
+    while (offset < 20000) {
+        api_result = _moat_fs_read(fd, offset, &reload_measurement, sizeof(reload_measurement));
+        assert(api_result == 0);
+        assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) == 0);
+        offset += 32;
+    }
+    _moat_print_debug("FS check 3 successful\n");
 
     return 0;
 }
