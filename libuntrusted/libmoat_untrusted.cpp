@@ -23,7 +23,7 @@ typedef struct {
 } untrusted_channel_t;
 
 typedef struct _merkle_node {
-    sgx_sha256_hash_t   *hash;
+    sgx_sha256_hash_t    hash;
     struct _merkle_node *left_child;
     struct _merkle_node *right_child;
     struct _merkle_node *parent;
@@ -226,7 +226,7 @@ size_t create_merkle_tree_helper(merkle_node_t *node, size_t depth, sgx_sha256_h
 {
     //populate the hash
     //enclave sends us hashes ordered from leaf to root, hence [max_depth - depth]
-    memcpy(node->hash, &(buf[max_depth - depth]), sizeof(sgx_sha256_hash_t));
+    memcpy(&(node->hash), &(buf[max_depth - depth]), sizeof(sgx_sha256_hash_t));
 
     //Terminate recursion if we hit max_depth
     if (depth == max_depth) {
@@ -276,7 +276,7 @@ size_t read_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes)
     {
         merkle_node_t *sibling = node->parent->left_child == node ?
             node->parent->right_child : node->parent->left_child;
-        memcpy(&(buf[height]), node->hash, sizeof(sgx_sha256_hash_t));
+        memcpy(&(buf[height]), &(sibling->hash), sizeof(sgx_sha256_hash_t));
         node = node->parent;
         height += 1;
     }
@@ -289,7 +289,7 @@ size_t write_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes
     size_t height = 0;
     while (height < num_hashes)
     {
-        memcpy(&(buf[height]), node->hash, sizeof(sgx_sha256_hash_t));
+        memcpy(&(node->hash), &(buf[height]), sizeof(sgx_sha256_hash_t));
         node = node->parent;
         height += 1;
     }
