@@ -262,7 +262,7 @@ size_t create_merkle_ocall(sgx_sha256_hash_t *buf, size_t num_hashes, size_t num
     g_in_order_traversal_counter = 0;
 
     g_merkle_root->parent = NULL;
-    size_t r = create_merkle_tree_helper(g_merkle_root, 0, buf, 3);
+    size_t r = create_merkle_tree_helper(g_merkle_root, 0, buf, num_hashes - 1);
     assert(g_in_order_traversal_counter == num_blocks);
 
     return r;
