@@ -26,6 +26,12 @@ size_t path_oram_storage_access(size_t op, size_t addr, block_t data, sgx_aes_gc
 
 void block_storage_module_init()
 {
+    sgx_status_t status;
+    size_t retstatus;
+
+    status = create_blockfs_ocall(&retstatus, NUM_BLOCKS);
+    assert(status == SGX_SUCCESS && retstatus == 0);
+
     auth_enc_storage_module_init(true);
     //path_oram_storage_module_init();
 }

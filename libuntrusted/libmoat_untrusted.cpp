@@ -5,6 +5,8 @@
 #include <iostream>
 #include <fstream>
 #include <assert.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /* Internal Definitions */
 
@@ -186,11 +188,22 @@ size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
     return -1;
 }
 
+size_t create_blockfs_ocall(size_t num_blocks)
+{
+    struct stat st = {0};
+    if (stat("/tmp/libmoat", &st) == 0) {
+        printf("WARNING: /tmp/libmoat already exists. Deleting it...\n");
+        rmdir("/tmp/libmoat");
+    }
+    mkdir("/tmp/libmoat", 0700);
+    return 0;
+}
+
 size_t write_block_ocall(void *buf, size_t len, size_t addr)
 {
     std::ofstream fout;
 
-    std::string prefix = "/tmp/libmoat";
+    std::string prefix = "/tmp/libmoat/";
     std::string filename = prefix + std::to_string(addr);
 
     fout.open(filename.c_str(), std::ios::binary | std::ios::out);
@@ -205,7 +218,7 @@ size_t read_block_ocall(void *buf, size_t len, size_t addr)
 {
     std::ifstream fin;
 
-    std::string prefix = "/tmp/libmoat";
+    std::string prefix = "/tmp/libmoat/";
     std::string filename = prefix + std::to_string(addr);
 
     fin.open(filename, std::ios::binary | std::ios::in);

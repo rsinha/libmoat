@@ -26,6 +26,7 @@ sgx_status_t SGX_CDECL end_session_ocall(size_t* retval, size_t session_id);
 sgx_status_t SGX_CDECL send_msg_ocall(size_t* retval, void* buf, size_t len, size_t session_id);
 sgx_status_t SGX_CDECL recv_msg_ocall(size_t* retval, void* buf, size_t len, size_t session_id);
 
+sgx_status_t SGX_CDECL create_blockfs_ocall(size_t* retval, size_t num_blocks);
 sgx_status_t SGX_CDECL write_block_ocall(size_t* retval, void* buf, size_t len, size_t addr);
 sgx_status_t SGX_CDECL read_block_ocall(size_t* retval, void* buf, size_t len, size_t addr);
 
