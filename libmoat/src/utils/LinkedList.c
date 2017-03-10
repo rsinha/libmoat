@@ -38,6 +38,7 @@ void list_insert_value(ll_t *list, void *value)
     if (list == NULL || value == NULL) { return; } //error-checking on inputs
     
     ll_node_t *node = (ll_node_t *) malloc(sizeof(ll_node_t)); //malloc the new node
+    assert(node != NULL);
     node->value = value;
     node->next = NULL; //we are going to insert at the tail
     
@@ -109,6 +110,7 @@ void *list_find_value(ll_t *list, bool (*pred)(void *))
 ll_iterator_t *list_create_iterator(ll_t *list)
 {
     ll_iterator_t *iter = malloc(sizeof(ll_iterator_t));
+    assert(malloc != NULL);
     iter->next_node = list->head;
     return iter;
 }
@@ -148,6 +150,7 @@ bool test0()
     ll_iterator_t *iter = NULL;
     
     g_list = malloc(sizeof(ll_t));
+    assert(g_list != NULL);
     g_list->head = NULL;
     
     list_insert_value(g_list, &values[0]);
@@ -189,6 +192,8 @@ bool test0()
     iter = list_create_iterator(g_list);
     while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
     list_destroy_iterator(iter);
+
+    free(g_list);
 }
 
 
