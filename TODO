@@ -1,9 +1,10 @@
+Bug Fixes
 1. implement session renegotiation after IV wrap around
 2. Implement file system re-encryption after IV wrap around
-3. Implement a Merkle Tree for replay protection
-4. error codes and error messages (print them in debug mode)
-5. implement remote attestation
+3. error codes and error messages (print them in debug mode)
 
 Future Work
-1. Asynchronous Ocalls
-2. Concurrent User threads
+1. Asynchronous Ocalls, concurrent User threads
+2. implement remote attestation
+3. Side channel protections: timing, access patterns
+4. Path ORAM
