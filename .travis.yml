@@ -1,5 +1,5 @@
 language: c
-script: cd apps/testSCC/client; make
+script: cd apps/testSCC/client && make
 
 os: linux
 dist: trusty
@@ -19,4 +19,4 @@ before_install:
   - cd zeromq-4.1.2 && ./autogen.sh && ./configure && make && make install && ldconfig && cd ..
   - wget https://github.com/zeromq/czmq/releases/download/v4.0.2/czmq-4.0.2.tar.gz
   - tar -xvf czmq-4.0.2.tar.gz
-  - cd czmq-4.0.2 && ./autogen.sh && ./configure && make && make install && ldconfig
+  - cd czmq-4.0.2 && ./autogen.sh && ./configure && make && make install && ldconfig && cd ..
