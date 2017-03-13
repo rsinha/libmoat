@@ -7,4 +7,6 @@ Future Work
 1. Asynchronous Ocalls, concurrent User threads
 2. implement remote attestation
 3. Side channel protections: timing, access patterns
-4. Path ORAM
+  - Path ORAM for obliviating file access pattern
+  - Constant message sizes, and round robin sends for obliviating I/O traffic
+  - all observable I/O events should be periodic for hiding timing leaks
