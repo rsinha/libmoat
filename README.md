@@ -6,7 +6,6 @@ Enclave Programming Library with APIs for secure communication and file storage
 The channel provides confidentiality, integrity, authenticity, and freshness (replay protection) guarantees.
 * channel_send(buf) and channel_recv(buf) APIs to send bytes over the created channel.
 * file_create(name) and file_delete(name) APIs to create and delete files (which are stored in the untrusted disk or memory).
-* file_open(name) and file_close(name) APIs to open handles to existing files
 * file_read(buf, offset) and file_write(buf, offset) API to write bytes at the specified offset.
 
 # Setup
