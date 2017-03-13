@@ -16,7 +16,7 @@ before_install:
   - export PRIVATE_KEY_PATH=$PWD/private_key.pem
   - wget http://download.zeromq.org/zeromq-4.1.2.tar.gz
   - tar -xvf zeromq-4.1.2.tar.gz
-  - cd zeromq-4.1.2 && ./autogen.sh && ./configure --without-libsodium && make && sudo make install && ldconfig && cd ..
+  - cd zeromq-4.1.2 && ./autogen.sh && ./configure --without-libsodium && make && sudo make install && cd ..
   - wget https://github.com/zeromq/czmq/releases/download/v4.0.2/czmq-4.0.2.tar.gz
   - tar -xvf czmq-4.0.2.tar.gz
-  - cd czmq-4.0.2 && ./autogen.sh && ./configure && make && sudo make install && ldconfig && cd ..
+  - cd czmq-4.0.2 && ./autogen.sh && ./configure && make && sudo make install && cd ..
