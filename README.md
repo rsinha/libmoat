@@ -2,11 +2,11 @@
 [![Build Status](https://travis-ci.com/rsinha/libmoat.svg?token=D2mdydEyqN9gqKmdCX5p&branch=master)](https://travis-ci.com/rsinha/libmoat)
 
 Enclave Programming Library with APIs for secure communication and file storage
-* create_channel API to establish a TLS-like bi-directional channel between two enclaves. 
+* `moat_create_channel` API to establish a TLS-like bi-directional channel between two enclaves. 
 The channel provides confidentiality, integrity, authenticity, and freshness (replay protection) guarantees.
-* channel_send(buf) and channel_recv(buf) APIs to send bytes over the created channel.
-* file_create(name) and file_delete(name) APIs to create and delete files (which are stored in the untrusted disk or memory).
-* file_read(buf, offset) and file_write(buf, offset) API to write bytes at the specified offset.
+* `moat_channel_send`(buf) and `moat_channel_recv`(buf) APIs to send bytes over the created channel.
+* `moat_file_create(name)` and `moat_file_delete(name)` APIs to create and delete files (which are stored in the untrusted disk or memory).
+* `moat_file_read(buf, offset)` and `moat_file_write(buf, offset)` API to write bytes at the specified offset.
 
 # Setup
 
@@ -28,7 +28,7 @@ libmoat has been tested with v4.0.2.
 Note that running SGX programs requires an Intel CPU with SGX instructions enabled.
 If this is not available, you can install SGX driver in simulation mode.
 
-To learn how to use libmoat, experiment with a sample application written using libmoat e.g. apps/testSCC/client
+To learn how to use libmoat, experiment with a sample application written using libmoat e.g. [client](apps/testSCC/client) and [server](apps/testSCC/client)
 
 # Read more
 
