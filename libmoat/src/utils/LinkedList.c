@@ -158,31 +158,31 @@ bool test0()
     list_insert_value(g_list, &values[2]);
     assert(list_size(g_list) == 3);
     iter = list_create_iterator(g_list);
-    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    //while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
     list_destroy_iterator(iter);
     
     list_delete_value(g_list, &values[2]);
     assert(list_size(g_list) == 2);
     iter = list_create_iterator(g_list);
-    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    //while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
     list_destroy_iterator(iter);
     
     list_insert_value(g_list, &values[3]);
     assert(list_size(g_list) == 3);
     iter = list_create_iterator(g_list);
-    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    //while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
     list_destroy_iterator(iter);
     
     list_delete_value(g_list, &values[0]);
     assert(list_size(g_list) == 2);
     iter = list_create_iterator(g_list);
-    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    //while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
     list_destroy_iterator(iter);
     
     list_insert_value(g_list, &values[5]);
     assert(list_size(g_list) == 3);
     iter = list_create_iterator(g_list);
-    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    //while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
     list_destroy_iterator(iter);
     
     list_delete_value(g_list, &values[1]);
@@ -190,7 +190,7 @@ bool test0()
     list_delete_value(g_list, &values[5]);
     assert(list_size(g_list) == 0);
     iter = list_create_iterator(g_list);
-    while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
+    //while(list_has_next(iter)) { _moat_print_debug("%d,", *((int *) list_get_next(iter))); } _moat_print_debug("\n");
     list_destroy_iterator(iter);
 
     free(g_list);

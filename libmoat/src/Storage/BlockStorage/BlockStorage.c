@@ -5,8 +5,8 @@
 #include "sgx_tcrypto.h"
 #include "sgx_trts.h"
 
-#include "../../api/libmoat.h"
-#include "../../api/libmoat_untrusted.h"
+#include "../../../api/libmoat.h"
+#include "../../../api/libmoat_untrusted.h"
 #include "api/BlockStorage.h"
 
 /***************************************************

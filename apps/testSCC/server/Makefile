@@ -6,9 +6,10 @@ SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
 LIBUNTRUSTED := ../../../libuntrusted
 LIBMOAT := ../../../libmoat
-LIBMOAT_LOCALATTESTATION := ../../../libmoat/src/attestation/local
-LIBMOAT_UTILS := ../../../libmoat/src/utils
-LIBMOAT_STORAGE := ../../../libmoat/src/storage
+LIBMOAT_NETWORK := $(LIBMOAT)/src/Network
+LIBMOAT_UTILS := $(LIBMOAT)/src/Utils
+LIBMOAT_LOG := $(LIBMOAT)/src/Log
+LIBMOAT_STORAGE := $(LIBMOAT)/src/Storage
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -43,8 +44,13 @@ endif
 ######## Library Settings ########
 
 Trust_Lib_Name := libmoat.a
-TrustLib_C_Files := $(wildcard ../../../libmoat/src/*.c) $(wildcard ../../../libmoat/src/attestation/local/*.c) $(wildcard ../../../libmoat/src/utils/*.c) $(wildcard ../../../libmoat/src/storage/*.c)
-TrustLib_Cpp_Files := 
+TrustLib_C_Files := $(wildcard ../../../libmoat/src/Network/*.c) \
+                    $(wildcard ../../../libmoat/src/Network/RecordChannel/*.c) \
+                    $(wildcard ../../../libmoat/src/Storage/*.c) \
+                    $(wildcard ../../../libmoat/src/Storage/BlockStorage/*.c) \
+                    $(wildcard ../../../libmoat/src/Log/*.c) \
+                    $(wildcard ../../../libmoat/src/Utils/*.c)
+TrustLib_Cpp_Files :=
 TrustLib_C_Objects := $(TrustLib_C_Files:.c=.o)
 TrustLib_Cpp_Objects := $(TrustLib_Cpp_Files:.cpp=.o)
 TrustLib_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/epid -I./Include
@@ -179,11 +185,15 @@ endif
 
 ######## Library Objects ########
 
-$(LIBMOAT)/src/%.o: $(LIBMOAT)/src/%.c
-	@echo "CC   <=  $<"
+$(LIBMOAT_LOG)/%.o: $(LIBMOAT_LOG)/%.c
+	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
 $(LIBMOAT_UTILS)/%.o: $(LIBMOAT_UTILS)/%.c
+	@echo "CC   <= $<"
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
+
+$(LIBMOAT_STORAGE)/BlockStorage/%.o: $(LIBMOAT_STORAGE)/BlockStorage/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
@@ -191,7 +201,11 @@ $(LIBMOAT_STORAGE)/%.o: $(LIBMOAT_STORAGE)/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
-$(LIBMOAT_LOCALATTESTATION)/%.o: $(LIBMOAT_LOCALATTESTATION)/%.c
+$(LIBMOAT_NETWORK)/%.o: $(LIBMOAT_NETWORK)/%.c
+	@echo "CC   <= $<"
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
+
+$(LIBMOAT_NETWORK)/RecordChannel/%.o: $(LIBMOAT_NETWORK)/RecordChannel/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 

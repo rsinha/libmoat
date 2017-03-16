@@ -1,5 +1,4 @@
 #include "sgx_tcrypto.h"
-//#include "sgx_trts.h"
 
 #include "api/Utils.h"
 #include <string.h>

@@ -5,10 +5,10 @@
 #include "sgx_tcrypto.h"
 #include "sgx_trts.h"
 
-#include "../api/libmoat.h"
-#include "../api/libmoat_untrusted.h"
-#include "utils/api/Utils.h"
-#include "storage/api/BlockStorage.h"
+#include "../../api/libmoat.h"
+#include "../../api/libmoat_untrusted.h"
+#include "../Utils/api/Utils.h"
+#include "BlockStorage/api/BlockStorage.h"
 
 //this module implements journaling: mapping files to blocks
 

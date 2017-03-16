@@ -9,10 +9,10 @@
 #include <assert.h>
 #include <string.h>
 
-#include "../api/libmoat.h"
-#include "../api/libmoat_untrusted.h"
-#include "attestation/api/dh_session_protocol.h"
-#include "utils/api/Utils.h"
+#include "../../api/libmoat.h"
+#include "../../api/libmoat_untrusted.h"
+#include "RecordChannel/api/RecordChannel.h"
+#include "../Utils/api/Utils.h"
 
 /***************************************************
             DEFINITIONS FOR INTERNAL USE
@@ -36,18 +36,20 @@ typedef struct
 
 void _moat_scc_module_init()
 {
-    local_attestation_module_init();
+    record_channel_module_init();
 }
 
 scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
 {
     size_t status;
+    size_t session_id;
 
-    size_t session_id = create_session(is_server, measurement);
-    assert(session_id != 0);
-
-    dh_session_t *session_info = get_session_info(session_id);
-    assert(session_info != NULL);
+    dh_session_t *session_info = open_session();
+    if (session_info == NULL) { return NULL; } //can't handle another session
+    
+    //fill session_info->AEK
+    status = establish_shared_secret(is_server, measurement, session_info);
+    assert(status == 0);
 
     //derive server and client keys
     uint8_t* okm = malloc(2 * sizeof(sgx_aes_gcm_128bit_key_t));
@@ -116,7 +118,7 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     //allocate memory for the context
     scc_handle_t *handle = (scc_handle_t *) malloc(sizeof(scc_handle_t));
     assert(handle != NULL);
-    handle->session_id = session_id;
+    handle->session_id = session_info->session_id;
     
     //all ok if we got here
     return handle;
@@ -130,7 +132,7 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     //a full size record cannot exceed 2^14 bytes in TLS 1.3
     if (len > (1<<14)) { return -1; }
 
-    dh_session_t *session_info = get_session_info(handle->session_id);
+    dh_session_t *session_info = find_session(handle->session_id);
     assert(session_info != NULL);
 
     //Section 5.5: 
@@ -193,7 +195,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
     size_t retstatus;
     size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
 
-    dh_session_t *session_info = get_session_info(handle->session_id);
+    dh_session_t *session_info = find_session(handle->session_id);
     assert(session_info != NULL);
     
     //are there any bytes remaining from the previous invocation of recv?
@@ -270,7 +272,8 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 
 size_t _moat_scc_destroy(scc_handle_t *handle)
 {
-    size_t status = close_session(handle->session_id);
+    dh_session_t *session_info = find_session(handle->session_id);
+    size_t status = close_session(session_info);
     assert(status == 0);
     free(handle);
     return 0;

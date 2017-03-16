@@ -2,16 +2,13 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "../api/libmoat_untrusted.h"
+#include "../../api/libmoat_untrusted.h"
 
 /***************************************************
  PUBLIC API IMPLEMENTATION
  ***************************************************/
 
-void _moat_debug_module_init()
-{
-    return;
-}
+void _moat_debug_module_init() { }
 
 size_t _moat_print_debug(const char *fmt, ...)
 {
