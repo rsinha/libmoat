@@ -1,0 +1,22 @@
+language: c
+script: cd apps/testSCC/client && make
+
+os: linux
+dist: trusty
+sudo: required
+
+before_install:
+  - export CC=gcc-4.8
+  - export CXX=g++-4.8
+  - wget https://download.01.org/intel-sgx/linux-1.7/sgx_linux_x64_sdk_1.7.100.36470.bin -O sgx_sdk.bin
+  - chmod +x sgx_sdk.bin
+  - echo yes | ./sgx_sdk.bin
+  - source sgxsdk/environment
+  - openssl ecparam -name prime256v1 -genkey -noout -out private_key.pem
+  - export PRIVATE_KEY_PATH=$PWD/private_key.pem
+  - wget http://download.zeromq.org/zeromq-4.1.2.tar.gz
+  - tar -xvf zeromq-4.1.2.tar.gz
+  - cd zeromq-4.1.2 && ./autogen.sh && ./configure --without-libsodium && make && sudo make install && cd ..
+  - wget https://github.com/zeromq/czmq/releases/download/v4.0.2/czmq-4.0.2.tar.gz
+  - tar -xvf czmq-4.0.2.tar.gz
+  - cd czmq-4.0.2 && ./configure && make && sudo make install && cd ..
