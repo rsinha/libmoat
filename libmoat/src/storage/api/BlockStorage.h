@@ -11,7 +11,7 @@ typedef uint8_t block_t[BLOCK_SIZE];
 #define WRITE 2
 
 void block_storage_module_init();
-size_t block_storage_access(size_t op, size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key);
+size_t block_storage_access(size_t op, size_t addr, block_t data);
 
 #endif
 

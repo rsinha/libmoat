@@ -31,9 +31,10 @@ typedef struct
  INTERNAL STATE
  ***************************************************/
 
-static uint64_t           g_local_counter; //used as IV
-static bool               g_using_merkle_tree;
-static sgx_sha256_hash_t *g_latest_hash;   //for freshness
+static uint64_t                   g_local_counter; //used as IV
+static sgx_aes_gcm_128bit_key_t  *g_key;   //key used to protect file contents
+static bool                       g_using_merkle_tree;
+static sgx_sha256_hash_t         *g_latest_hash;   //for freshness
 
 /***************************************************
  PRIVATE METHODS
@@ -173,7 +174,7 @@ void integrity_record_freshness(size_t addr, uint8_t *ciphertext, size_t len)
 }
 
 //NOTE: addr ranges from 1 to NUM_BLOCKS
-size_t auth_enc_storage_read_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
+size_t auth_enc_storage_read_access(size_t addr, block_t data)
 {
     sgx_status_t status;
     size_t retstatus;
@@ -199,7 +200,7 @@ size_t auth_enc_storage_read_access(size_t addr, block_t data, sgx_aes_gcm_128bi
     integrity_check_freshness(addr, ciphertext, len);
     
     /* ciphertext: header || IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) key, //key
+    status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) g_key, //key
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
                                         sizeof(block_t), //src_len
                                         data, //dst
@@ -216,7 +217,7 @@ size_t auth_enc_storage_read_access(size_t addr, block_t data, sgx_aes_gcm_128bi
 
 //NOTE: addr ranges from 1 to NUM_BLOCKS
 //performs authenticated encryption of data, and writes it as a file
-size_t auth_enc_storage_write_access(size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
+size_t auth_enc_storage_write_access(size_t addr, block_t data)
 {
     sgx_status_t status;
     size_t retstatus;
@@ -237,7 +238,7 @@ size_t auth_enc_storage_write_access(size_t addr, block_t data, sgx_aes_gcm_128b
     memset(payload + sizeof(g_local_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(g_local_counter));
     
     /* ciphertext: IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) key,
+    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) g_key,
                                         data, /* input */
                                         sizeof(block_t), /* input length */
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
@@ -270,6 +271,11 @@ void auth_enc_storage_module_init(bool useMerkleTree)
 {
     sgx_status_t status;
     size_t retstatus;
+
+    g_key = malloc(sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(g_key != NULL);
+    status = sgx_read_rand((uint8_t *) g_key, sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(status == SGX_SUCCESS);
 
     g_using_merkle_tree = useMerkleTree;
 
@@ -317,13 +323,13 @@ void auth_enc_storage_module_init(bool useMerkleTree)
     g_local_counter = 0;
 }
 
-size_t auth_enc_storage_access(size_t op, size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
+size_t auth_enc_storage_access(size_t op, size_t addr, block_t data)
 {
     if (op == READ) {
-        return auth_enc_storage_read_access(addr, data, key);
+        return auth_enc_storage_read_access(addr, data);
     }
     else if (op == WRITE) {
-        return auth_enc_storage_write_access(addr, data, key);
+        return auth_enc_storage_write_access(addr, data);
     }
     else {
         return -1;

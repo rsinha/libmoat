@@ -18,7 +18,7 @@ void path_oram_storage_module_init()
     return;
 }
 
-size_t path_oram_storage_access(size_t op, size_t addr, block_t data, sgx_aes_gcm_128bit_key_t *key)
+size_t path_oram_storage_access(size_t op, size_t addr, block_t data)
 {
     return -1;
 }
