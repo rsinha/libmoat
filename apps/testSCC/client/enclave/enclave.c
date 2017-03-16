@@ -28,10 +28,15 @@ uint64_t enclave_test()
     uint64_t result;
     size_t api_result;
     
-    api_result = _moat_scc_send(handle, &blob1, sizeof(blob1)); assert(api_result == 0);
+    //api_result = _moat_scc_send(handle, &blob1, sizeof(blob1)); assert(api_result == 0);
+    api_result = _moat_scc_send(handle, &(blob1.x1), sizeof(blob1.x1)); assert(api_result == 0);
+    api_result = _moat_scc_send(handle, &(blob1.x2), sizeof(blob1.x2)); assert(api_result == 0);
     api_result = _moat_scc_recv(handle, &result, sizeof(result)); assert(api_result == 0);
     api_result = _moat_print_debug("result: %" PRIu64 "\n", result); assert(api_result == 0);
     api_result = _moat_scc_destroy(handle); assert(api_result == 0);
+    
+    assert(result == 86); //using the server to add x1 to x2
+    _moat_print_debug("SCC check 1 successful\n");
 
     /* FS test 1 */
     fs_handle_t *fd = _moat_fs_open("tmpfile");

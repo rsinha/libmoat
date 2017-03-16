@@ -252,7 +252,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
         session_info->remote_seq_number = session_info->remote_seq_number + 1;
 
         size_t bytes_to_copy = min(cleartext_length, len - len_completed);
-        memcpy(buf, cleartext, bytes_to_copy);
+        memcpy(buf + len_completed, cleartext, bytes_to_copy);
         len_completed = len_completed + bytes_to_copy;
 
         if (bytes_to_copy < cleartext_length) {
@@ -262,6 +262,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
         } else {
             free(cleartext);
         }
+        
         free(ciphertext);
     }
     

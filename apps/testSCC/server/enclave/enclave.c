@@ -23,8 +23,9 @@ uint64_t enclave_test()
     blob_t blob;
     size_t api_result;
     
-    api_result = _moat_scc_recv(handle, &blob.x1, sizeof(blob.x1)); assert(api_result == 0);
-    api_result = _moat_scc_recv(handle, &blob.x2, sizeof(blob.x2)); assert(api_result == 0);
+    //api_result = _moat_scc_recv(handle, &blob.x1, sizeof(blob.x1)); assert(api_result == 0);
+    //api_result = _moat_scc_recv(handle, &blob.x2, sizeof(blob.x2)); assert(api_result == 0);
+    api_result = _moat_scc_recv(handle, &blob, sizeof(blob)); assert(api_result == 0);
     api_result = _moat_print_debug("Received input...\n"); assert(api_result == 0);
     uint64_t result = blob.x1 + blob.x2;
     api_result = _moat_scc_send(handle, &result, sizeof(result)); assert(api_result == 0);
