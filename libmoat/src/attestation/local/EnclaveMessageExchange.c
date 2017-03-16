@@ -247,10 +247,9 @@ size_t client_create_session(sgx_measurement_t *target_enclave)
 
     //save the session ID, status and initialize the session nonce
     session_info->session_id = session_id;
-    memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
     session_info->role = SGX_DH_SESSION_RESPONDER; //client
     memcpy(&(session_info->AEK), &dh_aek, sizeof(sgx_key_128bit_t));
-    memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
+    memcpy(&(session_info->measurement), target_enclave, sizeof(sgx_measurement_t));
 
     //Store the session information under the correspoding source enlave id key
     list_insert_value(g_dest_session_info, session_info);
