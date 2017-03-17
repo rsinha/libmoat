@@ -274,6 +274,7 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 size_t _moat_scc_destroy(scc_handle_t *handle)
 {
     dh_session_t *session_info = find_session(handle->session_id);
+    if (session_info == NULL) { return -1; }
     size_t status = close_session(session_info);
     assert(status == 0);
     free(handle);
