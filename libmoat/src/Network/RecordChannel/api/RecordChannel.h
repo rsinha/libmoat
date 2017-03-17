@@ -10,6 +10,8 @@
 #include "sgx_attributes.h"
 #include <stdbool.h>
 
+#define MAX_SESSION_COUNT  16
+
 //Session information structure
 typedef struct
 {
@@ -42,5 +44,8 @@ void record_channel_module_init();
 dh_session_t *open_session();
 size_t close_session(dh_session_t *session_info);
 dh_session_t *find_session(size_t session_id);
+
+size_t record_channel_recv(dh_session_t *session_info, void *record, size_t record_size);
+size_t record_channel_send(dh_session_t *session_info, void *record, size_t record_size);
 
 #endif

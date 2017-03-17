@@ -18,17 +18,12 @@
             DEFINITIONS FOR INTERNAL USE
  ***************************************************/
 
-typedef enum {
-    RESET = 0,
-    TEARDOWN = 1,
-    APPLICATION_DATA = 2
-} scc_ciphertext_type_t;
-
 typedef struct
 {
-    size_t type;
-    size_t length;
-} scc_ciphertext_header_t;
+    size_t cleartext_length;
+} scc_cleartext_header_t;
+
+#define RECORD_CLEARTEXT_SIZE 128
 
 /***************************************************
             PUBLIC API IMPLEMENTATION
@@ -124,149 +119,95 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     return handle;
 }
 
+//decomposes buf into record-sized chunks and sends it to the RecordChannel layer
 size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
 {
-    sgx_status_t status;
-    size_t retstatus;
-
-    //a full size record cannot exceed 2^14 bytes in TLS 1.3
-    if (len > (1<<14)) { return -1; }
+    size_t status;
 
     dh_session_t *session_info = find_session(handle->session_id);
-    assert(session_info != NULL);
+    if (session_info == NULL) { return -1; }
 
-    //Section 5.5: 
-    //For AES-GCM, up to 2^24.5 full-size records (about 24 million) 
-    //may be encrypted on a given connection while keeping a safety margin 
-    //of approximately 2^-57 for Authenticated Encryption (AE) security
-    //at most 2^32 invocations of AES-GCM according to NIST guidelines
-    //but we stop at 2^24 because of TLS 1.3 spec
-    if (session_info->local_seq_number > (1 << 24)) { return -1; }
+    uint8_t *record = malloc(sizeof(scc_cleartext_header_t) + RECORD_CLEARTEXT_SIZE);
+    assert(record != NULL);
 
-    //allocate memory for ciphertext
-    size_t dst_len = sizeof(scc_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
-    //look for overflows
-    assert(dst_len > len);
-    uint8_t *ciphertext = (uint8_t *) malloc(dst_len);
-    assert (ciphertext != NULL);
+    size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
 
-    ((scc_ciphertext_header_t *) ciphertext)->type = APPLICATION_DATA;
-    ((scc_ciphertext_header_t *) ciphertext)->length = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
+    while (len_completed < len) {
+        size_t delta = len - len_completed;
 
-    uint8_t *payload = ciphertext + sizeof(scc_ciphertext_header_t);
+        if (delta > RECORD_CLEARTEXT_SIZE) {
+            ((scc_cleartext_header_t *) record)->cleartext_length = RECORD_CLEARTEXT_SIZE;
+            memcpy(record + sizeof(scc_cleartext_header_t), buf + len_completed, RECORD_CLEARTEXT_SIZE);
+            len_completed += RECORD_CLEARTEXT_SIZE;
+        } else {
+            //introduce zero pad
+            ((scc_cleartext_header_t *) record)->cleartext_length = delta;
+            memcpy(record + sizeof(scc_cleartext_header_t), buf + len_completed, delta);
+            memset(record + sizeof(scc_cleartext_header_t) + delta, 0, RECORD_CLEARTEXT_SIZE - delta);
+            len_completed += delta;
+        }
 
-    //compute the per-record nonce
-    //(1) The 64-bit record sequence number is encoded in network byte order and padded to the left with zeroes to iv_length.
-    for (size_t i = 0; i < sizeof(session_info->local_seq_number); i++)
-    {
-        payload[i] = (session_info->local_seq_number >> (56 - i * 8)) & 0xFF;
-    }
-    memset(payload + sizeof(session_info->local_seq_number), 0, SGX_AESGCM_IV_SIZE - sizeof(session_info->local_seq_number));
-    //(2) The padded sequence number is XORed with the static client_write_iv or server_write_iv, depending on the role.
-    for (size_t i = 0; i < SGX_AESGCM_IV_SIZE; i++)
-    {
-        payload[i] = payload[i] ^ (session_info->iv_constant)[i];
+        status = record_channel_send(session_info, record, sizeof(scc_cleartext_header_t) + RECORD_CLEARTEXT_SIZE);
+        if (status != 0) { free(record); return -1; } //TODO: handle IV wraparound so we can do session rengotiation
     }
 
-    /* ciphertext: IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->local_key),
-                                        buf, /* input */
-                                        len, /* input length */
-                                        payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
-                                        payload + 0, /* IV */
-                                        SGX_AESGCM_IV_SIZE, /* 12 bytes of IV */
-                                        (uint8_t *) &(session_info->local_seq_number), /* additional data */
-                                        sizeof(session_info->local_seq_number), /* zero bytes of additional data */
-                                        (sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); /* mac */
-    assert(status == SGX_SUCCESS);
-
-    //so we don't reuse IVs
-    session_info->local_seq_number = session_info->local_seq_number + 1;
-
-    status = send_msg_ocall(&retstatus, ciphertext, dst_len, handle->session_id);
-    assert(status == SGX_SUCCESS && retstatus == 0);
-    free(ciphertext);
+    free(record);
     return 0;
 }
 
 size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
 {
-    sgx_status_t status;
-    size_t retstatus;
-    size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
+    size_t status;
 
     dh_session_t *session_info = find_session(handle->session_id);
-    assert(session_info != NULL);
+    if (session_info == NULL) { return -1; }
+
+    size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
     
-    //are there any bytes remaining from the previous invocation of recv?
+    //are there any left over bytes from the previous invocation of _moat_scc_recv?
     if (session_info->recv_carryover_ptr != NULL) {
         size_t bytes_to_copy = min(session_info->recv_carryover_bytes, len);
-        memcpy(buf, session_info->recv_carryover_ptr, bytes_to_copy);
+
         _moat_print_debug("copying %" PRIu64 " bytes from previous message\n", bytes_to_copy);
-        
+
+        memcpy(buf, session_info->recv_carryover_ptr, bytes_to_copy);
         len_completed = len_completed + bytes_to_copy;
         session_info->recv_carryover_bytes = session_info->recv_carryover_bytes - bytes_to_copy;
-        
+        session_info->recv_carryover_ptr = session_info->recv_carryover_ptr + bytes_to_copy;
+
+        //have we exhausted the left over bytes? If so, then free those resources.
         if (session_info->recv_carryover_bytes == 0) {
             free(session_info->recv_carryover_start);
             session_info->recv_carryover_start = NULL;
             session_info->recv_carryover_ptr = NULL;
         }
     }
-    
-    scc_ciphertext_header_t *header = (scc_ciphertext_header_t *) malloc(sizeof(scc_ciphertext_header_t));
-    assert(header != NULL);
-    
+
+    uint8_t *record = (uint8_t *) malloc(sizeof(scc_cleartext_header_t) + RECORD_CLEARTEXT_SIZE);
+    assert(record != NULL);
+
+    size_t cleartext_bytes_fetched = 0, bytes_to_copy = 0;
+
     while (len_completed < len) {
-        //first fetch the header to understand what to do next
-        status = recv_msg_ocall(&retstatus, header, sizeof(scc_ciphertext_header_t), handle->session_id);
-        //the ocall succeeded, and the logic within the ocall says everything succeeded
-        assert(status == SGX_SUCCESS && retstatus == 0);
-
-        if (header->type != APPLICATION_DATA) { free(header); return -1; } //no bytes
-        if (header->length > ((1<<14) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) { free(header); return -1; }
-
-        uint8_t *ciphertext = (uint8_t *) malloc(header->length);
-        assert(ciphertext != NULL);
-
-        size_t cleartext_length = header->length - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
-        uint8_t *cleartext = (uint8_t *) malloc(cleartext_length);
-        assert(cleartext != NULL);
-
         //fetch the ciphertext
-        status = recv_msg_ocall(&retstatus, ciphertext, header->length, handle->session_id);
-        assert(status == SGX_SUCCESS && retstatus == 0);
+        status = record_channel_recv(session_info, record, sizeof(scc_cleartext_header_t) + RECORD_CLEARTEXT_SIZE);
+        if (status != 0) { free(record); return -1; }
 
-        /* ciphertext: header || IV || MAC || encrypted */
-        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->remote_key), //key
-                                            ciphertext + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
-                                            cleartext_length, //src_len
-                                            cleartext, //dst
-                                            ciphertext, //iv
-                                            SGX_AESGCM_IV_SIZE, //12 bytes
-                                            (uint8_t *) &(session_info->remote_seq_number), //aad
-                                            sizeof(session_info->remote_seq_number), //0 bytes of AAD
-                                            (const sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); //mac
-        assert(status == SGX_SUCCESS);
+        cleartext_bytes_fetched = ((scc_cleartext_header_t *) record)->cleartext_length;
+        bytes_to_copy = min(cleartext_bytes_fetched, len - len_completed);
 
-        session_info->remote_seq_number = session_info->remote_seq_number + 1;
-
-        size_t bytes_to_copy = min(cleartext_length, len - len_completed);
-        memcpy(buf + len_completed, cleartext, bytes_to_copy);
+        memcpy(buf + len_completed, record + sizeof(scc_cleartext_header_t), bytes_to_copy);
         len_completed = len_completed + bytes_to_copy;
-
-        if (bytes_to_copy < cleartext_length) {
-            session_info->recv_carryover_start = cleartext;
-            session_info->recv_carryover_ptr = cleartext + bytes_to_copy;
-            session_info->recv_carryover_bytes = cleartext_length - bytes_to_copy;
-        } else {
-            free(cleartext);
-        }
-        
-        free(ciphertext);
     }
     
-    free(header);
+    if (bytes_to_copy < cleartext_bytes_fetched) {
+        session_info->recv_carryover_start = record;
+        session_info->recv_carryover_ptr = record + sizeof(scc_cleartext_header_t) + bytes_to_copy;
+        session_info->recv_carryover_bytes = cleartext_bytes_fetched - bytes_to_copy;
+    } else {
+        free(record);
+    }
+
     return 0;
     
 }
@@ -275,9 +216,12 @@ size_t _moat_scc_destroy(scc_handle_t *handle)
 {
     dh_session_t *session_info = find_session(handle->session_id);
     if (session_info == NULL) { return -1; }
+
     size_t status = close_session(session_info);
     assert(status == 0);
+
     free(handle);
+
     return 0;
 }
 
