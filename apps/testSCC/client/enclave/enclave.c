@@ -20,8 +20,10 @@ uint64_t enclave_test()
                                              0x6F,0x16,0x5B,0xC1,0x0D,0x06,0xCB,0x7A,
                                              0xAF,0x49,0xEF,0x4B,0xCE,0xBD,0xEA,0x90,
                                              0xD6,0x28,0x98,0xBC,0xBC,0x8F,0x50,0x36 } };
-    scc_handle_t *handle = _moat_scc_create(false, &measurement); assert(handle != NULL);
-     _moat_print_debug("ECDHE+AES-GCM-128 channel established with server...\n");
+    scc_attributes_t attr = { .record_size = 128, .side_channel_protection = 0 };
+    scc_handle_t *handle = _moat_scc_create(false, &measurement, &attr);
+    assert(handle != NULL);
+    _moat_print_debug("ECDHE+AES-GCM-128 channel established with server...\n");
 
     blob1.x1 = 42;
     blob1.x2 = 44;

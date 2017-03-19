@@ -22,8 +22,13 @@ typedef struct {
     size_t session_id;
 } scc_handle_t;
 
+typedef struct {
+    size_t record_size;
+    size_t side_channel_protection;
+} scc_attributes_t;
+
 void LIBMOAT_API _moat_scc_module_init();
-scc_handle_t * LIBMOAT_API _moat_scc_create(bool is_server, sgx_measurement_t *target_enclave);
+scc_handle_t * LIBMOAT_API _moat_scc_create(bool is_server, sgx_measurement_t *measurement, scc_attributes_t *attr);
 size_t LIBMOAT_API _moat_scc_send(scc_handle_t *handle, void *buf, size_t len);
 size_t LIBMOAT_API _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len);
 size_t LIBMOAT_API _moat_scc_destroy(scc_handle_t *handle);

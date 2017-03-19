@@ -27,7 +27,14 @@ typedef struct
     uint8_t                  *recv_carryover_start;
     uint8_t                  *recv_carryover_ptr;
     size_t                   recv_carryover_bytes;
+    size_t                   record_size;
+    size_t                   side_channel_protection;
 } dh_session_t;
+
+typedef struct
+{
+    size_t cleartext_length;
+} scc_cleartext_header_t;
 
 /***************************************************
 LOCAL ATTESTATION
@@ -41,11 +48,12 @@ size_t establish_shared_secret(bool is_server, sgx_measurement_t *target_enclave
  ***************************************************/
 
 void record_channel_module_init();
-dh_session_t *open_session();
-size_t close_session(dh_session_t *session_info);
+void get_dummy_record(void **record, size_t *record_size);
+void set_dummy_record(void *record, size_t record_size);
+dh_session_t *session_open();
+size_t session_close(dh_session_t *session_info);
 dh_session_t *find_session(size_t session_id);
-
-size_t record_channel_recv(dh_session_t *session_info, void *record, size_t record_size);
-size_t record_channel_send(dh_session_t *session_info, void *record, size_t record_size);
+size_t session_recv(dh_session_t *session_info, void *record, size_t record_size);
+size_t session_send(dh_session_t *session_info, void *record, size_t record_size);
 
 #endif

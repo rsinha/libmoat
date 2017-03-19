@@ -14,16 +14,6 @@
 #include "RecordChannel/api/RecordChannel.h"
 #include "../Utils/api/Utils.h"
 
-/***************************************************
-            DEFINITIONS FOR INTERNAL USE
- ***************************************************/
-
-typedef struct
-{
-    size_t cleartext_length;
-} scc_cleartext_header_t;
-
-#define RECORD_CLEARTEXT_SIZE 128
 
 /***************************************************
             PUBLIC API IMPLEMENTATION
@@ -34,14 +24,14 @@ void _moat_scc_module_init()
     record_channel_module_init();
 }
 
-scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
+scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement, scc_attributes_t *attr)
 {
     size_t status;
     size_t session_id;
 
-    dh_session_t *session_info = open_session();
+    dh_session_t *session_info = session_open();
     if (session_info == NULL) { return NULL; } //can't handle another session
-    
+
     //fill session_info->AEK
     status = establish_shared_secret(is_server, measurement, session_info);
     assert(status == 0);
@@ -89,6 +79,28 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement)
     session_info->recv_carryover_ptr = NULL;
     session_info->recv_carryover_bytes = 0;
 
+    //side channel protections
+    session_info->side_channel_protection = attr->side_channel_protection;
+    session_info->record_size = attr->record_size;
+
+    void *current_dummy_record;
+    size_t current_dummy_record_size;
+
+    get_dummy_record(&current_dummy_record, &current_dummy_record_size);
+
+    if (current_dummy_record_size < (attr->record_size + sizeof(scc_cleartext_header_t))) { //we need a bigger dummy record
+        if (current_dummy_record != NULL) {
+            free(current_dummy_record);
+        }
+        current_dummy_record_size = attr->record_size + sizeof(scc_cleartext_header_t);
+        current_dummy_record = malloc(current_dummy_record_size);
+        assert(current_dummy_record != NULL);
+        memset(current_dummy_record, 0, current_dummy_record_size);
+
+        set_dummy_record(current_dummy_record, current_dummy_record_size);
+    }
+
+
 #ifndef RELEASE
     _moat_print_debug("master secret: ");
     for (size_t i = 0; i < sizeof(sgx_aes_gcm_128bit_key_t); i++)
@@ -127,7 +139,7 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     dh_session_t *session_info = find_session(handle->session_id);
     if (session_info == NULL) { return -1; }
 
-    uint8_t *record = malloc(sizeof(scc_cleartext_header_t) + RECORD_CLEARTEXT_SIZE);
+    uint8_t *record = malloc(sizeof(scc_cleartext_header_t) + session_info->record_size);
     assert(record != NULL);
 
     size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
@@ -135,19 +147,19 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     while (len_completed < len) {
         size_t delta = len - len_completed;
 
-        if (delta > RECORD_CLEARTEXT_SIZE) {
-            ((scc_cleartext_header_t *) record)->cleartext_length = RECORD_CLEARTEXT_SIZE;
-            memcpy(record + sizeof(scc_cleartext_header_t), buf + len_completed, RECORD_CLEARTEXT_SIZE);
-            len_completed += RECORD_CLEARTEXT_SIZE;
+        if (delta > session_info->record_size) {
+            ((scc_cleartext_header_t *) record)->cleartext_length = session_info->record_size;
+            memcpy(record + sizeof(scc_cleartext_header_t), buf + len_completed, session_info->record_size);
+            len_completed += session_info->record_size;
         } else {
             //introduce zero pad
             ((scc_cleartext_header_t *) record)->cleartext_length = delta;
             memcpy(record + sizeof(scc_cleartext_header_t), buf + len_completed, delta);
-            memset(record + sizeof(scc_cleartext_header_t) + delta, 0, RECORD_CLEARTEXT_SIZE - delta);
+            memset(record + sizeof(scc_cleartext_header_t) + delta, 0, session_info->record_size - delta);
             len_completed += delta;
         }
 
-        status = record_channel_send(session_info, record, sizeof(scc_cleartext_header_t) + RECORD_CLEARTEXT_SIZE);
+        status = session_send(session_info, record, sizeof(scc_cleartext_header_t) + session_info->record_size);
         if (status != 0) { free(record); return -1; } //TODO: handle IV wraparound so we can do session rengotiation
     }
 
@@ -183,14 +195,14 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
         }
     }
 
-    uint8_t *record = (uint8_t *) malloc(sizeof(scc_cleartext_header_t) + RECORD_CLEARTEXT_SIZE);
+    uint8_t *record = (uint8_t *) malloc(sizeof(scc_cleartext_header_t) + session_info->record_size);
     assert(record != NULL);
 
     size_t cleartext_bytes_fetched = 0, bytes_to_copy = 0;
 
     while (len_completed < len) {
         //fetch the ciphertext
-        status = record_channel_recv(session_info, record, sizeof(scc_cleartext_header_t) + RECORD_CLEARTEXT_SIZE);
+        status = session_recv(session_info, record, sizeof(scc_cleartext_header_t) + session_info->record_size);
         if (status != 0) { free(record); return -1; }
 
         cleartext_bytes_fetched = ((scc_cleartext_header_t *) record)->cleartext_length;
@@ -217,7 +229,7 @@ size_t _moat_scc_destroy(scc_handle_t *handle)
     dh_session_t *session_info = find_session(handle->session_id);
     if (session_info == NULL) { return -1; }
 
-    size_t status = close_session(session_info);
+    size_t status = session_close(session_info);
     assert(status == 0);
 
     free(handle);

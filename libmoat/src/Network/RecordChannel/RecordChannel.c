@@ -36,6 +36,8 @@ typedef struct
 
 //Map between the source enclave id and the session information associated with that particular session
 static ll_t *g_dest_session_info;
+void        *g_dummy_record;
+size_t       g_dummy_record_size;
 
 /***************************************************
  PRIVATE METHODS
@@ -63,66 +65,6 @@ size_t generate_unique_session_id()
             return i + 1; //session ids start at 1
         }
     }
-    
-    return 0;
-}
-
-/***************************************************
- PUBLIC METHODS
- ***************************************************/
-
-void record_channel_module_init()
-{
-    g_dest_session_info = malloc(sizeof(ll_t));
-    assert(g_dest_session_info != NULL);
-    g_dest_session_info->head = NULL;
-}
-
-//finds an open session by its id
-dh_session_t *find_session(size_t session_id)
-{
-    ll_iterator_t *iter = list_create_iterator(g_dest_session_info);
-    while (list_has_next(iter))
-    {
-        dh_session_t *tmp = (dh_session_t *) list_get_next(iter);
-        if (tmp->session_id == session_id) {
-            return tmp;
-        }
-    }
-    list_destroy_iterator(iter);
-    return NULL; //didn't find this session id
-}
-
-//creates a session struct with a unique id
-dh_session_t *open_session()
-{
-    size_t session_id = generate_unique_session_id();
-    if (session_id == 0) { return NULL; } //can't give you a session at this time. Try later.
-    
-    dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
-    assert(session_info != NULL);
-    
-    list_insert_value(g_dest_session_info, session_info);
-    session_info->session_id = session_id;
- 
-    return session_info;
-}
-
-//Close an open session, and free all associated resources (inverse of open_session)
-size_t close_session(dh_session_t *session_info)
-{
-    sgx_status_t status;
-    size_t retstatus;
-    
-    //Ocall to ask the destination enclave to end the session
-    status = end_session_ocall(&retstatus, session_info->session_id);
-    if ((status != SGX_SUCCESS) || (retstatus != 0)) { return -1; }
-    
-    //Erase the session information for the current session
-    bool deleted_successfully = list_delete_value(g_dest_session_info, session_info);
-    assert(deleted_successfully);
-    
-    free(session_info);
     
     return 0;
 }
@@ -229,3 +171,110 @@ size_t record_channel_recv(dh_session_t *session_info, void *record, size_t reco
     return 0;
 }
 
+/***************************************************
+ PUBLIC METHODS
+ ***************************************************/
+
+void record_channel_module_init()
+{
+    g_dest_session_info = malloc(sizeof(ll_t));
+    assert(g_dest_session_info != NULL);
+    g_dest_session_info->head = NULL;
+
+    g_dummy_record = NULL;
+    g_dummy_record_size = 0;
+}
+
+//finds an open session by its id
+dh_session_t *find_session(size_t session_id)
+{
+    ll_iterator_t *iter = list_create_iterator(g_dest_session_info);
+    while (list_has_next(iter))
+    {
+        dh_session_t *tmp = (dh_session_t *) list_get_next(iter);
+        if (tmp->session_id == session_id) {
+            return tmp;
+        }
+    }
+    list_destroy_iterator(iter);
+    return NULL; //didn't find this session id
+}
+
+//creates a session struct with a unique id
+dh_session_t *session_open()
+{
+    size_t session_id = generate_unique_session_id();
+    if (session_id == 0) { return NULL; } //can't give you a session at this time. Try later.
+
+    dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
+    assert(session_info != NULL);
+
+    list_insert_value(g_dest_session_info, session_info);
+    session_info->session_id = session_id;
+
+    return session_info;
+}
+
+//Close an open session, and free all associated resources (inverse of open_session)
+size_t session_close(dh_session_t *session_info)
+{
+    sgx_status_t status;
+    size_t retstatus;
+
+    //Ocall to ask the destination enclave to end the session
+    status = end_session_ocall(&retstatus, session_info->session_id);
+    if ((status != SGX_SUCCESS) || (retstatus != 0)) { return -1; }
+
+    //Erase the session information for the current session
+    bool deleted_successfully = list_delete_value(g_dest_session_info, session_info);
+    assert(deleted_successfully);
+
+    if(session_info->recv_carryover_start != NULL) {
+        free(session_info->recv_carryover_start);
+    }
+    free(session_info);
+
+    return 0;
+}
+
+void get_dummy_record(void **record, size_t *record_size)
+{
+    *record = g_dummy_record;
+    *record_size = g_dummy_record_size;
+}
+
+void set_dummy_record(void *record, size_t record_size)
+{
+    g_dummy_record = record;
+    g_dummy_record_size = record_size;
+}
+
+size_t session_send(dh_session_t *session_info, void *record, size_t record_size)
+{
+    assert(record_size == (session_info->record_size + sizeof(scc_cleartext_header_t)));
+    return record_channel_send(session_info, record, record_size);
+
+    /*
+    //should we hide who we are speaking to?
+    if (session_info->side_channel_protection == 1)
+    {
+        ll_iterator_t *iter = list_create_iterator(g_dest_session_info);
+        while (list_has_next(iter))
+        {
+            dh_session_t *tmp = (dh_session_t *) list_get_next(iter);
+            status = record_channel_send(tmp, tmp == session_info ? record : g_dummy_record, tmp->record_size);
+            assert(status == 0);
+        }
+        list_destroy_iterator(iter);
+    } else {
+        status = record_channel_send(session_info, record, record_size);
+        assert(status == 0);
+    }
+     */
+}
+
+size_t session_recv(dh_session_t *session_info, void *record, size_t record_size)
+{
+    assert(record_size == (session_info->record_size + sizeof(scc_cleartext_header_t)));
+    return record_channel_recv(session_info, record, record_size);
+}
