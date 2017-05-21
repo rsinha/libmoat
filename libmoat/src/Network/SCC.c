@@ -83,23 +83,6 @@ scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement, s
     session_info->side_channel_protection = attr->side_channel_protection;
     session_info->record_size = attr->record_size;
 
-    void *current_dummy_record;
-    size_t current_dummy_record_size;
-
-    get_dummy_record(&current_dummy_record, &current_dummy_record_size);
-
-    if (current_dummy_record_size < (attr->record_size + sizeof(scc_cleartext_header_t))) { //we need a bigger dummy record
-        if (current_dummy_record != NULL) {
-            free(current_dummy_record);
-        }
-        current_dummy_record_size = attr->record_size + sizeof(scc_cleartext_header_t);
-        current_dummy_record = malloc(current_dummy_record_size);
-        assert(current_dummy_record != NULL);
-        memset(current_dummy_record, 0, current_dummy_record_size);
-
-        set_dummy_record(current_dummy_record, current_dummy_record_size);
-    }
-
 
 #ifndef RELEASE
     _moat_print_debug("master secret: ");

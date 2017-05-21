@@ -48,8 +48,6 @@ size_t establish_shared_secret(bool is_server, sgx_measurement_t *target_enclave
  ***************************************************/
 
 void record_channel_module_init();
-void get_dummy_record(void **record, size_t *record_size);
-void set_dummy_record(void *record, size_t record_size);
 dh_session_t *session_open();
 size_t session_close(dh_session_t *session_info);
 dh_session_t *find_session(size_t session_id);
