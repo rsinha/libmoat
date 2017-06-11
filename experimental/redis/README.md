@@ -8,5 +8,5 @@ speed and other features.
 The `python` and `c` directories have examples of the Redis client APIs in
 Python and C, respectively.
 
-The `benchmark` directory has a guide on how to run the Redis benchmarks, and
+The `benchmark` directory will soon have a guide on how to run the Redis benchmarks, and
 some generated data.
