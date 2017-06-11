@@ -1,1 +1,0 @@
-gcc -o examples/hello -O3 -fPIC  -Wall -W -Wstrict-prototypes -Wwrite-strings -g -ggdb    -I. examples/hello.c -framework CoreFoundation libhiredis.a
