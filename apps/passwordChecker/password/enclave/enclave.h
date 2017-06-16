@@ -1,0 +1,12 @@
+#ifndef PWENCLAVE_H
+#define PWENCLAVE_H
+
+#define PWENCLAVE_MAX_BLOB_SIZE 1024
+#define PWENCLAVE_REGIONKEY_LEN 16
+
+
+
+
+
+
+#endif
