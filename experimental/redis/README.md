@@ -1,19 +1,11 @@
-# Running Redis script
+# Applying libmoat to Redis
 
-This script is an simple demo of interacting with Redis using the Python
-library. You should have Redis installed on your computer.
+Redis is a popular, in-memory key-value store. Unfortunately, its values are
+only encrypted on disk - not on memory. The goal is to secure Redis by
+performing some basic operations (get, set) in enclaves, while maintaining its
+speed and other features.
 
-Next steps:  
-- Encrypting key/value pairs within enclaves  
-- Port code to C/C++
+The `python` and `c` directories have examples of the Redis client APIs in
+Python and C, respectively.
 
-## Start Redis server on port 6379 (default port)
-Port 6379 by default:
-```
-redis-server 
-```
-
-## Install redis python library
-```
-pip install redis
-```
+The `benchmark` directory has a guide on how to run the Redis benchmarks, and some generated data.
