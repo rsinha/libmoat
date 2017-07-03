@@ -14,10 +14,10 @@
  ***************************************************/
 
 void auth_enc_storage_module_init();
-size_t auth_enc_storage_access(size_t op, size_t addr, block_t data);
+size_t auth_enc_storage_access(size_t op, size_t addr, block_data_t data);
 
 void path_oram_storage_module_init();
-size_t path_oram_storage_access(size_t op, size_t addr, block_t data);
+size_t path_oram_storage_access(size_t op, size_t addr, block_data_t data);
 
 
 /***************************************************
@@ -36,7 +36,7 @@ void block_storage_module_init()
     //path_oram_storage_module_init();
 }
 
-size_t block_storage_access(size_t op, size_t addr, block_t data)
+size_t block_storage_access(size_t op, size_t addr, block_data_t data)
 {
     auth_enc_storage_access(op, addr, data);
 }

@@ -174,7 +174,7 @@ void integrity_record_freshness(size_t addr, uint8_t *ciphertext, size_t len)
 }
 
 //NOTE: addr ranges from 1 to NUM_BLOCKS
-size_t auth_enc_storage_read_access(size_t addr, block_t data)
+size_t auth_enc_storage_read_access(size_t addr, block_data_t data)
 {
     sgx_status_t status;
     size_t retstatus;
@@ -182,7 +182,7 @@ size_t auth_enc_storage_read_access(size_t addr, block_t data)
     //NIST guidelines for using AES-GCM
     if (g_local_counter > ((uint32_t) -2)) { return -1; }
     
-    size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
+    size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t);
     //allocate memory for ciphertext
     uint8_t *ciphertext = (uint8_t *) malloc(len);
     assert(ciphertext != NULL);
@@ -191,7 +191,7 @@ size_t auth_enc_storage_read_access(size_t addr, block_t data)
     assert(status == SGX_SUCCESS && retstatus == 0);
     
     assert(((fs_ciphertext_header_t *) ciphertext)->type == APPLICATION_DATA);
-    assert(((fs_ciphertext_header_t *) ciphertext)->length == sizeof(block_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
+    assert(((fs_ciphertext_header_t *) ciphertext)->length == sizeof(block_data_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
     assert(((fs_ciphertext_header_t *) ciphertext)->addr == addr);
     
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
@@ -202,7 +202,7 @@ size_t auth_enc_storage_read_access(size_t addr, block_t data)
     /* ciphertext: header || IV || MAC || encrypted */
     status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) g_key, //key
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
-                                        sizeof(block_t), //src_len
+                                        sizeof(block_data_t), //src_len
                                         data, //dst
                                         payload, //iv
                                         SGX_AESGCM_IV_SIZE, //12 bytes
@@ -217,18 +217,18 @@ size_t auth_enc_storage_read_access(size_t addr, block_t data)
 
 //NOTE: addr ranges from 1 to NUM_BLOCKS
 //performs authenticated encryption of data, and writes it as a file
-size_t auth_enc_storage_write_access(size_t addr, block_t data)
+size_t auth_enc_storage_write_access(size_t addr, block_data_t data)
 {
     sgx_status_t status;
     size_t retstatus;
     
-    size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
+    size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t);
     //allocate memory for ciphertext
     uint8_t *ciphertext = (uint8_t *) malloc(len);
     assert (ciphertext != NULL);
     
     ((fs_ciphertext_header_t *) ciphertext)->type = APPLICATION_DATA;
-    ((fs_ciphertext_header_t *) ciphertext)->length = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
+    ((fs_ciphertext_header_t *) ciphertext)->length = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t);
     ((fs_ciphertext_header_t *) ciphertext)->addr = addr;
     
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
@@ -240,7 +240,7 @@ size_t auth_enc_storage_write_access(size_t addr, block_t data)
     /* ciphertext: IV || MAC || encrypted */
     status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) g_key,
                                         data, /* input */
-                                        sizeof(block_t), /* input length */
+                                        sizeof(block_data_t), /* input length */
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
                                         payload + 0, /* IV */
                                         SGX_AESGCM_IV_SIZE, /* 12 bytes of IV */
@@ -287,7 +287,7 @@ void auth_enc_storage_module_init(bool useMerkleTree)
         sgx_sha256_hash_t *outsourced_merkle_path = malloc(sizeof(sgx_sha256_hash_t) * (log_base_2(NUM_BLOCKS) + 1));
 
         //let's compute the height 0 hash of a zeroed block
-        size_t to_hash_len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_t);
+        size_t to_hash_len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t);
         uint8_t *to_hash = malloc(to_hash_len);
         assert(to_hash != NULL);
         memset(to_hash, 0, to_hash_len);
@@ -323,8 +323,12 @@ void auth_enc_storage_module_init(bool useMerkleTree)
     g_local_counter = 0;
 }
 
-size_t auth_enc_storage_access(size_t op, size_t addr, block_t data)
+size_t auth_enc_storage_access(size_t op, size_t addr, block_data_t data)
 {
+    if (addr >= NUM_BLOCKS) {
+        return -1; //block id 0 not allowed, so we actually support NUM_BLOCKS - 1
+    }
+    
     if (op == READ) {
         return auth_enc_storage_read_access(addr, data);
     }

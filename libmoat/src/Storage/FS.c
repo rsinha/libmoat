@@ -191,7 +191,7 @@ size_t _moat_fs_read(fs_handle_t *handle, size_t offset, void* buf, size_t len)
     
     //we need to iterate through all blocks that hold the requested data
     size_t offset_reached = 0, len_completed = 0;
-    block_t block_data; //stack allocated buffer populated by the storage api
+    block_data_t block_data; //stack allocated buffer populated by the storage api
     
     ll_iterator_t *iter = list_create_iterator(fd->blocks);
     while (list_has_next(iter))
@@ -234,7 +234,7 @@ size_t _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len)
     
     //we need to iterate through all blocks that hold the requested data
     size_t offset_reached = 0, len_completed = 0;
-    block_t block_data; //stack allocated buffer populated by the storage api
+    block_data_t block_data; //stack allocated buffer populated by the storage api
     
     ll_iterator_t *iter = list_create_iterator(fd->blocks);
     while (list_has_next(iter))

@@ -25,3 +25,14 @@ size_t log_base_2(size_t x)
     }
     return result;
 }
+
+size_t exp_of_2(size_t x)
+{
+    assert (x >= 0);
+    size_t result = 1;
+    while (x > 0) {
+        result = result * 2;
+        x = x - 1;
+    }
+    return result;
+}
