@@ -16,10 +16,6 @@
 void auth_enc_storage_module_init();
 size_t auth_enc_storage_access(size_t op, size_t addr, block_data_t data);
 
-void path_oram_storage_module_init();
-size_t path_oram_storage_access(size_t op, size_t addr, block_data_t data);
-
-
 /***************************************************
                     PUBLIC API
  ***************************************************/
@@ -33,7 +29,6 @@ void block_storage_module_init()
     assert(status == SGX_SUCCESS && retstatus == 0);
 
     auth_enc_storage_module_init(true);
-    //path_oram_storage_module_init();
 }
 
 size_t block_storage_access(size_t op, size_t addr, block_data_t data)
