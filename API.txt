@@ -1,0 +1,189 @@
+libmoat API
+
+Storage
+-------
+
+0. 2-d table API: /* TODO: extend to n dimensions */
+	(a) tbl_handle_t *_moat_tbl_open(char *path, int oflag, persistence_context_t *ctx)
+		oflag = O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
+		ctx = aes_key_t if persistent since the key must be on chain, else NULL
+		path name refers to the table's location in untrusted storage
+ 		O_CREAT and O_LOAD cannot both be set
+ 		if O_CREAT is set, then path must have prefix "output://" or "tmp://", depending on persistence_context
+ 		if O_LOAD is set, then path must have prefix "inout://" or "input://", depending on O-RDWR or O_RDONLY
+ 		if O_CREAT or O_LOAD is set, then the table must not have been previously opened, else API returns an error
+ 		if neither is set, then the table must exist and the API returns the tbl handle, else the API returns an error
+ 		returns NULL on error
+
+	(b) size_t _moat_tbl_insert(tbl_handle_t *handle, int row_id, void **buf)
+		insert (row_id,v) into the DB, where v is a set of column values
+		returns -1 on error, 0 on success
+
+	(c) size_t _moat_tbl_set(tbl_handle_t *handle, int row_id, int col_id, void *buf, size_t len)
+		update tbl[row_id][col_id] to contents in buf
+		returns -1 on error, 0 on success
+
+	(d) size_t _moat_tbl_get(tbl_handle_t *handle, int row_id, int col_id, size_t offset, void* buf, size_t len)
+		get tbl[row_id][col_id]. Instead of automatically returning the entire value, caller can request len bytes starting from offset
+		We choose this API because neither the caller nor API impl knows the size of the value, and this relieves API implementation of memory management
+		returns -1 on error, else number of bytes read and placed in buf (may be less than len if EOF reached)
+
+	(e) size_t _moat_tbl_remove(tbl_handle_t *handle, int row_id)
+		delete entire row tbl[row_id]
+		returns -1 on error, 0 on success
+
+	(f) size_t _moat_tbl_close(tbl_handle_t *handle)
+		free the tbl_handle, but it can be opened later; so do not erase the AES key or the physical contents
+		returns -1 on error, 0 on success
+
+	(g) size_t _moat_tbl_delete(tbl_handle_t *handle)
+		erase all associated state, which amounts to deleting the AES key, freeing the handle, and deleting untrusted contents
+		returns -1 on error, 0 on success
+
+1. KV-store API:
+	libmoat must take care of hiding the keys (using HMAC or deterministic AES), and encrypting the values (using CPA-secure AES)
+	libmoat must also provide integrity protection (likely using a MB-tree)
+	libmoat will not hide the size of keys or values, or the total number of entries in the database
+
+	(a) kv_handle_t *_moat_kv_open(char *path, int oflag, persistence_context_t *ctx)
+		oflag = O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
+		ctx = aes_key_t if persistent since the key must be on chain, else NULL
+		path name refers to the file's location in untrusted storage
+ 		Note that paths starting with "input://" and "output://" are globally visible, e.g. "input://category_db" refers to the category_db input
+ 		O_CREAT and O_LOAD cannot both be set
+ 		if O_CREAT is set, then path must have prefix "output://" or "tmp://", depending on persistence_context
+ 		if O_LOAD is set, then path must have prefix "inout://" or "input://", depending on O-RDWR or O_RDONLY
+ 		if O_CREAT or O_LOAD is set, then the KV-store must not have been previously opened, else API returns an error
+ 		if neither is set, then the KV-store must exist and the API returns the kv handle, else the API returns an error
+ 		returns NULL on error
+
+	(b) size_t _moat_kv_insert(kv_handle_t *handle, kv_key_t *k, void* buf, size_t len)
+		insert (k,v) into the DB, where v is buf of len bytes
+		kv_key_t is a 64 byte value
+		returns -1 on error, 0 on success
+
+	(c) size_t _moat_kv_set(kv_handle_t *handle, kv_key_t *k, void *buf, size_t len)
+		update k in DB to v, where v is buf of len bytes
+		returns -1 on error, 0 on success
+
+	(d) size_t _moat_kv_get(kv_handle_t *handle, kv_key_t *k, size_t offset, void* buf, size_t len)
+		get v of k. Instead of automatically returning the entire value, caller can request len bytes starting from offset
+		We choose this API because neither the caller nor API impl knows the size of the value, and this relieves API implementation of memory management
+		returns -1 on error, else number of bytes read and placed in buf (may be less than len if EOF reached)
+
+	(e) size_t _moat_kv_remove(kv_handle_t *handle, kv_key_t *k)
+		delete key from KV-store
+		returns -1 on error, 0 on success
+
+	(f) size_t _moat_kv_close(kv_handle_t *handle)
+		free the kv_handle, but it can be opened later; so do not erase the AES key or the physical contents
+		returns -1 on error, 0 on success
+
+	(g) size_t _moat_kv_delete(kv_handle_t *handle)
+		erase all associated state, which amounts to deleting the AES key, freeing the handle, and deleting untrusted contents
+		returns -1 on error, 0 on success
+
+2. time-series data (append only list) API:
+	list of byte arrays, I don't think we should force any types
+	libmoat must take care of encrypting the contents of each byte array, and provide integrity protection (likely using a hashchain)
+	libmoat will not hide the size of individual byte arrays, nor the size of the list
+
+	(a) lst_handle_t *_moat_lst_open(char *path, int oflag, persistence_context_t *ctx)
+		oflag = O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
+		ctx = aes_key_t if persistent since the key must be on chain, else NULL
+
+	(b) size_t _moat_lst_append(lst_handle_t *handle, void *buf, size_t len)
+	add element to end of list, whose contents are in buf of len bytes
+
+	(c) size_t _moat_lst_get(int index, size_t offset, void* buf, size_t len)
+	get element at index. Instead of automatically returning the entire value, caller can request len bytes starting from offset
+	We choose this API because neither the caller nor API impl knows the size of the value, and this relieves API implementation of memory management
+	returns -1 on error, else number of bytes read and placed in buf (may be less than len if EOF reached)
+
+	(d) ssize_t _moat_lst_size(lst_handle_t *handle)
+	returns size of list. -1 on error
+
+	(e) ssize_t _moat_lst_close(lst_handle_t *handle)
+	free lst_handle, but it can be opened later; so do not eraste the AES key or physical contents
+	returns -1 on error, 0 on success
+
+	(f) ssize_t _moat_lst_delete(lst_handle_t *handle)
+	erase all state associated with the list
+	returns -1 on error, 0 on success
+
+3. File system API:
+	Not clear when an enclave would make use of temporary storage with file API, but here it is anyways
+	libmoat must take care of encrypting the contents and providing integrity protection (likely using a MB-tree)
+	The untrusted world only maps block ids to encrypted contents, where enclave manages mapping of files to list of block ids
+	libmoat will not hide the size of the file
+
+	functions: _moat_fs_open, _moat_fs_read, _moat_fs_write, _moat_fs_close, _moat_fs_delete
+	semantics:
+	fs_handle_t *_moat_fs_open(char *path, int oflag, persistence_context_t *ctx)
+		oflag = O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
+		ctx = aes_key_t if persistent since the key must be on chain, else NULL
+		path name refers to the file's location in untrusted storage.
+ 		Note that paths starting with "input://", "output://", and "inout://" are globally visible, e.g. "input://tx_file" refers to the tx input.
+ 		O_CREAT and O_LOAD cannot both be set.
+ 		if O_CREAT is set, then path must have prefix "output://" or "tmp://", depending on persistence_context
+ 		if O_LOAD is set, then path must have prefix "inout://" or "input://", depending on O-RDWR or O_RDONLY
+ 		if O_CREAT or O_LOAD is set, then the file must not have been previously opened, else API returns an error
+ 		if neither is set, then the file must have been opened and the API returns the file handle, else the API returns an error
+ 		returns NULL on error
+
+	ssize_t _moat_fs_read(fs_handle_t *handle, void* buf, size_t len)
+ 		given a file handle, read len bytes starting from current offset and write into buf, which also has size len
+ 		returns -1 on error, else number of bytes read and placed in buf (may be less than len if EOF reached)
+
+	ssize_t _moat_fs_write(fs_handle_t *handle, void* buf, size_t len)
+ 		given a file handle, write len bytes starting from current offset from buf, which is of size len
+ 		returns -1 on error, else number of bytes written
+
+ 	ssize_t _moat_fs_lseek(fs_handle_t *handle, ssize_t offset, int base)
+ 		reposition the current offset
+ 		base refers to the position from which the bytes will be offset, and it is either 
+ 		SEEK_SET (beginning of file) or SEEK_CUR (current value of offset) or SEEK_END (end of file)
+ 		offset refers to the number of bytes to be offset with respect to base
+ 		e.g. _moat_fs_lseek(fd, 4, SEEK_CUR) skips 4 bytes, and _moat_fs_lseek(fd, 0, SEEK_SET) sets to the start of the file
+ 		returns -1 on error, else the resulting offset location as measured in bytes from the beginning of the file
+
+	ssize_t _moat_fs_close(fs_handle_t *handle)
+		just free the file handle, but the file cant still be opened later
+		returns -1 on error, 0 on success
+
+	ssize_t _moat_fs_delete(fs_handle_t *handle)
+		free all state associated with the file handle, and permanently delete the file
+		returns -1 on error, 0 on success
+
+Network
+-------
+
+1. TLS like API:
+	functions: _moat_scc_create, _moat_scc_send, _moat_scc_recv, _moat_scc_destroy
+	semantics:
+	scc_handle_t * _moat_scc_create(bool is_server, sgx_measurement_t *measurement, scc_attributes_t *attr)
+		establish a DH channel with an enclave of specified measurement
+
+	ssize_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
+		send len bytes held in buf over a channel
+
+	ssize_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
+		recv len bytes in buf from channel
+
+	ssize_t _moat_scc_destroy(scc_handle_t *handle)
+		close the channel, which frees all state associated with that channel
+
+Input
+-----
+
+inputs can either be authenticated or not
+	in case of authenticated inputs, we must verify the digest. in case of not authenticated inputs, we must compute the digest.
+Regardless, the digest must be included in the recordComputation step.
+Furthermore, there are two ways of computing the digest: version-based and summary-based.
+	in case of version-based digest, each element in the data structure is MAC'd (or AEAD) using the version counter
+	in case of summary-based digest, the digest is a summary of all the contents of the data structure (e.g. MB-tree)
+
+Output
+------
+
+
