@@ -14,7 +14,8 @@
  ***************************************************/
 
 void auth_enc_storage_module_init(size_t num_blocks);
-size_t auth_enc_storage_access(size_t op, size_t addr, block_data_t data);
+size_t auth_enc_storage_read(size_t addr, block_data_t data);
+size_t auth_enc_storage_write(size_t addr, block_data_t data);
 
 /***************************************************
                     PUBLIC API
@@ -31,7 +32,12 @@ void block_storage_module_init(size_t num_blocks)
     auth_enc_storage_module_init(num_blocks);
 }
 
-size_t block_storage_access(size_t op, size_t addr, block_data_t data)
+size_t block_storage_read(size_t addr, block_data_t data)
 {
-    return auth_enc_storage_access(op, addr, data);
+    return auth_enc_storage_read(addr, data);
+}
+
+size_t block_storage_write(size_t addr, block_data_t data)
+{
+    return auth_enc_storage_write(addr, data);
 }

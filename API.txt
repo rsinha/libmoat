@@ -173,14 +173,14 @@ Network
 	ssize_t _moat_scc_destroy(scc_handle_t *handle)
 		close the channel, which frees all state associated with that channel
 
-Input
------
+Miscellaneous
+-------------
 
 inputs can either be authenticated or not
 	in case of authenticated inputs, we must verify the digest. in case of not authenticated inputs, we must compute the digest.
 Regardless, the digest must be included in the recordComputation step.
 Furthermore, there are two ways of computing the digest: version-based and summary-based.
-	in case of version-based digest, each element in the data structure is MAC'd (or AEAD) using the version counter
+	in case of version-based digest, each element in the data structure is MAC'd (or AEAD) using the version counter. This also requires the metadata to 
 	in case of summary-based digest, the digest is a summary of all the contents of the data structure (e.g. MB-tree)
 
 Output

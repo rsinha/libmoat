@@ -55,12 +55,37 @@ void integrity_record_freshness(size_t addr, uint8_t *ciphertext, size_t len)
     assert(status == SGX_SUCCESS);
 }
 
+/***************************************************
+ PUBLIC API
+ ***************************************************/
+
+//TODO: we need a better way for users to express space-time tradeoffs than "useMerkleTree"
+void auth_enc_storage_module_init(size_t num_blocks)
+{
+    sgx_status_t status;
+    size_t retstatus;
+
+    g_num_blocks = num_blocks;
+    g_key = malloc(sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(g_key != NULL);
+    status = sgx_read_rand((uint8_t *) g_key, sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(status == SGX_SUCCESS);
+
+    g_latest_hash = malloc(sizeof(sgx_sha256_hash_t) * num_blocks);
+    assert(g_latest_hash != NULL);
+
+    g_local_counter = 0;
+}
+
 //NOTE: addr ranges from 1 to g_num_blocks
-size_t auth_enc_storage_read_access(size_t addr, block_data_t data)
+size_t auth_enc_storage_read(size_t addr, block_data_t data)
 {
     sgx_status_t status;
     size_t retstatus;
     
+    /* error checking */
+    if (addr >= g_num_blocks) { return -1; }
+
     //NIST guidelines for using AES-GCM
     if (g_local_counter > ((uint32_t) -2)) { return -1; }
     
@@ -99,11 +124,14 @@ size_t auth_enc_storage_read_access(size_t addr, block_data_t data)
 
 //NOTE: addr ranges from 1 to g_num_blocks
 //performs authenticated encryption of data, and writes it as a file
-size_t auth_enc_storage_write_access(size_t addr, block_data_t data)
+size_t auth_enc_storage_write(size_t addr, block_data_t data)
 {
     sgx_status_t status;
     size_t retstatus;
-    
+
+    /* error checking */
+    if (addr >= g_num_blocks) { return -1; }
+
     size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t);
     //allocate memory for ciphertext
     uint8_t *ciphertext = (uint8_t *) malloc(len);
@@ -142,43 +170,4 @@ size_t auth_enc_storage_write_access(size_t addr, block_data_t data)
     
     free(ciphertext);
     return 0;
-}
-
-/***************************************************
- PUBLIC API
- ***************************************************/
-
-//TODO: we need a better way for users to express space-time tradeoffs than "useMerkleTree"
-void auth_enc_storage_module_init(size_t num_blocks)
-{
-    sgx_status_t status;
-    size_t retstatus;
-
-    g_num_blocks = num_blocks;
-    g_key = malloc(sizeof(sgx_aes_gcm_128bit_key_t));
-    assert(g_key != NULL);
-    status = sgx_read_rand((uint8_t *) g_key, sizeof(sgx_aes_gcm_128bit_key_t));
-    assert(status == SGX_SUCCESS);
-
-    g_latest_hash = malloc(sizeof(sgx_sha256_hash_t) * num_blocks);
-    assert(g_latest_hash != NULL);
-
-    g_local_counter = 0;
-}
-
-size_t auth_enc_storage_access(size_t op, size_t addr, block_data_t data)
-{
-    if (addr >= g_num_blocks) {
-        return -1;
-    }
-    
-    if (op == READ) {
-        return auth_enc_storage_read_access(addr, data);
-    }
-    else if (op == WRITE) {
-        return auth_enc_storage_write_access(addr, data);
-    }
-    else {
-        return -1;
-    }
 }
