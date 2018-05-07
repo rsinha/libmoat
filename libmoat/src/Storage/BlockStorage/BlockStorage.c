@@ -13,25 +13,25 @@
  DEFINITIONS FOR INTERNAL USE
  ***************************************************/
 
-void auth_enc_storage_module_init();
+void auth_enc_storage_module_init(size_t num_blocks);
 size_t auth_enc_storage_access(size_t op, size_t addr, block_data_t data);
 
 /***************************************************
                     PUBLIC API
  ***************************************************/
 
-void block_storage_module_init()
+void block_storage_module_init(size_t num_blocks)
 {
     sgx_status_t status;
     size_t retstatus;
 
-    status = create_blockfs_ocall(&retstatus, NUM_BLOCKS);
+    status = create_blockfs_ocall(&retstatus, num_blocks);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
-    auth_enc_storage_module_init(true);
+    auth_enc_storage_module_init(num_blocks);
 }
 
 size_t block_storage_access(size_t op, size_t addr, block_data_t data)
 {
-    auth_enc_storage_access(op, addr, data);
+    return auth_enc_storage_access(op, addr, data);
 }

@@ -42,6 +42,7 @@ uint64_t enclave_test()
 
     /* FS test 1 */
     fs_handle_t *fd = _moat_fs_open("tmpfile");
+
     api_result = _moat_fs_write(fd, 0, &result, sizeof(result));
     assert(api_result == 0);
     uint64_t reload_result;
@@ -49,6 +50,11 @@ uint64_t enclave_test()
     assert(api_result == 0);
     assert(reload_result == result);
     _moat_print_debug("FS check 1 successful\n");
+    api_result = _moat_fs_close(fd);
+    assert(api_result == 0);
+
+    fd = _moat_fs_open("tmpfile");
+
 
     /* FS test 2 */
     size_t offset = 0;

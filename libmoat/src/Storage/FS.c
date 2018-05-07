@@ -16,7 +16,11 @@
  DEFINITIONS FOR INTERNAL USE
  ***************************************************/
 
+/* don't see why an enclave would access more than 16 files */
 #define MAX_FILE_COUNT 16
+/* for now, we will let FS be at most 1 MB */
+#define MAX_BLOCKS 256
+#define MAX_FILENAME_LEN 64
 
 typedef struct
 {
@@ -26,7 +30,7 @@ typedef struct
 
 typedef struct
 {
-    char      *filename; //use a constant string here
+    char      filename[MAX_FILENAME_LEN]; //use a constant string here
     size_t    file_descriptor; //integer file id
     ll_t      *blocks;   //head of the linked list of blocks for this file
 } fs_file_t;
@@ -56,13 +60,13 @@ size_t generate_unique_file_descriptor(size_t *result)
     {
         fs_file_t *current_file = (fs_file_t *) list_get_next(iter);
         //file descriptors start at 1
-        occupied[current_file->file_descriptor - 1] = true;
+        occupied[current_file->file_descriptor] = true;
     }
     list_destroy_iterator(iter);
     
     for (int i = 0; i < MAX_FILE_COUNT; i++) {
         if (occupied[i] == false) {
-            *result = i + 1; //session ids start at 1
+            *result = i; //session ids start at 1
             return 0;
         }
     }
@@ -74,8 +78,8 @@ size_t generate_unique_block_id(size_t *result)
 {
     if(!result) { return -1; }
     
-    bool occupied[NUM_BLOCKS];
-    for (int i = 0; i < NUM_BLOCKS; i++)
+    bool occupied[MAX_BLOCKS];
+    for (int i = 0; i < MAX_BLOCKS; i++)
     {
         occupied[i] = false;
     }
@@ -90,16 +94,16 @@ size_t generate_unique_block_id(size_t *result)
         {
             fs_block_t *current_block = (fs_block_t *) list_get_next(block_iter);
             //file descriptors start at 1
-            occupied[current_block->addr - 1] = true;
+            occupied[current_block->addr] = true;
         }
 
         list_destroy_iterator(block_iter);
     }
     list_destroy_iterator(file_iter);
     
-    for (int i = 0; i < NUM_BLOCKS; i++) {
+    for (int i = 0; i < MAX_BLOCKS; i++) {
         if (occupied[i] == false) {
-            *result = i + 1; //block ids start at 1
+            *result = i; //block ids start at 1
             return 0;
         }
     }
@@ -152,7 +156,7 @@ void _moat_fs_module_init()
     assert(g_files != NULL);
     g_files->head = NULL;
 
-    block_storage_module_init();
+    block_storage_module_init(MAX_BLOCKS);
 }
 
 fs_handle_t *_moat_fs_open(char *name)
@@ -161,12 +165,16 @@ fs_handle_t *_moat_fs_open(char *name)
     
     if (fd == NULL) //else file already exists by that name
     {
+        assert(strlen(name) < MAX_FILENAME_LEN);
+
         fd = (fs_file_t *) malloc(sizeof(fs_file_t));
         assert(fd != NULL);
+
         fd->blocks = malloc(sizeof(ll_t));
         assert(fd->blocks != NULL);
+
         fd->blocks->head = NULL;
-        fd->filename = name;
+        strcpy(fd->filename, name);
         size_t success = generate_unique_file_descriptor(&(fd->file_descriptor));
         assert(success == 0);
 
