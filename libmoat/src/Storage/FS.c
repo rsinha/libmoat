@@ -192,7 +192,7 @@ offset refers to the number of bytes to be offset with respect to base
 e.g. _moat_fs_lseek(fd, 4, SEEK_CUR) skips 4 bytes, and _moat_fs_lseek(fd, 0, SEEK_SET) sets to the start of the file
 returns -1 on error, else the resulting offset location as measured in bytes from the beginning of the file
  */
-ssize_t _moat_fs_lseek(int64_t fd, int64_t offset, int base)
+int64_t _moat_fs_lseek(int64_t fd, int64_t offset, int base)
 {
     fs_file_t *file_md = find_file_by_descriptor(fd);
     if (file_md == NULL) { return -1; } //this needs an error code
