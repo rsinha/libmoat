@@ -3,6 +3,7 @@
 
 #include "sgx_tcrypto.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 //#define LIBMOAT_API __attribute__((visibility("default")))
 #define LIBMOAT_API 
@@ -37,15 +38,15 @@ size_t LIBMOAT_API _moat_scc_destroy(scc_handle_t *handle);
         SECURE FILE SYSTEM INTERFACE
  ***************************************************/
 
-typedef struct {
-    size_t file_descriptor;
-} fs_handle_t;
+#define SEEK_SET 0 /* beginning of file */
+#define SEEK_CUR 1 /* current value of offset */
+#define SEEK_END 2 /* end of file */
 
 void LIBMOAT_API _moat_fs_module_init();
-fs_handle_t * LIBMOAT_API _moat_fs_open(char *name);
-size_t LIBMOAT_API _moat_fs_read(fs_handle_t *handle, size_t offset, void* buf, size_t len);
-size_t LIBMOAT_API _moat_fs_write(fs_handle_t *handle, size_t offset, void* buf, size_t len);
-size_t LIBMOAT_API _moat_fs_close(fs_handle_t *handle);
-size_t LIBMOAT_API _moat_fs_delete(fs_handle_t *handle);
+int64_t LIBMOAT_API _moat_fs_open(char *name);
+int64_t LIBMOAT_API _moat_fs_lseek(int64_t fd, int64_t offset, int base);
+int64_t LIBMOAT_API _moat_fs_read(int64_t fd, void* buf, int64_t len);
+int64_t LIBMOAT_API _moat_fs_write(int64_t fd, void* buf, int64_t len);
+int64_t LIBMOAT_API _moat_fs_close(int64_t fd);
 
 #endif

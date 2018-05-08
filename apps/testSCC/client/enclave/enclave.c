@@ -28,7 +28,7 @@ uint64_t enclave_test()
     blob1.x1 = 42;
     blob1.x2 = 44;
     uint64_t result;
-    size_t api_result;
+    int64_t api_result;
     
     //api_result = _moat_scc_send(handle, &blob1, sizeof(blob1)); assert(api_result == 0);
     api_result = _moat_scc_send(handle, &(blob1.x1), sizeof(blob1.x1)); assert(api_result == 0);
@@ -38,53 +38,64 @@ uint64_t enclave_test()
     api_result = _moat_scc_destroy(handle); assert(api_result == 0);
     
     assert(result == 86); //using the server to add x1 to x2
-    _moat_print_debug("SCC check 1 successful\n");
+    _moat_print_debug("SCC check 0 successful\n");
 
     /* FS test 1 */
-    fs_handle_t *fd = _moat_fs_open("tmpfile");
-
-    api_result = _moat_fs_write(fd, 0, &result, sizeof(result));
-    assert(api_result == 0);
-    uint64_t reload_result;
-    api_result = _moat_fs_read(fd, 0, &reload_result, sizeof(reload_result));
-    assert(api_result == 0);
-    assert(reload_result == result);
+    int64_t fd = _moat_fs_open("tmpfile");
+    assert(fd != -1);
     _moat_print_debug("FS check 1 successful\n");
-    api_result = _moat_fs_close(fd);
-    assert(api_result == 0);
 
-    fd = _moat_fs_open("tmpfile");
-
-
-    /* FS test 2 */
-    size_t offset = 0;
-    while (offset < 20000) {
-        api_result = _moat_fs_write(fd, offset, &measurement, sizeof(sgx_measurement_t));
-        assert(api_result == 0);
-        offset += 32;
-    }
-    offset = 4224;
-    sgx_measurement_t reload_measurement;
-    api_result = _moat_fs_read(fd, offset, &reload_measurement, sizeof(reload_measurement));
-    assert(api_result == 0);
-    assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) == 0);
+    api_result = _moat_fs_write(fd, &result, sizeof(result));
+    assert(api_result == sizeof(result));
+    uint64_t reload_result;
+    api_result = _moat_fs_read(fd, &reload_result, sizeof(reload_result));
+    assert(api_result == sizeof(reload_result));
+    assert(reload_result == result);
     _moat_print_debug("FS check 2 successful\n");
 
-    /* FS test 3 */
-    api_result = _moat_fs_read(fd, 40, &reload_measurement, sizeof(reload_measurement));
+    api_result = _moat_fs_close(fd);
     assert(api_result == 0);
-    assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) != 0);
+    fd = _moat_fs_open("tmpfile");
+    assert(fd != -1);
     _moat_print_debug("FS check 3 successful\n");
+
+    /* FS test 2 */
+    int64_t offset = 0;
+    while (offset < 20000) {
+        api_result = _moat_fs_write(fd, &measurement, sizeof(sgx_measurement_t));
+        api_result = _moat_fs_lseek(fd, 32, SEEK_CUR);
+        assert(api_result == offset + 32);
+        offset += 32;
+    }
+
+    sgx_measurement_t reload_measurement;
+    offset = 4224;
+    api_result = _moat_fs_lseek(fd, 4224, SEEK_SET);
+    assert(api_result == offset);
+    api_result = _moat_fs_read(fd, &reload_measurement, sizeof(reload_measurement));
+    assert(api_result == sizeof(reload_measurement));
+    assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) == 0);
+    _moat_print_debug("FS check 4 successful\n");
+
+    /* FS test 3 */
+    api_result = _moat_fs_lseek(fd, -4184, SEEK_CUR);
+    assert(api_result == 40);
+    api_result = _moat_fs_read(fd, &reload_measurement, sizeof(reload_measurement));
+    assert(api_result == sizeof(reload_measurement));
+    assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) != 0);
+    _moat_print_debug("FS check 5 successful\n");
 
     /* FS test 4 */
     offset = 4224;
     while (offset < 20000) {
-        api_result = _moat_fs_read(fd, offset, &reload_measurement, sizeof(reload_measurement));
-        assert(api_result == 0);
+        api_result = _moat_fs_lseek(fd, offset, SEEK_SET);
+        assert(api_result == offset);
+        api_result = _moat_fs_read(fd, &reload_measurement, sizeof(reload_measurement));
+        assert(api_result == sizeof(reload_measurement));
         assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) == 0);
         offset += 32;
     }
-    _moat_print_debug("FS check 4 successful\n");
+    _moat_print_debug("FS check 6 successful\n");
 
     return 0;
 }
