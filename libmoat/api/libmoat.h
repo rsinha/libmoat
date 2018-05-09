@@ -42,8 +42,12 @@ size_t LIBMOAT_API _moat_scc_destroy(scc_handle_t *handle);
 #define SEEK_CUR 1 /* current value of offset */
 #define SEEK_END 2 /* end of file */
 
+#define O_RDONLY (1 << 0)
+#define O_WRONLY (1 << 1)
+#define O_RDWR (1 << 2)
+
 void LIBMOAT_API _moat_fs_module_init();
-int64_t LIBMOAT_API _moat_fs_open(char *name);
+int64_t LIBMOAT_API _moat_fs_open(char *name, int oflag);
 int64_t LIBMOAT_API _moat_fs_lseek(int64_t fd, int64_t offset, int base);
 int64_t LIBMOAT_API _moat_fs_read(int64_t fd, void* buf, int64_t len);
 int64_t LIBMOAT_API _moat_fs_write(int64_t fd, void* buf, int64_t len);

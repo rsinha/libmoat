@@ -32,11 +32,13 @@ typedef struct
 
 typedef struct
 {
-    char       filename[MAX_FILENAME_LEN]; //use a constant string here
+    char      filename[MAX_FILENAME_LEN]; //use a constant string here
     int64_t   file_descriptor; //integer file id
     int64_t   offset; //current offset in the file
-    int64_t   length;
-    ll_t       *blocks;   //head of the linked list of blocks for this file
+    int64_t   length; //number of bytes written to this file
+    bool      read_permission;
+    bool      write_permission;
+    ll_t      *blocks;   //head of the linked list of blocks for this file
 } fs_file_t;
 
 /***************************************************
@@ -146,6 +148,10 @@ fs_file_t *find_file_by_name(char *name)
     return NULL; //didn't find anything
 }
 
+bool o_rdonly(int oflag) { return (O_RDONLY & oflag) != 0; }
+bool o_wronly(int oflag) { return (O_WRONLY & oflag) != 0; }
+bool o_rdwr(int oflag) { return (O_RDWR & oflag) != 0; }
+
 /***************************************************
  PUBLIC API IMPLEMENTATION
  ***************************************************/
@@ -159,7 +165,10 @@ void _moat_fs_module_init()
     block_storage_module_init(MAX_BLOCKS);
 }
 
-int64_t _moat_fs_open(char *name)
+/*
+ oflag is one or more of O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
+ */
+int64_t _moat_fs_open(char *name, int oflag)
 {
     fs_file_t *file_md = find_file_by_name(name);
     
@@ -168,6 +177,10 @@ int64_t _moat_fs_open(char *name)
         if (strlen(name) >= MAX_FILENAME_LEN) { return -1; }
         int64_t fd = generate_unique_file_descriptor();
         if (fd == -1) { return -1; } //we didn't get an available fd
+        //check that only one of O_RDONLY, O_WRONLY, O_RDWR are set
+        if (o_rdonly(oflag)) { if (o_wronly(oflag) || o_rdwr(oflag)) { return -1; } }
+        if (o_wronly(oflag)) { if (o_rdonly(oflag) || o_rdwr(oflag)) { return -1; } }
+        if (o_rdwr(oflag)) { if (o_rdonly(oflag) || o_wronly(oflag)) { return -1; } }
 
         file_md = (fs_file_t *) malloc(sizeof(fs_file_t)); assert(file_md != NULL);
 
@@ -175,6 +188,8 @@ int64_t _moat_fs_open(char *name)
         file_md->file_descriptor = fd;
         file_md->offset = 0;
         file_md->length = 0;
+        file_md->read_permission = o_rdonly(oflag) || o_rdwr(oflag);
+        file_md->write_permission = o_wronly(oflag) || o_rdwr(oflag);
         file_md->blocks = malloc(sizeof(ll_t)); assert(file_md->blocks != NULL);
         file_md->blocks->head = NULL;
 
@@ -227,6 +242,7 @@ int64_t _moat_fs_read(int64_t fd, void* buf, int64_t len)
 
     //error-checking
     if (len < 0 || len > MAX_FILE_LEN) { return -1; } //bad len argument
+    if (!file_md->read_permission) { return -1; }
 
     //we need to iterate through all blocks that hold the requested data
     int64_t offset_reached = 0, len_completed = 0;
@@ -276,6 +292,7 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
     //error-checking
     if (len < 0 || len > MAX_FILE_LEN) { return -1; } //bad len argument
     if ((MAX_FILE_LEN - file_md->offset) < len) { return -1; } //writing len bytes will exceed max len
+    if (!file_md->write_permission) { return -1; }
 
     //we need to iterate through all blocks that hold the requested data
     int64_t offset_reached = 0, len_completed = 0;

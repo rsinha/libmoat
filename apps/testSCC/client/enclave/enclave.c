@@ -41,7 +41,7 @@ uint64_t enclave_test()
     _moat_print_debug("SCC check 0 successful\n");
 
     /* FS test 1 */
-    int64_t fd = _moat_fs_open("tmpfile");
+    int64_t fd = _moat_fs_open("tmpfile", O_RDWR);
     assert(fd != -1);
     _moat_print_debug("FS check 1 successful\n");
 
@@ -55,7 +55,7 @@ uint64_t enclave_test()
 
     api_result = _moat_fs_close(fd);
     assert(api_result == 0);
-    fd = _moat_fs_open("tmpfile");
+    fd = _moat_fs_open("tmpfile", O_RDWR);
     assert(fd != -1);
     _moat_print_debug("FS check 3 successful\n");
 
