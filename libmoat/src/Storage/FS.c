@@ -21,8 +21,12 @@
 #define MAX_FILE_COUNT 16
 /* for now, we will let FS be at most 1 MB */
 #define MAX_BLOCKS 256
-#define MAX_FILENAME_LEN 64
+#define MAX_FILE_NAME_LEN 64
 #define MAX_FILE_LEN UINT32_MAX
+
+#define o_rdonly(oflag) ((O_RDONLY & oflag) != 0)
+#define o_wronly(oflag) ((O_WRONLY & oflag) != 0)
+#define o_rdwr(oflag) ((O_RDWR & oflag) != 0)
 
 typedef struct
 {
@@ -32,7 +36,7 @@ typedef struct
 
 typedef struct
 {
-    char      filename[MAX_FILENAME_LEN]; //use a constant string here
+    char      file_name[MAX_FILE_NAME_LEN]; //use a constant string here
     int64_t   file_descriptor; //integer file id
     int64_t   offset; //current offset in the file
     int64_t   length; //number of bytes written to this file
@@ -138,7 +142,7 @@ fs_file_t *find_file_by_name(char *name)
     while (list_has_next(iter)) //search for the file descriptor within g_files
     {
         current_file = (fs_file_t *) list_get_next(iter);
-        if (strcmp(name, current_file->filename) == 0) {
+        if (strcmp(name, current_file->file_name) == 0) {
             list_destroy_iterator(iter);
             return current_file;
         }
@@ -147,10 +151,6 @@ fs_file_t *find_file_by_name(char *name)
     
     return NULL; //didn't find anything
 }
-
-bool o_rdonly(int oflag) { return (O_RDONLY & oflag) != 0; }
-bool o_wronly(int oflag) { return (O_WRONLY & oflag) != 0; }
-bool o_rdwr(int oflag) { return (O_RDWR & oflag) != 0; }
 
 /***************************************************
  PUBLIC API IMPLEMENTATION
@@ -174,7 +174,7 @@ int64_t _moat_fs_open(char *name, int oflag)
     
     if (file_md == NULL) //else file already exists by that name
     {
-        if (strlen(name) >= MAX_FILENAME_LEN) { return -1; }
+        if (strlen(name) >= MAX_FILE_NAME_LEN) { return -1; }
         int64_t fd = generate_unique_file_descriptor();
         if (fd == -1) { return -1; } //we didn't get an available fd
         //check that only one of O_RDONLY, O_WRONLY, O_RDWR are set
@@ -184,7 +184,7 @@ int64_t _moat_fs_open(char *name, int oflag)
 
         file_md = (fs_file_t *) malloc(sizeof(fs_file_t)); assert(file_md != NULL);
 
-        strcpy(file_md->filename, name);
+        strcpy(file_md->file_name, name);
         file_md->file_descriptor = fd;
         file_md->offset = 0;
         file_md->length = 0;

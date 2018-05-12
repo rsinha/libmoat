@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define BLOCK_SIZE 4096
+#define BLOCK_SIZE 4044
 typedef uint8_t block_data_t[BLOCK_SIZE];
 
 void block_storage_module_init();
