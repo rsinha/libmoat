@@ -26,7 +26,7 @@ void block_storage_module_init(size_t num_blocks)
     sgx_status_t status;
     size_t retstatus;
 
-    status = create_blockfs_ocall(&retstatus, num_blocks);
+    status = fs_init_service_ocall(&retstatus, num_blocks);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
     auth_enc_storage_module_init(num_blocks);

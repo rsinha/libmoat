@@ -88,13 +88,12 @@ size_t auth_enc_storage_read(size_t addr, block_data_t data)
 
     //NIST guidelines for using AES-GCM
     if (g_local_counter > ((uint32_t) -2)) { return -1; }
-    
-    size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t);
+
     //allocate memory for ciphertext
-    uint8_t *ciphertext = (uint8_t *) malloc(len);
+    uint8_t ciphertext[sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t)];
     assert(ciphertext != NULL);
     
-    status = read_block_ocall(&retstatus, ciphertext, len, addr);
+    status = fs_read_block_ocall(&retstatus, addr, ciphertext, sizeof(ciphertext));
     assert(status == SGX_SUCCESS && retstatus == 0);
     
     assert(((fs_ciphertext_header_t *) ciphertext)->type == APPLICATION_DATA);
@@ -104,7 +103,7 @@ size_t auth_enc_storage_read(size_t addr, block_data_t data)
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
     //preventing rollback attacks
-    integrity_check_freshness(addr, ciphertext, len);
+    integrity_check_freshness(addr, ciphertext, sizeof(ciphertext));
     
     /* ciphertext: header || IV || MAC || encrypted */
     status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) g_key, //key
@@ -118,7 +117,6 @@ size_t auth_enc_storage_read(size_t addr, block_data_t data)
                                         (const sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); //mac
     assert(status == SGX_SUCCESS);
     
-    free(ciphertext);
     return 0;
 }
 
@@ -132,9 +130,8 @@ size_t auth_enc_storage_write(size_t addr, block_data_t data)
     /* error checking */
     if (addr >= g_num_blocks) { return -1; }
 
-    size_t len = sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t);
     //allocate memory for ciphertext
-    uint8_t *ciphertext = (uint8_t *) malloc(len);
+    uint8_t ciphertext[sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t)];
     assert (ciphertext != NULL);
     
     ((fs_ciphertext_header_t *) ciphertext)->type = APPLICATION_DATA;
@@ -160,14 +157,13 @@ size_t auth_enc_storage_write(size_t addr, block_data_t data)
     assert(status == SGX_SUCCESS);
     
     //saving SHA-256 hash for future freshness checks
-    integrity_record_freshness(addr, ciphertext, len);
+    integrity_record_freshness(addr, ciphertext, sizeof(ciphertext));
     
     //so we don't reuse IVs
     g_local_counter = g_local_counter + 1;
     
-    status = write_block_ocall(&retstatus, ciphertext, len, addr);
+    status = fs_write_block_ocall(&retstatus, addr, ciphertext, sizeof(ciphertext));
     assert(status == SGX_SUCCESS && retstatus == 0);
-    
-    free(ciphertext);
+
     return 0;
 }

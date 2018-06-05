@@ -1,6 +1,7 @@
 #include "sgx_urts.h"
 #include "interface_u.h"
 #include <zmq.h>
+#include "hiredis.h"
 #include <map>
 #include <iostream>
 #include <fstream>
@@ -19,8 +20,8 @@ typedef struct
 typedef struct {
     void *zmq_ctx_outbound = NULL;    //zmq ctx of connection for sending msg
     void *zmq_skt_outbound = NULL;    //zmq socket of connection for sending msg
-    void *zmq_ctx_inbound = NULL;    //zmq ctx of connection for receiving msg
-    void *zmq_skt_inbound = NULL;    //zmq socket of connection for receiving msg
+    void *zmq_ctx_inbound = NULL;     //zmq ctx of connection for receiving msg
+    void *zmq_skt_inbound = NULL;     //zmq socket of connection for receiving msg
     sgx_measurement_t target_enclave; //measurement of remote enclave
 } untrusted_channel_t;
 
@@ -37,6 +38,8 @@ std::map<size_t, untrusted_channel_t>  g_channels; //map session id to channel s
 merkle_node_t                         *g_merkle_root;
 merkle_node_t                        **g_merkle_leaves;
 size_t                                 g_in_order_traversal_counter;
+redisContext                          *g_redis_context;
+redisReply                            *g_prev_reply;
 
 void server_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
 {
@@ -188,7 +191,7 @@ size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
     return -1;
 }
 
-size_t create_blockfs_ocall(size_t num_blocks)
+size_t fs_init_service_ocall(size_t num_blocks)
 {
     struct stat st = {0};
     if (stat("/tmp/libmoat", &st) == 0) {
@@ -199,7 +202,7 @@ size_t create_blockfs_ocall(size_t num_blocks)
     return 0;
 }
 
-size_t write_block_ocall(void *buf, size_t len, size_t addr)
+size_t fs_write_block_ocall(size_t addr, void *buf, size_t len)
 {
     std::ofstream fout;
 
@@ -214,7 +217,7 @@ size_t write_block_ocall(void *buf, size_t len, size_t addr)
     return 0;
 }
 
-size_t read_block_ocall(void *buf, size_t len, size_t addr)
+size_t fs_read_block_ocall(size_t addr, void *buf, size_t len)
 {
     std::ifstream fin;
 
@@ -307,4 +310,104 @@ size_t write_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes
         height += 1;
     }
     return 0;
+}
+
+size_t kvs_init_service_ocall()
+{
+    redisContext *c;
+
+    //const char *hostname = (argc > 1) ? argv[1] : "127.0.0.1";
+    //int port = (argc > 2) ? atoi(argv[2]) : 6379;
+    const char *hostname = "127.0.0.1";
+    //const char *hostname = "redis";
+    int port = 6379;
+
+    struct timeval timeout = {1, 500000}; // 1.5 seconds
+    int retries = 5;
+    bool connected = false;
+
+    while(retries > 0) {
+        retries = retries - 1;
+        c = redisConnectWithTimeout(hostname, port, timeout);
+        if (c == NULL || c->err)
+        {
+            if (c)
+            {
+                printf("Connection error: %s\n", c->errstr);
+                redisFree(c);
+            }
+            else
+            {
+                printf("Connection error: can't allocate redis context\n");
+            }
+            sleep(1);
+            continue;
+        } else {
+            connected = true;
+            break;
+        }
+    }
+
+    if (!connected) { return false; }
+
+    redisReply *reply = (redisReply *)redisCommand(c, "PING");
+
+    if (memcmp(reply->str, "PONG", 5) != 0)
+    {
+        printf("Connection error: unable to ping server\n");
+        freeReplyObject(reply);
+        return false;
+    }
+
+    freeReplyObject(reply);
+    g_redis_context = c;
+    g_prev_reply = NULL;
+
+    return 0;
+}
+
+size_t kvs_create_ocall(int64_t fd, const char *name)
+{
+    return 0;
+}
+
+size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len)
+{
+    redisReply *reply;
+
+    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %d", fd);
+    if (reply->type != REDIS_REPLY_STATUS) {
+        freeReplyObject(reply);
+        return -1;
+    }
+
+    reply = (redisReply *)redisCommand(g_redis_context, "SET %b %b", k, k_len, buf, buf_len);
+    freeReplyObject(reply);
+    return reply->type == REDIS_REPLY_STATUS ? 0 : -1;
+}
+
+size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrusted_buf)
+{
+    if (g_prev_reply != NULL) {
+        freeReplyObject(g_prev_reply);
+        g_prev_reply = NULL;
+    }
+
+    redisReply *reply = (redisReply *) redisCommand(g_redis_context, "GET %b", k, k_len);
+
+    if (reply->type == REDIS_REPLY_NIL) {
+        freeReplyObject(reply);
+        return -1;
+    }
+
+    *untrusted_buf = reply->str;
+    g_prev_reply = reply;
+
+    return 0;
+}
+
+size_t malloc_ocall(size_t num_bytes, void **untrusted_buf)
+{
+    *untrusted_buf = malloc(num_bytes);
+    return untrusted_buf != NULL ? 0 : -1;
 }

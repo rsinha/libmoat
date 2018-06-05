@@ -62,11 +62,12 @@ typedef struct kv_key_t {
 } kv_key_t;
 
 void LIBMOAT_API _moat_kvs_module_init();
-int64_t _moat_kvs_open(char *path, int oflag);
-int64_t _moat_kvs_insert(int64_t handle, kv_key_t *k, void* buf, size_t len);
-int64_t _moat_kvs_set(int64_t handle, kv_key_t *k, void *buf, size_t len);
-int64_t _moat_kvs_get(int64_t handle, kv_key_t *k, size_t offset, void* buf, size_t len);
-int64_t _moat_kvs_delete(int64_t handle, kv_key_t *k);
-int64_t _moat_kvs_close(int64_t handle);
+int64_t _moat_kvs_open(char *name, int oflag);
+int64_t _moat_kvs_insert(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, size_t len);
+int64_t _moat_kvs_set(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, size_t len);
+int64_t _moat_kvs_set(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, size_t len);
+int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, size_t offset, void* buf, size_t len);
+//int64_t _moat_kvs_delete(int64_t handle, kv_key_t *k);
+int64_t _moat_kvs_close(int64_t fd);
 
 #endif

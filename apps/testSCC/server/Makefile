@@ -4,6 +4,8 @@ SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
+HIREDIS_INC_PATH := /usr/local/include/hiredis
+HIREDIS_LIB_PATH := /usr/local/lib
 LIBUNTRUSTED := ../../../libuntrusted
 LIBMOAT := ../../../libmoat
 LIBMOAT_NETWORK := $(LIBMOAT)/src/Network
@@ -66,7 +68,7 @@ else
 endif
 
 Host_Cpp_Files := host/host_server.cpp $(LIBUNTRUSTED)/libmoat_untrusted.cpp
-Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include
+Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include  -I$(HIREDIS_INC_PATH)
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
 
@@ -83,7 +85,7 @@ else
 endif
 
 Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
-Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -lzmq -lczmq
+Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -lzmq -lczmq -L$(HIREDIS_LIB_PATH) -lhiredis
 
 ifneq ($(SGX_MODE), HW)
 	Host_Link_Flags += -lsgx_uae_service_sim

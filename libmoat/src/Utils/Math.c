@@ -36,3 +36,7 @@ size_t exp_of_2(size_t x)
     }
     return result;
 }
+
+bool addition_is_safe(uint64_t a, uint64_t b) {
+    return (UINT64_MAX - a > b);
+}

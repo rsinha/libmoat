@@ -20,6 +20,7 @@ size_t min(size_t a, size_t b);
 size_t max(size_t a, size_t b);
 size_t log_base_2(size_t x);
 size_t exp_of_2(size_t x);
+bool   addition_is_safe(uint64_t a, uint64_t b);
 
 /***************************************************
             LINKED LIST UTILITIES
