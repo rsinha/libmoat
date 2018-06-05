@@ -20,3 +20,5 @@ before_install:
   - wget https://github.com/zeromq/czmq/releases/download/v4.0.2/czmq-4.0.2.tar.gz
   - tar -xvf czmq-4.0.2.tar.gz
   - cd czmq-4.0.2 && ./configure && make && sudo make install && cd ..
+  - git clone https://github.com/redis/hiredis.git
+  - cd hiredis && make && sudo make install && cd ..
