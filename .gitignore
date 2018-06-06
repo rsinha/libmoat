@@ -10,3 +10,6 @@
 venv
 .DS_Store
 *.swp
+.idea/
+.vscode/
+libmoat.xcodeproj/
