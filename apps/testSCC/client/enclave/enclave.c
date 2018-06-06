@@ -13,6 +13,7 @@ uint64_t enclave_test()
     _moat_debug_module_init();
     _moat_scc_module_init();
     _moat_fs_module_init();
+    _moat_kvs_module_init();
 
     blob_t blob1;
     //ideally some authority (e.g. CA) will tell us this
@@ -25,6 +26,7 @@ uint64_t enclave_test()
     assert(handle != NULL);
     _moat_print_debug("ECDHE+AES-GCM-128 channel established with server...\n");
 
+    /* Test 0 (SCC) sends two values to server and checks the result */
     blob1.x1 = 42;
     blob1.x2 = 44;
     uint64_t result;
@@ -40,11 +42,12 @@ uint64_t enclave_test()
     assert(result == 86); //using the server to add x1 to x2
     _moat_print_debug("SCC check 0 successful\n");
 
-    /* FS test 1 */
-    int64_t fd = _moat_fs_open("tmpfile", O_RDWR);
+    /* Test 1 (FS) just tries to open a tmpfile */
+    int64_t fd = _moat_fs_open("tmp://file", O_RDWR);
     assert(fd != -1);
     _moat_print_debug("FS check 1 successful\n");
 
+    /* Test 2 (FS) just writes 86 at current offset (which at this time is 0), and reads it back */
     api_result = _moat_fs_write(fd, &result, sizeof(result));
     assert(api_result == sizeof(result));
     uint64_t reload_result;
@@ -53,13 +56,16 @@ uint64_t enclave_test()
     assert(reload_result == result);
     _moat_print_debug("FS check 2 successful\n");
 
+    /* Test 3 (FS) closes the file and checks that file operations do not succeed. Then, reopens it */
     api_result = _moat_fs_close(fd);
     assert(api_result == 0);
-    fd = _moat_fs_open("tmpfile", O_RDWR);
+    api_result = _moat_fs_write(fd, &result, sizeof(result));
+    assert(api_result != 0);
+    fd = _moat_fs_open("tmp://file", O_RDWR);
     assert(fd != -1);
     _moat_print_debug("FS check 3 successful\n");
 
-    /* FS test 2 */
+    /* Test 4 (FS) writes 20,000 bytes using combination of lseek and write, then reads a few bytes back */
     int64_t offset = 0;
     while (offset < 20000) {
         api_result = _moat_fs_write(fd, &measurement, sizeof(sgx_measurement_t));
@@ -67,7 +73,6 @@ uint64_t enclave_test()
         assert(api_result == offset + 32);
         offset += 32;
     }
-
     sgx_measurement_t reload_measurement;
     offset = 4224;
     api_result = _moat_fs_lseek(fd, 4224, SEEK_SET);
@@ -77,7 +82,7 @@ uint64_t enclave_test()
     assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) == 0);
     _moat_print_debug("FS check 4 successful\n");
 
-    /* FS test 3 */
+    /* Test 5 (FS) tests lseek with negative offset, and then reads the value */
     api_result = _moat_fs_lseek(fd, -4184, SEEK_CUR);
     assert(api_result == 40);
     api_result = _moat_fs_read(fd, &reload_measurement, sizeof(reload_measurement));
@@ -85,7 +90,7 @@ uint64_t enclave_test()
     assert(memcmp(&reload_measurement, &measurement, sizeof(sgx_measurement_t)) != 0);
     _moat_print_debug("FS check 5 successful\n");
 
-    /* FS test 4 */
+    /* Test 6 (FS) tests reading back all the 20000 bytes written in Test 4 */
     offset = 4224;
     while (offset < 20000) {
         api_result = _moat_fs_lseek(fd, offset, SEEK_SET);
@@ -96,6 +101,11 @@ uint64_t enclave_test()
         offset += 32;
     }
     _moat_print_debug("FS check 6 successful\n");
+
+    /* Test 7 (KVS) just tries to open a temp DB */
+    int64_t dbd = _moat_kvs_open("tmp://db", O_RDWR);
+    assert(dbd != -1);
+    _moat_print_debug("KVS check 7 successful\n");
 
     return 0;
 }

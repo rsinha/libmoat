@@ -210,6 +210,8 @@ void _moat_kvs_module_init()
     assert(status == SGX_SUCCESS && retstatus == 0);
 
     /* initialize encryption key */
+    g_key = malloc(sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(g_key != NULL);
     status = sgx_read_rand((uint8_t *) g_key, sizeof(sgx_aes_gcm_128bit_key_t));
     assert(status == SGX_SUCCESS);
 

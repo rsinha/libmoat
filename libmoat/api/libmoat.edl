@@ -25,6 +25,7 @@ enclave {
         size_t kvs_create_ocall(int64_t fd, [in,string] const char *name);
         size_t kvs_set_ocall(int64_t fd, [in, size=k_len] void *k, size_t k_len, [in, size=buf_len] void *buf, size_t buf_len);
         size_t kvs_get_ocall(int64_t fd, [in, size=k_len] void *k, size_t k_len, [out, size=8] void **untrusted_buf);
+        size_t kvs_destroy_ocall(int64_t fd);
 
         size_t malloc_ocall(size_t num_bytes, [out, size=8] void **untrusted_buf);
 
