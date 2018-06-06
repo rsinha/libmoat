@@ -129,7 +129,6 @@ int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, ui
     if (len < 0) { return -1; } //bad len argument
     if (!addition_is_safe(offset, len)) { return -1; }
     if (!db_md->write_permission) { return -1; }
-
     assert (offset == 0 && len <= MAX_CHUNK_SIZE); //TODO: handling the simple case for now
 
     uint8_t *untrusted_buf;
@@ -177,12 +176,10 @@ int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, ui
 
     //copy the IV
     memcpy(current_uptr, iv, SGX_AESGCM_IV_SIZE);
-
     current_uptr += SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
 
     //so we don't reuse IVs
     g_local_counter = g_local_counter + 1;
-
     status = kvs_set_ocall(&retstatus, fd, k, sizeof(kv_key_t), untrusted_buf, untrusted_len);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
@@ -279,6 +276,8 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
     sgx_status_t status = kvs_get_ocall(&retstatus, fd, k, sizeof(kv_key_t), (void **) &untrusted_buf);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
+    assert(sgx_is_outside_enclave(untrusted_buf, sizeof(kvs_header_t)));  //technically not needed, but good to have
+    
     uint64_t untrusted_offset_reached = 0, trusted_offset_reached = 0;
 
     //we know at least kvs_header_t worth of bytes are there, let's pull them in
@@ -289,10 +288,11 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
     uint64_t num_chunks = ((kvs_header_t *) chunk)->num_chunks; /* number of chunks in untrusted */
     uint64_t value_version = ((kvs_header_t *) chunk)->value_version; /* incremented on each write */
 
+    assert(sgx_is_outside_enclave(untrusted_buf, untrusted_len)); //technically not needed, but good to have
+   
     //do some sanity error checking
     assert(addition_is_safe((uint64_t) untrusted_buf, untrusted_len));
     //TODO: check that [untrusted_buf..untrusted_buf+untrusted_len] is within non-enclave memory
-
     uint64_t chunk_ctr = 0;
 
     while ( (trusted_offset_reached < (offset + len)) && /* done reading requested content */
@@ -300,11 +300,9 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
             (chunk_ctr < num_chunks) ) /* ran out of chunks */
     {
         uint64_t chunk_size;
-    
         memcpy(&chunk_size, untrusted_buf + untrusted_offset_reached, sizeof(chunk_size));
         untrusted_offset_reached += sizeof(chunk_size);
         assert(chunk_size <= MAX_CHUNK_SIZE);
-
         memcpy(chunk, untrusted_buf + untrusted_offset_reached, chunk_size);
         untrusted_offset_reached += chunk_size;
 
@@ -345,19 +343,19 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
         trusted_offset_reached += ptxt_chunk_size;
         chunk_ctr += 1;
     }
-    
+
     return (trusted_offset_reached > offset) ? trusted_offset_reached - offset : 0;
 }
 
 int64_t _moat_kvs_set(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, uint64_t len)
 {
     //TODO: use the correct version once we use the Merkle tree
-    kvs_write_helper(fd, k, offset, buf, len, 0);
+    return kvs_write_helper(fd, k, offset, buf, len, 0);
 }
 
 int64_t _moat_kvs_insert(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, uint64_t len)
 {
-    kvs_write_helper(fd, k, offset, buf, len, 0);
+    return kvs_write_helper(fd, k, offset, buf, len, 0);
 }
 
 int64_t _moat_kvs_close(int64_t fd)

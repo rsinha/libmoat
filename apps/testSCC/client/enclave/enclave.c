@@ -40,7 +40,7 @@ uint64_t enclave_test()
     api_result = _moat_scc_destroy(handle); assert(api_result == 0);
     
     assert(result == 86); //using the server to add x1 to x2
-    _moat_print_debug("SCC check 0 successful\n");
+    _moat_print_debug("SCC check 1 successful\n");
 
     /* Test 1 (FS) just tries to open a tmpfile */
     int64_t fd = _moat_fs_open("tmp://file", O_RDWR);
@@ -102,10 +102,34 @@ uint64_t enclave_test()
     }
     _moat_print_debug("FS check 6 successful\n");
 
-    /* Test 7 (KVS) just tries to open a temp DB */
+    /* Test 1 (KVS) just tries to open a temp DB */
     int64_t dbd = _moat_kvs_open("tmp://db", O_RDWR);
     assert(dbd != -1);
-    _moat_print_debug("KVS check 7 successful\n");
+    _moat_print_debug("KVS check 1 successful\n");
+
+    /* Test 2 (KVS) writes values to temp DB */
+    kv_key_t k1, k2;
+    uint8_t v1[64], v2[32];
+    memset(&k1, 1, sizeof(k1)); memset(v1, 255, sizeof(v1));
+    memset(&k2, 2, sizeof(k2)); memset(v2, 254, sizeof(v2));
+    api_result = _moat_kvs_set(dbd, &k1, 0, &v1, sizeof(v1));
+    assert(api_result == sizeof(v1));
+    api_result = _moat_kvs_set(dbd, &k2, 0, &v2, sizeof(v2));
+    assert(api_result == sizeof(v2));
+    _moat_print_debug("KVS check 2 successful\n");
+
+    /* Test 3 (KVS) reads back values from temp DB */
+    uint8_t v1_get[64], v2_get[64];
+    memset(v1_get, 0, sizeof(v1_get));
+    memset(v2_get, 0, sizeof(v2_get));
+    api_result = _moat_kvs_get(dbd, &k1, 0, &v1_get, sizeof(v1_get));
+    assert(api_result == sizeof(v1));
+    api_result = _moat_kvs_get(dbd, &k2, 0, &v2_get, sizeof(v2_get));
+    assert(api_result == sizeof(v2));
+    assert(memcmp(v1, v1_get, sizeof(v1)) == 0);
+    assert(memcmp(v2, v2_get, sizeof(v2)) == 0);
+    assert(v1[33] == 255 && v1_get[33] == 255 && v2[21] == 254 && v2_get[21] == 254);
+    _moat_print_debug("KVS check 3 successful\n");
 
     return 0;
 }

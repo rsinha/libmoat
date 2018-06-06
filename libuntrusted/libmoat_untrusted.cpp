@@ -375,13 +375,11 @@ size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_le
 {
     redisReply *reply;
 
-    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %d", fd);
-    if (reply->type != REDIS_REPLY_STATUS) {
-        freeReplyObject(reply);
-        return -1;
-    }
+    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
+    assert(reply != NULL);
+    freeReplyObject(reply);
 
-    reply = (redisReply *)redisCommand(g_redis_context, "SET %b %b", k, k_len, buf, buf_len);
+    reply = (redisReply *) redisCommand(g_redis_context, "SET %b %b", k, k_len, buf, buf_len);
     size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;
     freeReplyObject(reply);
     return result;
@@ -411,11 +409,9 @@ size_t kvs_destroy_ocall(int64_t fd)
 {
     redisReply *reply;
 
-    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %d", fd);
-    if (reply->type != REDIS_REPLY_STATUS) {
-        freeReplyObject(reply);
-        return -1;
-    }
+    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
+    assert(reply != NULL);
+    freeReplyObject(reply);
 
     reply = (redisReply *)redisCommand(g_redis_context, "FLUSHDB");
     size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;

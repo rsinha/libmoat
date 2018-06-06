@@ -65,7 +65,6 @@ void LIBMOAT_API _moat_kvs_module_init();
 int64_t _moat_kvs_open(char *name, int oflag);
 int64_t _moat_kvs_insert(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint64_t len);
 int64_t _moat_kvs_set(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint64_t len);
-int64_t _moat_kvs_set(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, uint64_t len);
 int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint64_t len);
 //int64_t _moat_kvs_delete(int64_t handle, kv_key_t *k);
 int64_t _moat_kvs_close(int64_t fd);
