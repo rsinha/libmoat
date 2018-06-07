@@ -397,12 +397,11 @@ size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrusted_buf)
     if (reply->type == REDIS_REPLY_NIL) {
         freeReplyObject(reply);
         return -1;
+    } else {
+        *untrusted_buf = reply->str;
+        g_prev_reply = reply;
+        return 0;
     }
-
-    *untrusted_buf = reply->str;
-    g_prev_reply = reply;
-
-    return 0;
 }
 
 size_t kvs_destroy_ocall(int64_t fd)

@@ -108,7 +108,7 @@ uint64_t enclave_test()
     _moat_print_debug("KVS check 1 successful\n");
 
     /* Test 2 (KVS) writes values to temp DB */
-    kv_key_t k1, k2;
+    kv_key_t k1, k2, k3;
     uint8_t v1[64], v2[32];
     memset(&k1, 1, sizeof(k1)); memset(v1, 255, sizeof(v1));
     memset(&k2, 2, sizeof(k2)); memset(v2, 254, sizeof(v2));
@@ -118,8 +118,8 @@ uint64_t enclave_test()
     assert(api_result == sizeof(v2));
     _moat_print_debug("KVS check 2 successful\n");
 
-    /* Test 3 (KVS) reads back values from temp DB */
-    uint8_t v1_get[64], v2_get[64];
+    /* Test 3 (KVS) reads back values from temp DB; also checks that non-existent keys don't return values */
+    uint8_t v1_get[64], v2_get[64], v3_get[32];
     memset(v1_get, 0, sizeof(v1_get));
     memset(v2_get, 0, sizeof(v2_get));
     api_result = _moat_kvs_get(dbd, &k1, 0, &v1_get, sizeof(v1_get));
@@ -129,6 +129,9 @@ uint64_t enclave_test()
     assert(memcmp(v1, v1_get, sizeof(v1)) == 0);
     assert(memcmp(v2, v2_get, sizeof(v2)) == 0);
     assert(v1[33] == 255 && v1_get[33] == 255 && v2[21] == 254 && v2_get[21] == 254);
+    memset(&k3, 0, sizeof(k3));
+    api_result = _moat_kvs_get(dbd, &k3, 0, &v3_get, sizeof(v3_get));
+    assert(api_result == -1);
     _moat_print_debug("KVS check 3 successful\n");
 
     return 0;

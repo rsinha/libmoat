@@ -19,6 +19,9 @@
 #define MAX_KVS_NAME_LEN 64
 
 #define TMP_NAME_PREFIX "tmp://"
+#define INPUT_NAME_PREFIX "in://"
+#define OUTPUT_NAME_PREFIX "out://"
+#define INOUT_NAME_PREFIX "inout://"
 
 #define o_rdonly(oflag) ((O_RDONLY & oflag) != 0)
 #define o_wronly(oflag) ((O_WRONLY & oflag) != 0)
@@ -33,7 +36,10 @@ typedef struct
     bool      write_permission;
 } kvs_db_t;
 
-#define MAX_CHUNK_SIZE 1024 //we store values as a collection of ordered chunks
+ //we store values as a collection of ordered chunks
+#define MAX_CHUNK_SIZE 1024
+//1 GB max value size
+#define MAX_VALUE_SIZE 1073741824
 
 typedef struct
 {
@@ -127,8 +133,10 @@ int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, ui
 
     //error-checking
     if (len < 0) { return -1; } //bad len argument
-    if (!addition_is_safe(offset, len)) { return -1; }
-    if (!db_md->write_permission) { return -1; }
+    if (!addition_is_safe(offset, len)) { return -1; } //offset + len causes integer overflow
+    if (offset + len > MAX_VALUE_SIZE) { return -1; } //offset + len is more than allowed size
+    if (!db_md->write_permission) { return -1; } //need write permission for this DB
+
     assert (offset == 0 && len <= MAX_CHUNK_SIZE); //TODO: handling the simple case for now
 
     uint8_t *untrusted_buf;
@@ -265,7 +273,8 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
 
     //error-checking
     if (len < 0) { return -1; } //bad len argument
-    if (!addition_is_safe(offset,len)) { return -1; }
+    if (!addition_is_safe(offset,len)) { return -1; } //offset + len shouldn't cause integer overflow
+    if (offset + len > MAX_VALUE_SIZE) { return -1; } //offset + len is more than allowed size
     if (!db_md->read_permission) { return -1; }
 
     uint8_t *untrusted_buf;
@@ -274,7 +283,10 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
     //request location of buffer in untrusted memory holding the value
     size_t retstatus;
     sgx_status_t status = kvs_get_ocall(&retstatus, fd, k, sizeof(kv_key_t), (void **) &untrusted_buf);
-    assert(status == SGX_SUCCESS && retstatus == 0);
+    assert(status == SGX_SUCCESS);
+    if (retstatus != 0) {
+        return -1;
+    }
 
     assert(sgx_is_outside_enclave(untrusted_buf, sizeof(kvs_header_t)));  //technically not needed, but good to have
     
