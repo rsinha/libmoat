@@ -1,5 +1,5 @@
 language: c
-script: cd apps/testSCC/client && make
+script: cd apps/test/client && make
 
 os: linux
 dist: trusty
