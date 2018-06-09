@@ -368,7 +368,17 @@ size_t kvs_init_service_ocall()
 
 size_t kvs_create_ocall(int64_t fd, const char *name)
 {
-    return 0;
+    //creation doesn't require us to do anything, except clear existing contents (if any)
+    redisReply *reply;
+
+    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
+    assert(reply != NULL);
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisCommand(g_redis_context, "FLUSHDB");
+    size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;
+    freeReplyObject(reply);
+    return result;
 }
 
 size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len)
@@ -392,7 +402,11 @@ size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrusted_buf)
         g_prev_reply = NULL;
     }
 
-    redisReply *reply = (redisReply *) redisCommand(g_redis_context, "GET %b", k, k_len);
+    redisReply *reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
+    assert(reply != NULL);
+    freeReplyObject(reply);
+
+    reply = (redisReply *) redisCommand(g_redis_context, "GET %b", k, k_len);
 
     if (reply->type == REDIS_REPLY_NIL) {
         freeReplyObject(reply);

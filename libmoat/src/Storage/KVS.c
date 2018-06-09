@@ -73,7 +73,6 @@ int64_t generate_unique_db_descriptor()
     while (list_has_next(iter))
     {
         kvs_db_t *current_db = (kvs_db_t *) list_get_next(iter);
-        //file descriptors start at 1
         occupied[current_db->db_descriptor] = true;
     }
     list_destroy_iterator(iter);
@@ -129,6 +128,7 @@ kvs_db_t *find_db_by_name(char *name)
 int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, uint64_t len, uint64_t value_version)
 {   
     kvs_db_t *db_md = find_db_by_descriptor(fd);
+    _moat_print_debug("writing to %s\n", db_md->db_name);
     if (db_md == NULL) { return -1; } //this needs an error code
 
     //error-checking
@@ -235,6 +235,7 @@ int64_t _moat_kvs_open(char *name, int oflag)
     {
         if (strlen(name) >= MAX_KVS_NAME_LEN) { return -1; }
         int64_t fd = generate_unique_db_descriptor();
+        _moat_print_debug("creating new db with descriptor %ld\n", fd);
         if (fd == -1) { return -1; } //we didn't get an available fd
         //check that only one of O_RDONLY, O_WRONLY, O_RDWR are set
         if (o_rdonly(oflag)) { if (o_wronly(oflag) || o_rdwr(oflag)) { return -1; } }
@@ -269,6 +270,7 @@ int64_t _moat_kvs_open(char *name, int oflag)
 int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint64_t len)
 {
     kvs_db_t *db_md = find_db_by_descriptor(fd);
+    _moat_print_debug("reading from %s\n", db_md->db_name);
     if (db_md == NULL) { return -1; } //this needs an error code
 
     //error-checking
@@ -301,12 +303,11 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
     uint64_t value_version = ((kvs_header_t *) chunk)->value_version; /* incremented on each write */
 
     assert(sgx_is_outside_enclave(untrusted_buf, untrusted_len)); //technically not needed, but good to have
-   
+
     //do some sanity error checking
     assert(addition_is_safe((uint64_t) untrusted_buf, untrusted_len));
     //TODO: check that [untrusted_buf..untrusted_buf+untrusted_len] is within non-enclave memory
     uint64_t chunk_ctr = 0;
-
     while ( (trusted_offset_reached < (offset + len)) && /* done reading requested content */
             (untrusted_offset_reached < untrusted_len) && /* ran out of bytes */
             (chunk_ctr < num_chunks) ) /* ran out of chunks */
@@ -315,6 +316,7 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
         memcpy(&chunk_size, untrusted_buf + untrusted_offset_reached, sizeof(chunk_size));
         untrusted_offset_reached += sizeof(chunk_size);
         assert(chunk_size <= MAX_CHUNK_SIZE);
+
         memcpy(chunk, untrusted_buf + untrusted_offset_reached, chunk_size);
         untrusted_offset_reached += chunk_size;
 
