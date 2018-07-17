@@ -17,7 +17,7 @@ typedef struct _ll_node
  ***************************************************/
 
 ll_t *list_create() {
-    list *result = malloc(sizeof(ll_t));
+    ll_t *result = malloc(sizeof(ll_t));
     assert(result != NULL);
     result->head = NULL;
     return result;
