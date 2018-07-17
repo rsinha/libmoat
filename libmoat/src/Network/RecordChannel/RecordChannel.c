@@ -74,9 +74,7 @@ size_t generate_unique_session_id()
 
 void record_channel_module_init()
 {
-    g_dest_session_info = malloc(sizeof(ll_t));
-    assert(g_dest_session_info != NULL);
-    g_dest_session_info->head = NULL;
+    g_dest_session_info = list_create();
 }
 
 //finds an open session by its id

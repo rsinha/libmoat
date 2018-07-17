@@ -158,10 +158,7 @@ fs_file_t *find_file_by_name(char *name)
 
 void _moat_fs_module_init()
 {
-    g_files = malloc(sizeof(ll_t));
-    assert(g_files != NULL);
-    g_files->head = NULL;
-
+    g_files = list_create();
     block_storage_module_init(MAX_BLOCKS);
 }
 
@@ -190,8 +187,7 @@ int64_t _moat_fs_open(char *name, int oflag)
         file_md->length = 0;
         file_md->read_permission = o_rdonly(oflag) || o_rdwr(oflag);
         file_md->write_permission = o_wronly(oflag) || o_rdwr(oflag);
-        file_md->blocks = malloc(sizeof(ll_t)); assert(file_md->blocks != NULL);
-        file_md->blocks->head = NULL;
+        file_md->blocks = list_create();
 
         list_insert_value(g_files, file_md);
     }

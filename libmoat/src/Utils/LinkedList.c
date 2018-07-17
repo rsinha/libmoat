@@ -16,6 +16,13 @@ typedef struct _ll_node
             PUBLIC API IMPLEMENTATION
  ***************************************************/
 
+ll_t *list_create() {
+    list *result = malloc(sizeof(ll_t));
+    assert(result != NULL);
+    result->head = NULL;
+    return result;
+}
+
 //returns the size of the linked list
 size_t list_size(ll_t *list)
 {
@@ -110,7 +117,7 @@ void *list_find_value(ll_t *list, bool (*pred)(void *))
 ll_iterator_t *list_create_iterator(ll_t *list)
 {
     ll_iterator_t *iter = malloc(sizeof(ll_iterator_t));
-    assert(malloc != NULL);
+    assert(iter != NULL);
     iter->next_node = list->head;
     return iter;
 }

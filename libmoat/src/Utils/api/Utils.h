@@ -36,6 +36,8 @@ typedef struct
     void *next_node; //type ll_node_t
 } ll_iterator_t;
 
+//allocates space for a list data structure
+ll_t *list_create();
 //returns the size of the linked list
 size_t list_size(ll_t *list);
 //inserts value at the tail of the linked list

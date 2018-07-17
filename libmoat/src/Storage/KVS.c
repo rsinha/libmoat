@@ -205,9 +205,7 @@ bool is_db_temporary(kvs_db_t *db_md)
 
 void _moat_kvs_module_init()
 {
-    g_dbs = malloc(sizeof(ll_t));
-    assert(g_dbs != NULL);
-    g_dbs->head = NULL;
+    g_dbs = list_create();
 
     /* init external KVS */
     size_t retstatus;
