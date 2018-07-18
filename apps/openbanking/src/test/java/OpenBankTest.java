@@ -2,12 +2,13 @@ import com.plaid.client.response.TransactionsGetResponse;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
 public class OpenBankTest {
     private static final String institutionId = "ins_109511"; //TARTAN_BANK_INSTITUTION_ID = "ins_109511";
-    private BankApiCredentials bac = new BankApiCredentials(false);
+    private BankApiCredentials bac = new BankApiCredentials(true);
     private OpenBank openBank = new OpenBank(bac,institutionId);
 
     @Test
@@ -20,7 +21,10 @@ public class OpenBankTest {
             e.printStackTrace();
         }
 
-        Date startDate = new Date(System.currentTimeMillis() - 86400000L * 100);
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.MONTH, -1);
+        Date startDate = cal.getTime();
+
         Date endDate = new Date();
         List<TransactionsGetResponse.Transaction> tx = new ArrayList<TransactionsGetResponse.Transaction>();
         try {

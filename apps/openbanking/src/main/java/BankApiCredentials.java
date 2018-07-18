@@ -4,7 +4,7 @@ public class BankApiCredentials {
     private static String environmentSecret = "";
 
     private static String devSecret = "a239e4436a3f7e8b25705b07d743f3";
-    private static String sandboxSecret = "";
+    private static String sandboxSecret = "a239e4436a3f7e8b25705b07d743f3";
     private static boolean isSandbox = false;
 
     public BankApiCredentials(boolean sandbox) {
