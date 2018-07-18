@@ -32,6 +32,8 @@ uint64_t enclave_test()
     uint64_t result;
     int64_t api_result;
     
+    _moat_print_debug("Commencing checks...\n--------------------\n");
+
     //api_result = _moat_scc_send(handle, &blob1, sizeof(blob1)); assert(api_result == 0);
     api_result = _moat_scc_send(handle, &(blob1.x1), sizeof(blob1.x1)); assert(api_result == 0);
     api_result = _moat_scc_send(handle, &(blob1.x2), sizeof(blob1.x2)); assert(api_result == 0);
@@ -133,6 +135,8 @@ uint64_t enclave_test()
     api_result = _moat_kvs_get(dbd, &k3, 0, &v3_get, sizeof(v3_get));
     assert(api_result == -1);
     _moat_print_debug("KVS check 3 successful\n");
+
+    _moat_print_debug("Finished checks...\n--------------------\n");
 
     return 0;
 }
