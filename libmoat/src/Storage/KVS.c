@@ -53,7 +53,7 @@ typedef struct
     uint64_t untrusted_len;
     uint64_t num_chunks;
     uint64_t value_version;
-} kvs_header_t;
+} chunk_header_t;
 
 /***************************************************
  INTERNAL STATE
@@ -124,19 +124,31 @@ kvs_db_t *find_db_by_name(char *name)
     return NULL; //didn't find anything
 }
 
+/* ciphertext expansion on 1 call to aes_gcm */
 uint64_t aes_gcm_ciphertext_len(uint64_t len)
 {
     return SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
 }
 
-uint64_t chunk_len(uint64_t src_len)
+/* size of 1 chunk */
+uint64_t chunk_len(uint64_t len)
 {
     /* each chunk is of the form chunk_size[64] || ciphertext[chunk_size] */
-    return sizeof(uint64_t) + aes_gcm_ciphertext_len(src_len);
+    return sizeof(uint64_t) + aes_gcm_ciphertext_len(len);
 }
 
-/* NOTE: it is upto caller to ensure that dst has enough space: chunk_len(src_len) */
-int64_t kvs_write_chunk_helper(
+/* size of entire payload */
+uint64_t payload_len(uint64_t len)
+{
+    /* payload is of the form header || chunk_1 || ... || chunk_n */
+    return sizeof(chunk_header_t) + chunk_len(len);
+}
+
+/* NOTE: it is upto caller to ensure that dst has enough space: chunk_len(src_len) 
+         caller must also ensure that [src..src+src_len] is in enclave
+         caller must also ensure that [dst..dst+chunk_len(src_len)+sizeof(chunk_header_t)] is outside enclave
+ */
+int64_t write_chunk(
     cipher_ctx_t *ctx,
     uint8_t *dst,
     uint8_t *src,
@@ -178,6 +190,43 @@ int64_t kvs_write_chunk_helper(
     return (int64_t) src_len;
 }
 
+int64_t chunk_storage_write(
+    cipher_ctx_t *ctx,
+    uint8_t *dst,
+    uint8_t *src,
+    uint64_t src_len,
+    uint64_t value_version,
+    uint8_t *aad_prefix, /* supplied by caller */
+    uint64_t aad_prefix_len)
+{
+    chunk_header_t header;
+    header.untrusted_len = chunk_len(src_len);
+    header.num_chunks = 1;
+    header.value_version = value_version;
+
+    uint8_t *current_uptr = dst;
+    uint64_t offset = 0;
+
+     /* first populate the header */
+    memcpy(current_uptr, &(header), sizeof(chunk_header_t));
+    current_uptr += sizeof(chunk_header_t);
+
+    /* From here on, we write the chunk */
+
+    //additional associated data: computes HMAC over caller's content || kv_header || chunk's offset
+    uint64_t aad_len = aad_prefix_len + sizeof(chunk_header_t) + sizeof(uint64_t);
+    uint8_t *aad = (uint8_t *) malloc(aad_len);
+    assert(aad != NULL);
+    memcpy(aad, aad_prefix, aad_prefix_len);
+    memcpy(aad + aad_prefix_len, &header, sizeof(chunk_header_t));
+    memcpy(aad + aad_prefix_len + sizeof(chunk_header_t), &offset, sizeof(uint64_t));
+
+    int64_t result = write_chunk(ctx, current_uptr, src, src_len, value_version, aad, aad_len);
+
+    free(aad);
+    return (int64_t) src_len;
+}
+
 /*
  * Retrieves value associated with the input key
  * The value format in the untrusted DB is untrusted_len[64] || num_chunks[64] || value_version[64] || content.
@@ -197,37 +246,28 @@ int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, ui
 
     assert (offset == 0 && len <= MAX_CHUNK_SIZE); //TODO: handling the simple case for now
 
-    //populate the header
-    kvs_header_t header;
-    header.untrusted_len = chunk_len(len);
-    header.num_chunks = 1;
-    header.value_version = value_version;
-
     uint8_t *untrusted_buf;
-    uint64_t untrusted_len = sizeof(kvs_header_t) + header.untrusted_len;
+    uint64_t untrusted_len = payload_len(len);
     size_t retstatus;
     //request location of buffer in untrusted memory which is supposed to hold the value
     sgx_status_t status = malloc_ocall(&retstatus, untrusted_len, (void **) &untrusted_buf);
     assert(status == SGX_SUCCESS && retstatus == 0);
-    uint8_t *current_uptr = untrusted_buf;
 
     assert(sgx_is_outside_enclave(untrusted_buf, untrusted_len));
 
-    memcpy(current_uptr, &(header), sizeof(kvs_header_t));
-    current_uptr += sizeof(kvs_header_t);
-
-    /* From here on, we write the chunk */
-
     //additional associated data: computes HMAC over kv_key || kv_header || chunk's offset
-    uint8_t aad[sizeof(kv_key_t) + sizeof(kvs_header_t) + sizeof(uint64_t)];
-    memcpy(aad, k, sizeof(kv_key_t));
-    memcpy(aad + sizeof(kv_key_t), &header, sizeof(kvs_header_t));
-    memcpy(aad + sizeof(kv_key_t) + sizeof(kvs_header_t), &offset, sizeof(uint64_t));
+    uint8_t aad_prefix[sizeof(kv_key_t)];
+    memcpy(aad_prefix, k, sizeof(kv_key_t));
 
-    int64_t result = kvs_write_chunk_helper(&(db_md->cipher_ctx), current_uptr, buf, len, 0, aad, sizeof(aad));
+    int64_t result = chunk_storage_write(&(db_md->cipher_ctx), 
+        untrusted_buf, buf, len,
+        value_version,
+        aad_prefix, sizeof(aad_prefix));
 
     status = kvs_set_ocall(&retstatus, fd, k, sizeof(kv_key_t), untrusted_buf, untrusted_len);
     assert(status == SGX_SUCCESS && retstatus == 0);
+
+    /* TODO: invoke free_ocall */
 
     return result;
 }
@@ -321,13 +361,13 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
     
     uint64_t untrusted_offset_reached = 0, trusted_offset_reached = 0;
 
-    assert(sgx_is_outside_enclave(untrusted_buf, sizeof(kvs_header_t))); /* technically not needed, but good to have */
-    kvs_header_t header;
-    //we know at least kvs_header_t worth of bytes are there, let's pull them in
-    memcpy(&header, untrusted_buf, sizeof(kvs_header_t));
-    untrusted_offset_reached += sizeof(kvs_header_t);
+    assert(sgx_is_outside_enclave(untrusted_buf, sizeof(chunk_header_t))); /* technically not needed, but good to have */
+    chunk_header_t header;
+    //we know at least chunk_header_t worth of bytes are there, let's pull them in
+    memcpy(&header, untrusted_buf, sizeof(chunk_header_t));
+    untrusted_offset_reached += sizeof(chunk_header_t);
 
-    uint64_t untrusted_len = header.untrusted_len + sizeof(kvs_header_t);
+    uint64_t untrusted_len = header.untrusted_len + sizeof(chunk_header_t);
 
     assert(addition_is_safe((uint64_t) untrusted_buf, untrusted_len)); /* do some sanity error checking */
     assert(sgx_is_outside_enclave(untrusted_buf, untrusted_len)); /* technically not needed, but good to have */
@@ -352,10 +392,10 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
         uint8_t ptxt_chunk[MAX_CHUNK_SIZE - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)];
 
         //additional associated data: computes HMAC over kv_key || kv_header || chunk's offset
-        uint8_t aad[sizeof(kv_key_t) + sizeof(kvs_header_t) + sizeof(uint64_t)];
+        uint8_t aad[sizeof(kv_key_t) + sizeof(chunk_header_t) + sizeof(uint64_t)];
         memcpy(aad, k, sizeof(kv_key_t));
-        memcpy(aad + sizeof(kv_key_t), &header, sizeof(kvs_header_t));
-        memcpy(aad + sizeof(kv_key_t) + sizeof(kvs_header_t), &trusted_offset_reached, sizeof(uint64_t));
+        memcpy(aad + sizeof(kv_key_t), &header, sizeof(chunk_header_t));
+        memcpy(aad + sizeof(kv_key_t) + sizeof(chunk_header_t), &trusted_offset_reached, sizeof(uint64_t));
 
         /* ciphertext: IV || MAC || encrypted */
         status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(db_md->cipher_ctx.key), //key
