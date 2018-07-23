@@ -205,7 +205,6 @@ int64_t chunk_storage_write(
     header.value_version = value_version;
 
     uint8_t *current_uptr = dst;
-    uint64_t offset = 0;
 
      /* first populate the header */
     memcpy(current_uptr, &(header), sizeof(chunk_header_t));
@@ -219,9 +218,20 @@ int64_t chunk_storage_write(
     assert(aad != NULL);
     memcpy(aad, aad_prefix, aad_prefix_len);
     memcpy(aad + aad_prefix_len, &header, sizeof(chunk_header_t));
-    memcpy(aad + aad_prefix_len + sizeof(chunk_header_t), &offset, sizeof(uint64_t));
+    //we will apply the chunk's offset within the loop, as it will change for each chunk
 
-    int64_t result = write_chunk(ctx, current_uptr, src, src_len, value_version, aad, aad_len);
+    uint64_t offset = 0;
+    uint8_t *current_tptr = src;
+    while (offset < src_len) {
+        //write offset
+        memcpy(aad + aad_prefix_len + sizeof(chunk_header_t), &offset, sizeof(uint64_t));
+        uint64_t ptxt_bytes_to_write = (src_len - offset) > MAX_CHUNK_SIZE ? MAX_CHUNK_SIZE : (src_len - offset);
+        int64_t result = write_chunk(ctx, current_uptr, current_tptr, ptxt_bytes_to_write, value_version, aad, aad_len);
+        if (result != ptxt_bytes_to_write) { return -1; }
+        offset += ptxt_bytes_to_write;
+        current_tptr += ptxt_bytes_to_write;
+        current_uptr += chunk_len(ptxt_bytes_to_write);
+    }
 
     free(aad);
     return (int64_t) src_len;
@@ -241,6 +251,7 @@ int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, ui
 
     //error-checking
     if (!addition_is_safe(offset, len)) { return -1; } //offset + len causes integer overflow
+    if (!addition_is_safe((uint64_t) buf, len)) { return -1; } //offset + len causes integer overflow
     if (offset + len > MAX_VALUE_SIZE) { return -1; } //offset + len is more than allowed size
     if (!db_md->write_permission) { return -1; } //need write permission for this DB
 
