@@ -16,6 +16,7 @@ char * strcpy(char *strDest, const char *strSrc);
                 MATH UTILITIES
  ***************************************************/
 
+uint64_t div_ceil(uint64_t x, uint64_t y);
 size_t min(size_t a, size_t b);
 size_t max(size_t a, size_t b);
 size_t log_base_2(size_t x);

@@ -23,9 +23,11 @@
 #define OUTPUT_NAME_PREFIX "out://"
 #define INOUT_NAME_PREFIX "inout://"
 
-#define o_rdonly(oflag) ((O_RDONLY & oflag) != 0)
-#define o_wronly(oflag) ((O_WRONLY & oflag) != 0)
-#define o_rdwr(oflag) ((O_RDWR & oflag) != 0)
+#define o_rdonly(oflag) ((O_RDONLY & (oflag)) != 0)
+#define o_wronly(oflag) ((O_WRONLY & (oflag)) != 0)
+#define o_rdwr(oflag) ((O_RDWR & (oflag)) != 0)
+
+#define aes_gcm_ciphertext_len(x) ((x) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)
 
 typedef struct
 {
@@ -124,12 +126,6 @@ kvs_db_t *find_db_by_name(char *name)
     return NULL; //didn't find anything
 }
 
-/* ciphertext expansion on 1 call to aes_gcm */
-uint64_t aes_gcm_ciphertext_len(uint64_t len)
-{
-    return SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + len;
-}
-
 /* size of 1 chunk */
 uint64_t chunk_len(uint64_t len)
 {
@@ -141,7 +137,10 @@ uint64_t chunk_len(uint64_t len)
 uint64_t payload_len(uint64_t len)
 {
     /* payload is of the form header || chunk_1 || ... || chunk_n */
-    return sizeof(chunk_header_t) + chunk_len(len);
+    uint64_t num_chunks = div_ceil(len, MAX_CHUNK_SIZE);
+    uint64_t all_but_one_len = (num_chunks - 1) * chunk_len(MAX_CHUNK_SIZE);
+    uint64_t last_chunk_len = chunk_len(len - MAX_CHUNK_SIZE * (num_chunks - 1));
+    return sizeof(chunk_header_t) + all_but_one_len + last_chunk_len;
 }
 
 /* NOTE: it is upto caller to ensure that dst has enough space: chunk_len(src_len) 
@@ -200,8 +199,8 @@ int64_t chunk_storage_write(
     uint64_t aad_prefix_len)
 {
     chunk_header_t header;
-    header.untrusted_len = chunk_len(src_len);
-    header.num_chunks = 1;
+    header.untrusted_len = payload_len(src_len) - sizeof(chunk_header_t);
+    header.num_chunks = div_ceil(src_len, MAX_CHUNK_SIZE);
     header.value_version = value_version;
 
     uint8_t *current_uptr = dst;
@@ -255,7 +254,7 @@ int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, ui
     if (offset + len > MAX_VALUE_SIZE) { return -1; } //offset + len is more than allowed size
     if (!db_md->write_permission) { return -1; } //need write permission for this DB
 
-    assert (offset == 0 && len <= MAX_CHUNK_SIZE); //TODO: handling the simple case for now
+    assert (offset == 0); //TODO: handling the simple case for now
 
     uint8_t *untrusted_buf;
     uint64_t untrusted_len = payload_len(len);
@@ -360,7 +359,7 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
     if (!db_md->read_permission) { return -1; }
 
     uint8_t *untrusted_buf;
-    uint8_t chunk[MAX_CHUNK_SIZE]; //stack allocated buffer populated by the storage api
+    uint8_t chunk[aes_gcm_ciphertext_len(MAX_CHUNK_SIZE)]; //stack allocated buffer populated by the storage api
 
     //request untrusted database to populate a buffer in untrusted memory; ocall returns address of that buffer
     size_t retstatus;
@@ -393,14 +392,14 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
         uint64_t chunk_size;
         memcpy(&chunk_size, untrusted_buf + untrusted_offset_reached, sizeof(chunk_size));
         untrusted_offset_reached += sizeof(chunk_size);
-        assert(chunk_size <= MAX_CHUNK_SIZE);
+        assert(chunk_size <= aes_gcm_ciphertext_len(MAX_CHUNK_SIZE));
 
         memcpy(chunk, untrusted_buf + untrusted_offset_reached, chunk_size);
         untrusted_offset_reached += chunk_size;
 
         uint64_t ptxt_chunk_size = chunk_size - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
         //we don't always need to allocate worst case size, but this allows us to use static allocation
-        uint8_t ptxt_chunk[MAX_CHUNK_SIZE - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)];
+        uint8_t ptxt_chunk[MAX_CHUNK_SIZE];
 
         //additional associated data: computes HMAC over kv_key || kv_header || chunk's offset
         uint8_t aad[sizeof(kv_key_t) + sizeof(chunk_header_t) + sizeof(uint64_t)];

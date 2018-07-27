@@ -5,6 +5,12 @@
  PUBLIC API
  ***************************************************/
 
+uint64_t div_ceil(uint64_t x, uint64_t y)
+{
+    assert(x != 0);
+    return 1 + ((x - 1) / y);
+}
+
 size_t min(size_t a, size_t b)
 {
     return (a < b ? a : b);
