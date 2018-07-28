@@ -50,6 +50,7 @@ TrustLib_C_Files := $(wildcard ../../../libmoat/src/Network/*.c) \
                     $(wildcard ../../../libmoat/src/Network/RecordChannel/*.c) \
                     $(wildcard ../../../libmoat/src/Storage/*.c) \
                     $(wildcard ../../../libmoat/src/Storage/BlockStorage/*.c) \
+                    $(wildcard ../../../libmoat/src/Storage/ChunkyStorage/*.c) \
                     $(wildcard ../../../libmoat/src/Log/*.c) \
                     $(wildcard ../../../libmoat/src/Utils/*.c)
 TrustLib_Cpp_Files :=
@@ -199,6 +200,10 @@ $(LIBMOAT_STORAGE)/BlockStorage/%.o: $(LIBMOAT_STORAGE)/BlockStorage/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
+$(LIBMOAT_STORAGE)/ChunkyStorage/%.o: $(LIBMOAT_STORAGE)/ChunkyStorage/%.c
+	@echo "CC   <= $<"
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
+
 $(LIBMOAT_STORAGE)/%.o: $(LIBMOAT_STORAGE)/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
@@ -265,4 +270,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 clean:
 	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
 	@rm -f host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o
-	@rm -f $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o $(LIBMOAT_STORAGE)/*.o
+	@rm -f $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o $(LIBMOAT_STORAGE)/*.o $(LIBMOAT_STORAGE)/BlockStorage/*.o $(LIBMOAT_STORAGE)/ChunkyStorage/*.o
