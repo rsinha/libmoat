@@ -236,6 +236,92 @@ int64_t chunk_storage_write(
     return (int64_t) src_len;
 }
 
+int64_t chunk_storage_read(
+    cipher_ctx_t *ctx,
+    uint64_t offset, /* requesting len bytes starting from offset */
+    uint8_t *buf, /* dst buf */
+    uint64_t len, /* dst buf len */
+    uint8_t *untrusted_buf, /* buf of unknown size in untrusted mem; holds the entire value starting at offset 0 */
+    uint64_t value_version, /* expected value_version provided by caller */
+    uint8_t *aad_prefix, /* supplied by caller */
+    uint64_t aad_prefix_len)
+{
+    uint64_t untrusted_offset_reached = 0, trusted_offset_reached = 0;
+
+    assert(sgx_is_outside_enclave(untrusted_buf, sizeof(chunk_header_t))); /* technically not needed, but good to have */
+    chunk_header_t header;
+    //we know at least chunk_header_t worth of bytes are there, let's pull them in
+    memcpy(&header, untrusted_buf, sizeof(chunk_header_t));
+    untrusted_offset_reached += sizeof(chunk_header_t);
+
+    uint64_t untrusted_len = header.untrusted_len + sizeof(chunk_header_t);
+
+    assert(addition_is_safe((uint64_t) untrusted_buf, untrusted_len)); /* do some sanity error checking */
+    assert(sgx_is_outside_enclave(untrusted_buf, untrusted_len)); /* technically not needed, but good to have */
+
+    //additional associated data: computes HMAC over caller's content || kv_header || chunk's offset
+    uint64_t aad_len = aad_prefix_len + sizeof(chunk_header_t) + sizeof(uint64_t);
+    uint8_t *aad = (uint8_t *) malloc(aad_len);
+    assert(aad != NULL);
+    memcpy(aad, aad_prefix, aad_prefix_len);
+    memcpy(aad + aad_prefix_len, &header, sizeof(chunk_header_t));
+    //we will apply the chunk's offset within the loop, as it will change for each chunk
+
+    //TODO: as an optimization, no point copying and decrypting chunks if we are not going to read within them
+    uint64_t chunk_ctr = 0;
+    while ( (trusted_offset_reached < (offset + len)) && /* done reading requested content */
+            (untrusted_offset_reached < untrusted_len) && /* ran out of bytes */
+            (chunk_ctr < header.num_chunks) ) /* ran out of chunks */
+    {
+        uint64_t chunk_size;
+        memcpy(&chunk_size, untrusted_buf + untrusted_offset_reached, sizeof(chunk_size));
+        untrusted_offset_reached += sizeof(chunk_size);
+        assert(chunk_size <= aes_gcm_ciphertext_len(MAX_CHUNK_SIZE));
+
+        uint8_t ctxt_chunk[aes_gcm_ciphertext_len(MAX_CHUNK_SIZE)]; //stack allocated buffer populated by the storage api
+        memcpy(ctxt_chunk, untrusted_buf + untrusted_offset_reached, chunk_size);
+        untrusted_offset_reached += chunk_size;
+
+        uint64_t ptxt_chunk_size = chunk_size - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
+        //we don't always need to allocate worst case size, but this allows us to use static allocation
+        uint8_t ptxt_chunk[MAX_CHUNK_SIZE];
+
+        //additional associated data: computes HMAC over kv_key || kv_header || chunk's offset
+        memcpy(aad + aad_prefix_len + sizeof(chunk_header_t), &trusted_offset_reached, sizeof(uint64_t));
+
+        /* ciphertext: IV || MAC || encrypted */
+        sgx_status_t status;
+        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(ctx->key), //key
+                                            ctxt_chunk + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
+                                            ptxt_chunk_size, //src_len
+                                            ptxt_chunk, //dst
+                                            ctxt_chunk, //iv
+                                            SGX_AESGCM_IV_SIZE, //12 bytes
+                                            aad, //aad
+                                            aad_len, //AAD bytes
+                                            (const sgx_aes_gcm_128bit_tag_t *) (ctxt_chunk + SGX_AESGCM_IV_SIZE)); //mac
+        assert(status == SGX_SUCCESS);
+
+        //should we grab some bytes from this block?
+        if ((trusted_offset_reached + ptxt_chunk_size - 1) >= offset)
+        {
+            uint64_t len_completed = (trusted_offset_reached > offset) ? trusted_offset_reached - offset : 0;
+            //once we find the first block, we can read from offset 0 in the second block, and so on.
+            uint64_t offset_within_chunk = (trusted_offset_reached < offset) ? offset - trusted_offset_reached : 0;
+            //we either copy enough bytes to fulfill len, or enough available bytes after the offset_within_block
+            uint64_t num_bytes_to_copy = min(len - len_completed, ptxt_chunk_size - offset_within_chunk);
+            
+            memcpy((uint8_t *) buf + len_completed, ptxt_chunk + offset_within_chunk, num_bytes_to_copy);
+        }
+
+        trusted_offset_reached += ptxt_chunk_size;
+        chunk_ctr += 1;
+    }
+
+    free(aad);
+    return (trusted_offset_reached > offset) ? trusted_offset_reached - offset : 0;
+}
+
 /*
  * Retrieves value associated with the input key
  * The value format in the untrusted DB is untrusted_len[64] || num_chunks[64] || value_version[64] || content.
@@ -359,83 +445,16 @@ int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint6
     if (!db_md->read_permission) { return -1; }
 
     uint8_t *untrusted_buf;
-    uint8_t chunk[aes_gcm_ciphertext_len(MAX_CHUNK_SIZE)]; //stack allocated buffer populated by the storage api
-
     //request untrusted database to populate a buffer in untrusted memory; ocall returns address of that buffer
     size_t retstatus;
     sgx_status_t status = kvs_get_ocall(&retstatus, fd, k, sizeof(kv_key_t), (void **) &untrusted_buf);
     assert(status == SGX_SUCCESS);
-    if (retstatus != 0) {
-        return -1;
-    }
-    
-    uint64_t untrusted_offset_reached = 0, trusted_offset_reached = 0;
+    if (retstatus != 0) { return -1; } //TODO: we should handle this more gracefully, as it means either db dropped k or we couldnt malloc
 
-    assert(sgx_is_outside_enclave(untrusted_buf, sizeof(chunk_header_t))); /* technically not needed, but good to have */
-    chunk_header_t header;
-    //we know at least chunk_header_t worth of bytes are there, let's pull them in
-    memcpy(&header, untrusted_buf, sizeof(chunk_header_t));
-    untrusted_offset_reached += sizeof(chunk_header_t);
+    int64_t result = chunk_storage_read(&(db_md->cipher_ctx), offset, buf, len, untrusted_buf, 0, (uint8_t *) k, sizeof(kv_key_t)); 
 
-    uint64_t untrusted_len = header.untrusted_len + sizeof(chunk_header_t);
-
-    assert(addition_is_safe((uint64_t) untrusted_buf, untrusted_len)); /* do some sanity error checking */
-    assert(sgx_is_outside_enclave(untrusted_buf, untrusted_len)); /* technically not needed, but good to have */
-
-    /* TODO: also include header in the aad */
-    //TODO: no point copying and decrypting chunks if we are not going to read within them
-    uint64_t chunk_ctr = 0;
-    while ( (trusted_offset_reached < (offset + len)) && /* done reading requested content */
-            (untrusted_offset_reached < untrusted_len) && /* ran out of bytes */
-            (chunk_ctr < header.num_chunks) ) /* ran out of chunks */
-    {
-        uint64_t chunk_size;
-        memcpy(&chunk_size, untrusted_buf + untrusted_offset_reached, sizeof(chunk_size));
-        untrusted_offset_reached += sizeof(chunk_size);
-        assert(chunk_size <= aes_gcm_ciphertext_len(MAX_CHUNK_SIZE));
-
-        memcpy(chunk, untrusted_buf + untrusted_offset_reached, chunk_size);
-        untrusted_offset_reached += chunk_size;
-
-        uint64_t ptxt_chunk_size = chunk_size - (SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
-        //we don't always need to allocate worst case size, but this allows us to use static allocation
-        uint8_t ptxt_chunk[MAX_CHUNK_SIZE];
-
-        //additional associated data: computes HMAC over kv_key || kv_header || chunk's offset
-        uint8_t aad[sizeof(kv_key_t) + sizeof(chunk_header_t) + sizeof(uint64_t)];
-        memcpy(aad, k, sizeof(kv_key_t));
-        memcpy(aad + sizeof(kv_key_t), &header, sizeof(chunk_header_t));
-        memcpy(aad + sizeof(kv_key_t) + sizeof(chunk_header_t), &trusted_offset_reached, sizeof(uint64_t));
-
-        /* ciphertext: IV || MAC || encrypted */
-        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(db_md->cipher_ctx.key), //key
-                                            chunk + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
-                                            ptxt_chunk_size, //src_len
-                                            ptxt_chunk, //dst
-                                            chunk, //iv
-                                            SGX_AESGCM_IV_SIZE, //12 bytes
-                                            aad, //aad
-                                            sizeof(aad), //AAD bytes
-                                            (const sgx_aes_gcm_128bit_tag_t *) (chunk + SGX_AESGCM_IV_SIZE)); //mac
-        assert(status == SGX_SUCCESS);
-
-        //should we grab some bytes from this block?
-        if ((trusted_offset_reached + ptxt_chunk_size - 1) >= offset)
-        {
-            uint64_t len_completed = (trusted_offset_reached > offset) ? trusted_offset_reached - offset : 0;
-            //once we find the first block, we can read from offset 0 in the second block, and so on.
-            uint64_t offset_within_chunk = (trusted_offset_reached < offset) ? offset - trusted_offset_reached : 0;
-            //we either copy enough bytes to fulfill len, or enough available bytes after the offset_within_block
-            uint64_t num_bytes_to_copy = min(len - len_completed, ptxt_chunk_size - offset_within_chunk);
-            
-            memcpy((uint8_t *) buf + len_completed, ptxt_chunk + offset_within_chunk, num_bytes_to_copy);
-        }
-
-        trusted_offset_reached += ptxt_chunk_size;
-        chunk_ctr += 1;
-    }
-
-    return (trusted_offset_reached > offset) ? trusted_offset_reached - offset : 0;
+    //TODO: release untrusted_buf memory */
+    return result;
 }
 
 int64_t _moat_kvs_set(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, uint64_t len)
