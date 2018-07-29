@@ -50,7 +50,7 @@ TrustLib_C_Files := $(wildcard ../../../libmoat/src/Network/*.c) \
                     $(wildcard ../../../libmoat/src/Network/RecordChannel/*.c) \
                     $(wildcard ../../../libmoat/src/Storage/*.c) \
                     $(wildcard ../../../libmoat/src/Storage/BlockStorage/*.c) \
-					$(wildcard ../../../libmoat/src/Storage/ChunkyStorage/*.c) \
+                    $(wildcard ../../../libmoat/src/Storage/ChunkyStorage/*.c) \
                     $(wildcard ../../../libmoat/src/Log/*.c) \
                     $(wildcard ../../../libmoat/src/Utils/*.c)
 TrustLib_Cpp_Files := 

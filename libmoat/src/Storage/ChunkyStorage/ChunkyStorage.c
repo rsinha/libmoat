@@ -200,7 +200,7 @@ int64_t chunk_storage_read(
         //we don't always need to allocate worst case size, but this allows us to use static allocation
         uint8_t ptxt_chunk[MAX_CHUNK_SIZE];
 
-        //additional associated data: computes HMAC over kv_key || kv_header || chunk's offset
+        //additional associated data: computes HMAC over key || kv_header || chunk's offset
         memcpy(aad + aad_prefix_len + sizeof(chunk_header_t), &trusted_offset_reached, sizeof(uint64_t));
 
         /* ciphertext: IV || MAC || encrypted */

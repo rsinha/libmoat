@@ -113,21 +113,21 @@ kvs_db_t *find_db_by_name(char *name)
  * content is of the form chunk_1 || ... || chunk_n
  * chunk_i is of the form chunk_size[64] || ciphertext[chunk_size]
  */
-int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, uint64_t len, uint64_t value_version)
+int64_t kvs_write_helper(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void *buf, uint64_t buf_len, uint64_t value_version)
 {   
     kvs_db_t *db_md = find_db_by_descriptor(fd);
     _moat_print_debug("writing to %s\n", db_md->db_name);
     if (db_md == NULL) { return -1; } //this needs an error code
 
     //error-checking
-    if (!addition_is_safe(offset, len)) { return -1; } //offset + len causes integer overflow
-    if (!addition_is_safe((uint64_t) buf, len)) { return -1; } //offset + len causes integer overflow
+    if (!addition_is_safe(offset, buf_len)) { return -1; } //offset + len causes integer overflow
+    if (!addition_is_safe((uint64_t) buf, buf_len)) { return -1; } //offset + len causes integer overflow
     if (!db_md->write_permission) { return -1; } //need write permission for this DB
 
     assert (offset == 0); //TODO: handling the simple case for now
 
     uint8_t *untrusted_buf;
-    uint64_t untrusted_len = chunk_storage_payload_len(len); /* ask chunky storage module how much space it needs */
+    uint64_t untrusted_len = chunk_storage_payload_len(buf_len); /* ask chunky storage module how much space it needs */
     size_t retstatus;
     //request location of buffer in untrusted memory which is supposed to hold the value
     sgx_status_t status = malloc_ocall(&retstatus, untrusted_len, (void **) &untrusted_buf);
@@ -135,16 +135,16 @@ int64_t kvs_write_helper(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, ui
 
     assert(sgx_is_outside_enclave(untrusted_buf, untrusted_len));
 
-    //additional associated data: computes HMAC over kv_key || kv_header || chunk's offset
-    uint8_t aad_prefix[sizeof(kv_key_t)];
-    memcpy(aad_prefix, k, sizeof(kv_key_t));
+    //additional associated data: computes HMAC over key || kv_header || chunk's offset
+    uint8_t *aad_prefix = k;
+    uint64_t aad_prefix_len = k_len;
 
     int64_t result = chunk_storage_write(&(db_md->cipher_ctx), 
-        untrusted_buf, buf, len,
+        untrusted_buf, buf, buf_len,
         value_version,
-        aad_prefix, sizeof(aad_prefix));
+        aad_prefix, aad_prefix_len);
 
-    status = kvs_set_ocall(&retstatus, fd, k, sizeof(kv_key_t), untrusted_buf, untrusted_len);
+    status = kvs_set_ocall(&retstatus, fd, k, k_len, untrusted_buf, untrusted_len);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
     /* TODO: invoke free_ocall */
@@ -217,38 +217,38 @@ int64_t _moat_kvs_open(char *name, int oflag)
  * content is of the form chunk_1 || ... || chunk_n
  * chunk_i is of the form chunk_size[64] || ciphertext[chunk_size]
  */
-int64_t _moat_kvs_get(int64_t fd, kv_key_t *k, uint64_t offset, void* buf, uint64_t len)
+int64_t _moat_kvs_get(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void* buf, uint64_t buf_len)
 {
     kvs_db_t *db_md = find_db_by_descriptor(fd);
     _moat_print_debug("reading from %s\n", db_md->db_name);
     if (db_md == NULL) { return -1; } //this needs an error code
 
     //error-checking
-    if (!addition_is_safe(offset,len)) { return -1; } //offset + len shouldn't cause integer overflow
+    if (!addition_is_safe(offset, buf_len)) { return -1; } //offset + len shouldn't cause integer overflow
     if (!db_md->read_permission) { return -1; }
 
     uint8_t *untrusted_buf;
     //request untrusted database to populate a buffer in untrusted memory; ocall returns address of that buffer
     size_t retstatus;
-    sgx_status_t status = kvs_get_ocall(&retstatus, fd, k, sizeof(kv_key_t), (void **) &untrusted_buf);
+    sgx_status_t status = kvs_get_ocall(&retstatus, fd, k, k_len, (void **) &untrusted_buf);
     assert(status == SGX_SUCCESS);
     if (retstatus != 0) { return -1; } //TODO: we should handle this more gracefully, as it means either db dropped k or we couldnt malloc
 
-    int64_t result = chunk_storage_read(&(db_md->cipher_ctx), offset, buf, len, untrusted_buf, 0, (uint8_t *) k, sizeof(kv_key_t)); 
+    int64_t result = chunk_storage_read(&(db_md->cipher_ctx), offset, buf, buf_len, untrusted_buf, 0, k, k_len); 
 
     //TODO: release untrusted_buf memory */
     return result;
 }
 
-int64_t _moat_kvs_set(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, uint64_t len)
+int64_t _moat_kvs_set(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void *buf, uint64_t buf_len)
 {
     //TODO: use the correct version once we use the Merkle tree
-    return kvs_write_helper(fd, k, offset, buf, len, 0);
+    return kvs_write_helper(fd, k, k_len, offset, buf, buf_len, 0);
 }
 
-int64_t _moat_kvs_insert(int64_t fd, kv_key_t *k, uint64_t offset, void *buf, uint64_t len)
+int64_t _moat_kvs_insert(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_t buf_len)
 {
-    return kvs_write_helper(fd, k, offset, buf, len, 0);
+    return kvs_write_helper(fd, k, k_len, 0, buf, buf_len, 0);
 }
 
 int64_t _moat_kvs_close(int64_t fd)
