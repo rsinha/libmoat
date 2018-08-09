@@ -200,25 +200,25 @@ int64_t chunk_storage_read(
         //we don't always need to allocate worst case size, but this allows us to use static allocation
         uint8_t ptxt_chunk[MAX_CHUNK_SIZE];
 
-        //additional associated data: computes HMAC over key || kv_header || chunk's offset
-        memcpy(aad + aad_prefix_len + sizeof(chunk_header_t), &trusted_offset_reached, sizeof(uint64_t));
-
-        /* ciphertext: IV || MAC || encrypted */
-        sgx_status_t status;
-        status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(ctx->key), //key
-                                            ctxt_chunk + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
-                                            ptxt_chunk_size, //src_len
-                                            ptxt_chunk, //dst
-                                            ctxt_chunk, //iv
-                                            SGX_AESGCM_IV_SIZE, //12 bytes
-                                            aad, //aad
-                                            aad_len, //AAD bytes
-                                            (const sgx_aes_gcm_128bit_tag_t *) (ctxt_chunk + SGX_AESGCM_IV_SIZE)); //mac
-        assert(status == SGX_SUCCESS);
-
         //should we grab some bytes from this block?
         if ((trusted_offset_reached + ptxt_chunk_size - 1) >= offset)
         {
+            //additional associated data: computes HMAC over key || kv_header || chunk's offset
+            memcpy(aad + aad_prefix_len + sizeof(chunk_header_t), &trusted_offset_reached, sizeof(uint64_t));
+
+            /* ciphertext: IV || MAC || encrypted */
+            sgx_status_t status;
+            status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(ctx->key), //key
+                                                ctxt_chunk + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
+                                                ptxt_chunk_size, //src_len
+                                                ptxt_chunk, //dst
+                                                ctxt_chunk, //iv
+                                                SGX_AESGCM_IV_SIZE, //12 bytes
+                                                aad, //aad
+                                                aad_len, //AAD bytes
+                                                (const sgx_aes_gcm_128bit_tag_t *) (ctxt_chunk + SGX_AESGCM_IV_SIZE)); //mac
+            assert(status == SGX_SUCCESS);
+
             uint64_t len_completed = (trusted_offset_reached > offset) ? trusted_offset_reached - offset : 0;
             //once we find the first block, we can read from offset 0 in the second block, and so on.
             uint64_t offset_within_chunk = (trusted_offset_reached < offset) ? offset - trusted_offset_reached : 0;
