@@ -138,7 +138,8 @@ uint64_t enclave_test()
 
     uint8_t v4[2048]; uint8_t k4[32];
     memset(&k4, 4, sizeof(k4));
-    memset(v4, 251, sizeof(v4)); v4[4] = 4;
+    memset(v4, 251, sizeof(v4)); 
+    v4[4] = 4;
     api_result = _moat_kvs_set(dbd, &k4, sizeof(k4), &v4, sizeof(v4));
     assert(api_result = sizeof(v4));
     uint8_t v4_get[2048];

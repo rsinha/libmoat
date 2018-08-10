@@ -437,3 +437,9 @@ size_t malloc_ocall(size_t num_bytes, void **untrusted_buf)
     *untrusted_buf = malloc(num_bytes);
     return untrusted_buf != NULL ? 0 : -1;
 }
+
+size_t free_ocall(void *untrusted_buf)
+{
+    free(untrusted_buf);
+    return 0;
+}

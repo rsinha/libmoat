@@ -144,7 +144,9 @@ int64_t kvs_write_helper(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_
     status = kvs_set_ocall(&retstatus, fd, k, k_len, untrusted_buf, untrusted_len);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
-    /* TODO: invoke free_ocall */
+    /* we can get rid of this buffer after the set operation terminated */
+    status = free_ocall(&retstatus, untrusted_buf);
+    assert(status == SGX_SUCCESS && retstatus == 0);
 
     return result;
 }
