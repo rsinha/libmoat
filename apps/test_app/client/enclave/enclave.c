@@ -114,9 +114,9 @@ uint64_t enclave_test()
     uint8_t v1[64], v2[32];
     memset(&k1, 1, sizeof(k1)); memset(v1, 255, sizeof(v1));
     memset(&k2, 2, sizeof(k2)); memset(v2, 254, sizeof(v2));
-    api_result = _moat_kvs_set(dbd, &k1, sizeof(k1), 0, &v1, sizeof(v1));
+    api_result = _moat_kvs_set(dbd, &k1, sizeof(k1), &v1, sizeof(v1));
     assert(api_result == sizeof(v1));
-    api_result = _moat_kvs_set(dbd, &k2, sizeof(k2), 0, &v2, sizeof(v2));
+    api_result = _moat_kvs_set(dbd, &k2, sizeof(k2), &v2, sizeof(v2));
     assert(api_result == sizeof(v2));
     _moat_print_debug("KVS check 2 successful\n");
 
@@ -139,12 +139,15 @@ uint64_t enclave_test()
     uint8_t v4[2048]; uint8_t k4[32];
     memset(&k4, 4, sizeof(k4));
     memset(v4, 251, sizeof(v4)); v4[4] = 4;
-    api_result = _moat_kvs_set(dbd, &k4, sizeof(k4), 0, &v4, sizeof(v4));
+    api_result = _moat_kvs_set(dbd, &k4, sizeof(k4), &v4, sizeof(v4));
     assert(api_result = sizeof(v4));
     uint8_t v4_get[2048];
     api_result = _moat_kvs_get(dbd, &k4, sizeof(k4), 0, &v4_get, sizeof(v4_get));
     assert(api_result == sizeof(v4_get));
     assert(memcmp(v4, v4_get, sizeof(v4)) == 0); assert(v4_get[4] == 4);
+    api_result = _moat_kvs_get(dbd, &k4, sizeof(k4), 2, &v4_get, sizeof(v4_get));
+    assert(api_result == (sizeof(v4_get) - 2));
+    assert(memcmp(v4 + 2, v4_get, sizeof(v4) - 2) == 0); assert(v4_get[2] == 4); assert(v4_get[3] == 251);
     _moat_print_debug("KVS check 4 successful\n");
 
     _moat_print_debug("Finished checks...\n--------------------\n");
