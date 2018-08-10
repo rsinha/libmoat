@@ -113,18 +113,15 @@ kvs_db_t *find_db_by_name(char *name)
  * content is of the form chunk_1 || ... || chunk_n
  * chunk_i is of the form chunk_size[64] || ciphertext[chunk_size]
  */
-int64_t kvs_write_helper(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void *buf, uint64_t buf_len, uint64_t value_version)
+int64_t kvs_write_helper(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_t buf_len, uint64_t value_version)
 {   
     kvs_db_t *db_md = find_db_by_descriptor(fd);
     _moat_print_debug("writing to %s\n", db_md->db_name);
     if (db_md == NULL) { return -1; } //this needs an error code
 
     //error-checking
-    if (!addition_is_safe(offset, buf_len)) { return -1; } //offset + len causes integer overflow
-    if (!addition_is_safe((uint64_t) buf, buf_len)) { return -1; } //offset + len causes integer overflow
+    if (!addition_is_safe((uint64_t) buf, buf_len)) { return -1; } //buf + buf_len causes integer overflow
     if (!db_md->write_permission) { return -1; } //need write permission for this DB
-
-    assert (offset == 0); //TODO: handling the simple case for now
 
     uint8_t *untrusted_buf;
     uint64_t untrusted_len = chunk_storage_payload_len(buf_len); /* ask chunky storage module how much space it needs */
@@ -135,7 +132,7 @@ int64_t kvs_write_helper(int64_t fd, void *k, uint64_t k_len, uint64_t offset, v
 
     assert(sgx_is_outside_enclave(untrusted_buf, untrusted_len));
 
-    //additional associated data: computes HMAC over key || kv_header || chunk's offset
+    //additional associated data: computes HMAC over at least the key, the chunky lib adds other fields
     uint8_t *aad_prefix = k;
     uint64_t aad_prefix_len = k_len;
 
@@ -240,15 +237,15 @@ int64_t _moat_kvs_get(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void
     return result;
 }
 
-int64_t _moat_kvs_set(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void *buf, uint64_t buf_len)
+int64_t _moat_kvs_set(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_t buf_len)
 {
     //TODO: use the correct version once we use the Merkle tree
-    return kvs_write_helper(fd, k, k_len, offset, buf, buf_len, 0);
+    return kvs_write_helper(fd, k, k_len, buf, buf_len, 0);
 }
 
 int64_t _moat_kvs_insert(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_t buf_len)
 {
-    return kvs_write_helper(fd, k, k_len, 0, buf, buf_len, 0);
+    return kvs_write_helper(fd, k, k_len, buf, buf_len, 0);
 }
 
 int64_t _moat_kvs_close(int64_t fd)

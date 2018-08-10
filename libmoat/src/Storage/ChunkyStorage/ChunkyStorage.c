@@ -101,10 +101,10 @@ uint64_t chunk_storage_payload_len(uint64_t len)
 //TODO: allow for offsets
 int64_t chunk_storage_write(
     cipher_ctx_t *ctx,
-    uint8_t *dst,
-    uint8_t *src,
-    uint64_t src_len,
-    uint64_t value_version,
+    uint8_t *dst, /* buf in untrusted mem */
+    uint8_t *src, /* buf in enclave mem */
+    uint64_t src_len, /* len of buf */
+    uint64_t value_version, /* version counter */
     uint8_t *aad_prefix, /* supplied by caller */
     uint64_t aad_prefix_len)
 {
