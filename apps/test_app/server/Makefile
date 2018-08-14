@@ -12,6 +12,7 @@ LIBMOAT_NETWORK := $(LIBMOAT)/src/Network
 LIBMOAT_UTILS := $(LIBMOAT)/src/Utils
 LIBMOAT_LOG := $(LIBMOAT)/src/Log
 LIBMOAT_STORAGE := $(LIBMOAT)/src/Storage
+LIBMOAT_KEYMGMT := $(LIBMOAT)/src/KeyManagement
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -52,6 +53,7 @@ TrustLib_C_Files := $(wildcard ../../../libmoat/src/Network/*.c) \
                     $(wildcard ../../../libmoat/src/Storage/BlockStorage/*.c) \
                     $(wildcard ../../../libmoat/src/Storage/ChunkyStorage/*.c) \
                     $(wildcard ../../../libmoat/src/Log/*.c) \
+                    $(wildcard ../../../libmoat/src/KeyManagement/*.c) \
                     $(wildcard ../../../libmoat/src/Utils/*.c)
 TrustLib_Cpp_Files :=
 TrustLib_C_Objects := $(TrustLib_C_Files:.c=.o)
@@ -270,4 +272,5 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 clean:
 	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
 	@rm -f host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o
-	@rm -f $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o $(LIBMOAT_STORAGE)/*.o $(LIBMOAT_STORAGE)/BlockStorage/*.o $(LIBMOAT_STORAGE)/ChunkyStorage/*.o
+	@rm -f $(LIBUNTRUSTED)/*.o
+	@rm -f $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o $(LIBMOAT_KEYMGMT)/*.o $(LIBMOAT_LOG)/*.o $(LIBMOAT_STORAGE)/*.o $(LIBMOAT_STORAGE)/BlockStorage/*.o $(LIBMOAT_STORAGE)/ChunkyStorage/*.o

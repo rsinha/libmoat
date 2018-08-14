@@ -153,6 +153,8 @@ uint64_t enclave_test()
 
     _moat_print_debug("Finished checks...\n--------------------\n");
 
+    _moat_generate_seal_key();
+
     return 0;
 }
 
