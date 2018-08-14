@@ -71,7 +71,7 @@ else
 endif
 
 Host_Cpp_Files := host/host_server.cpp $(LIBUNTRUSTED)/libmoat_untrusted.cpp
-Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include  -I$(HIREDIS_INC_PATH)
+Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include -I$(HIREDIS_INC_PATH)
 
 Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
 
@@ -191,6 +191,10 @@ endif
 ######## Library Objects ########
 
 $(LIBMOAT_LOG)/%.o: $(LIBMOAT_LOG)/%.c
+	@echo "CC   <= $<"
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
+
+$(LIBMOAT_KEYMGMT)/%.o: $(LIBMOAT_KEYMGMT)/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 

@@ -277,4 +277,4 @@ clean:
 	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
 	@rm -f host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o
 	@rm -f $(LIBUNTRUSTED)/*.o
-	@rm -f $(LIBMOAT_NETWORK)/*.o $(LIBMOAT_NETWORK)/RecordChannel/*.o $(LIBMOAT_UTILS)/*.o $(LIBMOAT_KEYMGMT)/*.o $(LIBMOAT_LOG)/*.o $(LIBMOAT_STORAGE)/*.o $(LIBMOAT_STORAGE)/BlockStorage/*.o $(LIBMOAT_STORAGE)/ChunkyStorage/*.o
+	@rm -f $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o $(LIBMOAT_KEYMGMT)/*.o $(LIBMOAT_LOG)/*.o $(LIBMOAT_STORAGE)/*.o $(LIBMOAT_STORAGE)/BlockStorage/*.o $(LIBMOAT_STORAGE)/ChunkyStorage/*.o
