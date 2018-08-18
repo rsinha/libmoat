@@ -1,13 +1,16 @@
 #include "sgx_urts.h"
-#include "interface_u.h"
+#include "sgx_dh.h"
+//#include "interface_u.h"
 #include <zmq.h>
 #include "hiredis.h"
+
 #include <map>
 #include <iostream>
 #include <fstream>
 #include <assert.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <string.h>
 
 /* Internal Definitions */
 
