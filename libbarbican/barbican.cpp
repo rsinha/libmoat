@@ -95,7 +95,7 @@ void teardown_channel(size_t session_id)
     }
 }
 
-size_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, size_t session_id)
+extern "C" size_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, size_t session_id)
 {
     //get dh_msg1 from remote, and populate dh_msg1 struct
     //we need to communicate with a remote with right measurement,
@@ -112,7 +112,7 @@ size_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_m
     return 1; //ERROR
 }
 
-size_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, size_t session_id)
+extern "C" size_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh_msg3, size_t session_id)
 {
     std::map<size_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
@@ -127,7 +127,7 @@ size_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh_msg3_t *dh
     return 1; //ERROR
 }
 
-size_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t *dh_msg1, sgx_dh_msg2_t *dh_msg2, size_t session_id)
+extern "C" size_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t *dh_msg1, sgx_dh_msg2_t *dh_msg2, size_t session_id)
 {
     client_setup_socket(target_enclave, session_id);
 
@@ -144,7 +144,7 @@ size_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_enclave, sgx_dh
     return 1; //ERROR
 }
 
-size_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, size_t session_id)
+extern "C" size_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, size_t session_id)
 {
     //send dh_msg3 from the remote (client)
     std::map<size_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
@@ -156,7 +156,7 @@ size_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, size_t session_id)
     return 1;
 }
 
-size_t end_session_ocall(size_t session_id)
+extern "C" size_t end_session_ocall(size_t session_id)
 {
     //TODO: zmq_send(zmq_skt_outbound, &msg, sizeof(msg), 0);
 
@@ -165,13 +165,13 @@ size_t end_session_ocall(size_t session_id)
 }
 
 /* This is a debugging ocall */
-size_t print_debug_on_host_ocall(const char *buf)
+extern "C" size_t print_debug_on_host_ocall(const char *buf)
 {
     printf("%s", buf);
     return 0;
 }
 
-size_t send_msg_ocall(void *buf, size_t len, size_t session_id)
+extern "C" size_t send_msg_ocall(void *buf, size_t len, size_t session_id)
 {
     std::map<size_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
@@ -183,7 +183,7 @@ size_t send_msg_ocall(void *buf, size_t len, size_t session_id)
     return -1;
 }
 
-size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
+extern "C" size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
 {
     std::map<size_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
@@ -194,7 +194,7 @@ size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
     return -1;
 }
 
-size_t fs_init_service_ocall(size_t num_blocks)
+extern "C" size_t fs_init_service_ocall(size_t num_blocks)
 {
     struct stat st = {0};
     if (stat("/tmp/libmoat", &st) == 0) {
@@ -205,7 +205,7 @@ size_t fs_init_service_ocall(size_t num_blocks)
     return 0;
 }
 
-size_t fs_write_block_ocall(size_t addr, void *buf, size_t len)
+extern "C" size_t fs_write_block_ocall(size_t addr, void *buf, size_t len)
 {
     std::ofstream fout;
 
@@ -220,7 +220,7 @@ size_t fs_write_block_ocall(size_t addr, void *buf, size_t len)
     return 0;
 }
 
-size_t fs_read_block_ocall(size_t addr, void *buf, size_t len)
+extern "C" size_t fs_read_block_ocall(size_t addr, void *buf, size_t len)
 {
     std::ifstream fin;
 
@@ -271,7 +271,7 @@ size_t create_merkle_tree_helper(merkle_node_t *node, size_t depth, sgx_sha256_h
     return r1 == 0 && r2 == 0 ? 0 : -1;
 }
 
-size_t create_merkle_ocall(sgx_sha256_hash_t *buf, size_t num_hashes, size_t num_blocks)
+extern "C" size_t create_merkle_ocall(sgx_sha256_hash_t *buf, size_t num_hashes, size_t num_blocks)
 {
     g_merkle_root = (merkle_node_t *) malloc(sizeof(merkle_node_t));
     if (g_merkle_root == NULL) { return -1; }
@@ -287,7 +287,7 @@ size_t create_merkle_ocall(sgx_sha256_hash_t *buf, size_t num_hashes, size_t num
     return r;
 }
 
-size_t read_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes)
+extern "C" size_t read_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes)
 {
     merkle_node_t *node = g_merkle_leaves[addr - 1]; //addresses start at 1
     size_t height = 0;
@@ -302,7 +302,7 @@ size_t read_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes)
     return 0;
 }
 
-size_t write_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes)
+extern "C" size_t write_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes)
 {
     merkle_node_t *node = g_merkle_leaves[addr - 1]; //addresses start at 1
     size_t height = 0;
@@ -315,7 +315,7 @@ size_t write_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t num_hashes
     return 0;
 }
 
-size_t kvs_init_service_ocall()
+extern "C" size_t kvs_init_service_ocall()
 {
     redisContext *c;
 
@@ -369,7 +369,7 @@ size_t kvs_init_service_ocall()
     return 0;
 }
 
-size_t kvs_create_ocall(int64_t fd, const char *name)
+extern "C" size_t kvs_create_ocall(int64_t fd, const char *name)
 {
     //creation doesn't require us to do anything, except clear existing contents (if any)
     redisReply *reply;
@@ -384,7 +384,7 @@ size_t kvs_create_ocall(int64_t fd, const char *name)
     return result;
 }
 
-size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len)
+extern "C" size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len)
 {
     redisReply *reply;
 
@@ -398,7 +398,7 @@ size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_le
     return result;
 }
 
-size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrusted_buf)
+extern "C" size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrusted_buf)
 {
     if (g_prev_reply != NULL) {
         freeReplyObject(g_prev_reply);
@@ -421,7 +421,7 @@ size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrusted_buf)
     }
 }
 
-size_t kvs_destroy_ocall(int64_t fd)
+extern "C" size_t kvs_destroy_ocall(int64_t fd)
 {
     redisReply *reply;
 
@@ -435,13 +435,13 @@ size_t kvs_destroy_ocall(int64_t fd)
     return result;
 }
 
-size_t malloc_ocall(size_t num_bytes, void **untrusted_buf)
+extern "C" size_t malloc_ocall(size_t num_bytes, void **untrusted_buf)
 {
     *untrusted_buf = malloc(num_bytes);
     return untrusted_buf != NULL ? 0 : -1;
 }
 
-size_t free_ocall(void *untrusted_buf)
+extern "C" size_t free_ocall(void *untrusted_buf)
 {
     free(untrusted_buf);
     return 0;
