@@ -216,7 +216,6 @@ enclave/%.o: enclave/%.c enclave/interface_t.h
 
 $(Enclave_Name): enclave/interface_t.o $(Enclave_C_Objects) $(Trust_Lib)
 	@echo "LINK =>  $@"
-	#@$(CXX) enclave/interface_t.o $(Enclave_C_Objects) -o $@ $(Enclave_Link_Flags)
 	@$(CXX) enclave/interface_t.o $(Enclave_C_Objects) -o $@ $(Enclave_Link_Flags)
 
 $(Signed_Enclave_Name): $(Enclave_Name)
