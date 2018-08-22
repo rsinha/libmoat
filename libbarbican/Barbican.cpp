@@ -2,7 +2,8 @@
 #include "sgx_dh.h"
 //#include "interface_u.h"
 #include <zmq.h>
-#include "hiredis.h"
+#include "BackendDBInterface.hpp"
+#include "RocksDBInterface.hpp"
 
 #include <map>
 #include <iostream>
@@ -41,8 +42,8 @@ std::map<size_t, untrusted_channel_t>  g_channels; //map session id to channel s
 merkle_node_t                         *g_merkle_root;
 merkle_node_t                        **g_merkle_leaves;
 size_t                                 g_in_order_traversal_counter;
-redisContext                          *g_redis_context;
-redisReply                            *g_prev_reply;
+BackendDBInterface                    *g_db_context;
+void                                  *g_prev_reply;
 
 void server_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
 {
@@ -317,53 +318,8 @@ extern "C" size_t write_merkle_ocall(size_t addr, sgx_sha256_hash_t *buf, size_t
 
 extern "C" size_t kvs_init_service_ocall()
 {
-    redisContext *c;
-
-    //const char *hostname = (argc > 1) ? argv[1] : "127.0.0.1";
-    //int port = (argc > 2) ? atoi(argv[2]) : 6379;
-    const char *hostname = "127.0.0.1";
-    //const char *hostname = "redis";
-    int port = 6379;
-
-    struct timeval timeout = {1, 500000}; // 1.5 seconds
-    int retries = 5;
-    bool connected = false;
-
-    while(retries > 0) {
-        retries = retries - 1;
-        c = redisConnectWithTimeout(hostname, port, timeout);
-        if (c == NULL || c->err)
-        {
-            if (c)
-            {
-                printf("Connection error: %s\n", c->errstr);
-                redisFree(c);
-            }
-            else
-            {
-                printf("Connection error: can't allocate redis context\n");
-            }
-            sleep(1);
-            continue;
-        } else {
-            connected = true;
-            break;
-        }
-    }
-
-    if (!connected) { return false; }
-
-    redisReply *reply = (redisReply *)redisCommand(c, "PING");
-
-    if (memcmp(reply->str, "PONG", 5) != 0)
-    {
-        printf("Connection error: unable to ping server\n");
-        freeReplyObject(reply);
-        return false;
-    }
-
-    freeReplyObject(reply);
-    g_redis_context = c;
+    g_db_context = new RocksDBInterface();
+    g_db_context->backend_db_connect_server();
     g_prev_reply = NULL;
 
     return 0;
@@ -371,68 +327,35 @@ extern "C" size_t kvs_init_service_ocall()
 
 extern "C" size_t kvs_create_ocall(int64_t fd, const char *name)
 {
-    //creation doesn't require us to do anything, except clear existing contents (if any)
-    redisReply *reply;
-
-    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
-    assert(reply != NULL);
-    freeReplyObject(reply);
-
-    reply = (redisReply *)redisCommand(g_redis_context, "FLUSHDB");
-    size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;
-    freeReplyObject(reply);
-    return result;
+    bool success = g_db_context->backend_db_create(fd, name);
+    return success ? 0 : -1;
 }
 
 extern "C" size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len)
 {
-    redisReply *reply;
-
-    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
-    assert(reply != NULL);
-    freeReplyObject(reply);
-
-    reply = (redisReply *) redisCommand(g_redis_context, "SET %b %b", k, k_len, buf, buf_len);
-    size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;
-    freeReplyObject(reply);
-    return result;
+    bool success = g_db_context->backend_db_put(fd, (uint8_t *) k, k_len, (uint8_t *) buf, buf_len);
+    return success ? 0 : -1;
 }
 
 extern "C" size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrusted_buf)
 {
     if (g_prev_reply != NULL) {
-        freeReplyObject(g_prev_reply);
+        bool success = g_db_context->backend_db_free(g_prev_reply);
+        if (!success) { return -1; }
         g_prev_reply = NULL;
     }
 
-    redisReply *reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
-    assert(reply != NULL);
-    freeReplyObject(reply);
-
-    reply = (redisReply *) redisCommand(g_redis_context, "GET %b", k, k_len);
-
-    if (reply->type == REDIS_REPLY_NIL) {
-        freeReplyObject(reply);
-        return -1;
-    } else {
-        *untrusted_buf = reply->str;
-        g_prev_reply = reply;
-        return 0;
-    }
+    uint8_t *v; size_t v_len;
+    bool success = g_db_context->backend_db_get(fd, (uint8_t *) k, k_len, &v, &v_len);
+    if (!success) { return -1; }
+    *untrusted_buf = v;
+    g_prev_reply = v;
+    return 0;
 }
 
 extern "C" size_t kvs_destroy_ocall(int64_t fd)
 {
-    redisReply *reply;
-
-    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
-    assert(reply != NULL);
-    freeReplyObject(reply);
-
-    reply = (redisReply *)redisCommand(g_redis_context, "FLUSHDB");
-    size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;
-    freeReplyObject(reply);
-    return result;
+    return 0; /* TODO */
 }
 
 extern "C" size_t malloc_ocall(size_t num_bytes, void **untrusted_buf)

@@ -1,0 +1,119 @@
+extern "C" size_t kvs_init_service_ocall()
+{
+    redisContext *c;
+
+    //const char *hostname = (argc > 1) ? argv[1] : "127.0.0.1";
+    //int port = (argc > 2) ? atoi(argv[2]) : 6379;
+    const char *hostname = "127.0.0.1";
+    //const char *hostname = "redis";
+    int port = 6379;
+
+    struct timeval timeout = {1, 500000}; // 1.5 seconds
+    int retries = 5;
+    bool connected = false;
+
+    while(retries > 0) {
+        retries = retries - 1;
+        c = redisConnectWithTimeout(hostname, port, timeout);
+        if (c == NULL || c->err)
+        {
+            if (c)
+            {
+                printf("Connection error: %s\n", c->errstr);
+                redisFree(c);
+            }
+            else
+            {
+                printf("Connection error: can't allocate redis context\n");
+            }
+            sleep(1);
+            continue;
+        } else {
+            connected = true;
+            break;
+        }
+    }
+
+    if (!connected) { return false; }
+
+    redisReply *reply = (redisReply *)redisCommand(c, "PING");
+
+    if (memcmp(reply->str, "PONG", 5) != 0)
+    {
+        printf("Connection error: unable to ping server\n");
+        freeReplyObject(reply);
+        return false;
+    }
+
+    freeReplyObject(reply);
+    g_redis_context = c;
+    g_prev_reply = NULL;
+
+    return 0;
+}
+
+extern "C" size_t kvs_create_ocall(int64_t fd, const char *name)
+{
+    //creation doesn't require us to do anything, except clear existing contents (if any)
+    redisReply *reply;
+
+    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
+    assert(reply != NULL);
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisCommand(g_redis_context, "FLUSHDB");
+    size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;
+    freeReplyObject(reply);
+    return result;
+}
+
+extern "C" size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len)
+{
+    redisReply *reply;
+
+    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
+    assert(reply != NULL);
+    freeReplyObject(reply);
+
+    reply = (redisReply *) redisCommand(g_redis_context, "SET %b %b", k, k_len, buf, buf_len);
+    size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;
+    freeReplyObject(reply);
+    return result;
+}
+
+extern "C" size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrusted_buf)
+{
+    if (g_prev_reply != NULL) {
+        freeReplyObject(g_prev_reply);
+        g_prev_reply = NULL;
+    }
+
+    redisReply *reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
+    assert(reply != NULL);
+    freeReplyObject(reply);
+
+    reply = (redisReply *) redisCommand(g_redis_context, "GET %b", k, k_len);
+
+    if (reply->type == REDIS_REPLY_NIL) {
+        freeReplyObject(reply);
+        return -1;
+    } else {
+        *untrusted_buf = reply->str;
+        g_prev_reply = reply;
+        return 0;
+    }
+}
+
+extern "C" size_t kvs_destroy_ocall(int64_t fd)
+{
+    redisReply *reply;
+
+    reply = (redisReply *) redisCommand(g_redis_context, "SELECT %ld", fd);
+    assert(reply != NULL);
+    freeReplyObject(reply);
+
+    reply = (redisReply *)redisCommand(g_redis_context, "FLUSHDB");
+    size_t result = reply->type == REDIS_REPLY_STATUS ? 0 : -1;
+    freeReplyObject(reply);
+    return result;
+}

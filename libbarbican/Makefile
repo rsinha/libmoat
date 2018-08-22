@@ -22,7 +22,7 @@ PTHREAD_LIB_NAME := libpthread.a
 ######## Library Settings ########
 
 Lib_Name := libbarbican.a
-Lib_Cpp_Files := Barbican.cpp 
+Lib_Cpp_Files := Barbican.cpp RocksDBInterface.cpp
 
 ######## App Settings ########
 

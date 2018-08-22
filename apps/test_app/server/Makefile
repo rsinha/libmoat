@@ -71,7 +71,8 @@ else
 endif
 
 Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
-Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -L/usr/local/lib -lzmq -lczmq -lhiredis
+RocksDB_Link_Flags := -lrocksdb -lpq -lz -lbz2 -llz4 -lzstd -lsnappy -l:libjemalloc.a -ldl
+Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -L/usr/local/lib -lzmq -lczmq -lhiredis $(RocksDB_Link_Flags) -lpthread
 
 ifneq ($(SGX_MODE), HW)
 	Host_Link_Flags += -lsgx_uae_service_sim
