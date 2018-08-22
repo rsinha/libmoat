@@ -22,6 +22,6 @@ before_install:
   - cd czmq-4.0.2 && ./configure && make && sudo make install && cd ..
   - git clone https://github.com/redis/hiredis.git
   - cd hiredis && make && sudo make install && cd ..
-  - apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
+  - sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
   - git clone https://github.com/facebook/rocksdb.git
   - cd rocksdb && make static_lib && make install && cd ..
