@@ -105,7 +105,7 @@ uint64_t enclave_test()
     _moat_print_debug("FS check 6 successful\n");
 
     /* Test 1 (KVS) just tries to open a temp DB */
-    int64_t dbd = _moat_kvs_open("tmp://db", O_RDWR);
+    int64_t dbd = _moat_kvs_open("test_app_db", O_RDWR);
     assert(dbd != -1);
     _moat_print_debug("KVS check 1 successful\n");
 
@@ -150,6 +150,9 @@ uint64_t enclave_test()
     assert(api_result == (sizeof(v4_get) - 2));
     assert(memcmp(v4 + 2, v4_get, sizeof(v4) - 2) == 0); assert(v4_get[2] == 4); assert(v4_get[3] == 251);
     _moat_print_debug("KVS check 4 successful\n");
+
+    _moat_kvs_close(dbd);
+    assert(dbd != -1);
 
     _moat_print_debug("Finished checks...\n--------------------\n");
 
