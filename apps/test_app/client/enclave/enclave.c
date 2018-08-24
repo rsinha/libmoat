@@ -131,7 +131,7 @@ uint64_t enclave_test()
     assert(memcmp(v1, v1_get, sizeof(v1)) == 0);
     assert(memcmp(v2, v2_get, sizeof(v2)) == 0);
     assert(v1[33] == 255 && v1_get[33] == 255 && v2[21] == 254 && v2_get[21] == 254);
-    memset(&k3, 0, sizeof(k3));
+    memset(&k3, 3, sizeof(k3));
     api_result = _moat_kvs_get(dbd, &k3, sizeof(k3), 0, &v3_get, sizeof(v3_get));
     assert(api_result == -1);
     _moat_print_debug("KVS check 3 successful\n");
@@ -151,8 +151,16 @@ uint64_t enclave_test()
     assert(memcmp(v4 + 2, v4_get, sizeof(v4) - 2) == 0); assert(v4_get[2] == 4); assert(v4_get[3] == 251);
     _moat_print_debug("KVS check 4 successful\n");
 
+    api_result = _moat_kvs_delete(dbd, &k1, sizeof(k1));
+    assert(api_result == 0);
+    api_result = _moat_kvs_get(dbd, &k1, sizeof(k1), 0, &v1_get, sizeof(v1_get));
+    assert(api_result == -1);
+    _moat_print_debug("KVS check 5 successful\n");
+
+    //save db
     _moat_kvs_close(dbd);
     assert(dbd != -1);
+    _moat_print_debug("KVS check 6 successful\n");
 
     _moat_print_debug("Finished checks...\n--------------------\n");
 

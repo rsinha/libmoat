@@ -9,7 +9,6 @@ class RocksDBInterface : public BackendDBInterface
 {
 private:
   std::map<int64_t, rocksdb_t *> *db_instances;
-  rocksdb_backup_engine_t *be;
   rocksdb_options_t *options;
   rocksdb_writeoptions_t *writeoptions;
   rocksdb_readoptions_t *readoptions;
@@ -24,6 +23,8 @@ public:
   bool  backend_db_put(int64_t fd, uint8_t *k, size_t k_len, uint8_t *v, size_t v_len);
   bool  backend_db_insert(int64_t fd, uint8_t *k, size_t k_len, uint8_t *v, size_t v_len);
   bool  backend_db_delete(int64_t fd, uint8_t *k, size_t k_len);
+  bool  backend_db_save(int64_t fd, const char *name);
+  bool  backend_db_reload(int64_t fd, const char *db_path, const char *db_backup_path);
 };
 
 #endif

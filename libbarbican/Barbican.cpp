@@ -327,7 +327,9 @@ extern "C" size_t kvs_init_service_ocall()
 
 extern "C" size_t kvs_create_ocall(int64_t fd, const char *name)
 {
-    bool success = g_db_context->backend_db_create(fd, name);
+    std::string db_path(name);
+    db_path = "/tmp/barbican/" + db_path;
+    bool success = g_db_context->backend_db_create(fd, db_path.c_str());
     return success ? 0 : -1;
 }
 
@@ -351,6 +353,12 @@ extern "C" size_t kvs_get_ocall(int64_t fd, void *k, size_t k_len, void **untrus
     *untrusted_buf = v;
     g_prev_reply = v;
     return 0;
+}
+
+extern "C" size_t kvs_delete_ocall(int64_t fd, void *k, size_t k_len)
+{
+    bool success = g_db_context->backend_db_delete(fd, (uint8_t *) k, k_len);
+    return success ? 0 : -1;
 }
 
 extern "C" size_t kvs_destroy_ocall(int64_t fd)

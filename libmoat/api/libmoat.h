@@ -59,14 +59,14 @@ int64_t LIBMOAT_API _moat_fs_close(int64_t fd);
 
 void LIBMOAT_API _moat_kvs_module_init();
 int64_t LIBMOAT_API _moat_kvs_open(char *name, int oflag);
-int64_t LIBMOAT_API _moat_kvs_insert(int64_t fd, void *k, uint64_t k_len, void* buf, uint64_t buf_len);
 int64_t LIBMOAT_API _moat_kvs_set(int64_t fd, void *k, uint64_t k_len, void* buf, uint64_t buf_len);
 int64_t LIBMOAT_API _moat_kvs_get(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void* buf, uint64_t buf_len);
-//int64_t _moat_kvs_delete(int64_t handle, kv_key_t *k);
+int64_t LIBMOAT_API _moat_kvs_insert(int64_t fd, void *k, uint64_t k_len, void* buf, uint64_t buf_len);
+int64_t LIBMOAT_API _moat_kvs_delete(int64_t fd, void *k, uint64_t k_len);
 int64_t LIBMOAT_API _moat_kvs_close(int64_t fd);
 
 /***************************************************
-        SECURE KV-STORE INTERFACE
+        KEY MANAGEMENT INTERFACE
  ***************************************************/
 
 void _moat_generate_seal_key();

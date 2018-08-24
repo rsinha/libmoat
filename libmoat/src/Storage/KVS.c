@@ -219,8 +219,8 @@ int64_t _moat_kvs_open(char *name, int oflag)
 int64_t _moat_kvs_get(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void* buf, uint64_t buf_len)
 {
     kvs_db_t *db_md = find_db_by_descriptor(fd);
-    _moat_print_debug("reading from %s\n", db_md->db_name);
     if (db_md == NULL) { return -1; } //this needs an error code
+    _moat_print_debug("reading from %s\n", db_md->db_name);
 
     //error-checking
     if (!addition_is_safe(offset, buf_len)) { return -1; } //offset + len shouldn't cause integer overflow
@@ -248,6 +248,20 @@ int64_t _moat_kvs_set(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_t b
 int64_t _moat_kvs_insert(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_t buf_len)
 {
     return kvs_write_helper(fd, k, k_len, buf, buf_len, 0);
+}
+
+int64_t _moat_kvs_delete(int64_t fd, void *k, uint64_t k_len)
+{
+    kvs_db_t *db_md = find_db_by_descriptor(fd);
+    if (db_md == NULL) { return -1; }
+    _moat_print_debug("deleting from %s\n", db_md->db_name);
+
+    size_t retstatus;
+    sgx_status_t status = kvs_delete_ocall(&retstatus, fd, k, k_len);
+    assert(status == SGX_SUCCESS);
+    if (retstatus != 0) { return -1; }
+
+    return 0;
 }
 
 int64_t _moat_kvs_close(int64_t fd)

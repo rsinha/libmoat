@@ -56,12 +56,13 @@ bool RocksDBInterface::backend_db_disconnect_server()
     }
 }
 
-bool RocksDBInterface::backend_db_create(int64_t fd, const char *name)
+bool RocksDBInterface::backend_db_create(int64_t fd, const char *db_path)
 {
-    std::string db_path(name);
-    db_path = "/tmp/barbican/" + db_path;
     char *err = NULL;
-    rocksdb_t *db = rocksdb_open(this->options, db_path.c_str(), &err);
+    rocksdb_destroy_db(this->options, db_path, &err); /* clear old contents */
+    if (err) { return false; }
+
+    rocksdb_t *db = rocksdb_open(this->options, db_path, &err);
     if (err)
     {
         printf("Connection error\n");
@@ -110,13 +111,49 @@ bool RocksDBInterface::backend_db_delete(int64_t fd, uint8_t *k, size_t k_len)
 {
     std::map<int64_t, rocksdb_t *>::iterator iter = this->db_instances->find(fd);
     if (iter == this->db_instances->end()) { return false; }
-
     rocksdb_t *db = iter->second;
+
     char *err = NULL;
     rocksdb_delete(db, this->writeoptions, (const char *) k, k_len, &err);
 
     return (!err) ? true : false;
 }
+
+bool RocksDBInterface::backend_db_save(int64_t fd, const char* db_backup_path)
+{
+    std::map<int64_t, rocksdb_t *>::iterator iter = this->db_instances->find(fd);
+    if (iter == this->db_instances->end()) { return false; }
+    rocksdb_t *db = iter->second;
+
+    char *err = NULL;
+    rocksdb_backup_engine_t *be = rocksdb_backup_engine_open(this->options, db_backup_path, &err);
+    if (err) { return false; }
+
+    rocksdb_backup_engine_create_new_backup(be, db, &err);
+    if (err) { return false; }
+
+    rocksdb_backup_engine_close(be);
+    return true;
+}
+
+bool RocksDBInterface::backend_db_reload(int64_t fd, const char *db_path, const char *db_backup_path)
+{
+    char *err = NULL;
+    rocksdb_backup_engine_t *be = rocksdb_backup_engine_open(this->options, db_backup_path, &err);
+    if (err) { return false; }
+
+    rocksdb_restore_options_t *restore_options = rocksdb_restore_options_create();
+    rocksdb_backup_engine_restore_db_from_latest_backup(be, db_path, db_path, restore_options, &err);
+    if (err) { return false; }
+    rocksdb_restore_options_destroy(restore_options);
+
+    rocksdb_t *db = rocksdb_open(this->options, db_path, &err);
+    if (err) { return false; }
+
+    this->db_instances->insert(std::pair<int64_t, rocksdb_t *>(fd, db));
+    return true;
+}
+
 
 /*
 bool RocksDBInterface::backend_db_delete_all()
