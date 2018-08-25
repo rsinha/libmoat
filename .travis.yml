@@ -23,5 +23,6 @@ before_install:
   - git clone https://github.com/redis/hiredis.git
   - cd hiredis && make && sudo make install && cd ..
   - sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev
-  - git clone https://github.com/facebook/rocksdb.git
+  - wget https://github.com/facebook/rocksdb/archive/rocksdb-5.14.3.tar.gz -O rocksdb.tar.gz
+  - tar -zxf rocksdb.tar.gz -C rocksdb --strip-components=1
   - cd rocksdb && make static_lib && make install && cd ..
