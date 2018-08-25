@@ -27,6 +27,8 @@
 #define o_rdonly(oflag) ((O_RDONLY & oflag) != 0)
 #define o_wronly(oflag) ((O_WRONLY & oflag) != 0)
 #define o_rdwr(oflag) ((O_RDWR & oflag) != 0)
+#define o_creat(oflag) ((O_CREAT & (oflag)) != 0)
+#define o_tmpfile(oflag) ((O_TMPFILE & (oflag)) != 0)
 
 typedef struct
 {
@@ -40,8 +42,7 @@ typedef struct
     int64_t   file_descriptor; //integer file id
     int64_t   offset; //current offset in the file
     int64_t   length; //number of bytes written to this file
-    bool      read_permission;
-    bool      write_permission;
+    int64_t   oflag;
     ll_t      *blocks;   //head of the linked list of blocks for this file
 } fs_file_t;
 
@@ -165,7 +166,7 @@ void _moat_fs_module_init()
 /*
  oflag is one or more of O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
  */
-int64_t _moat_fs_open(char *name, int oflag)
+int64_t _moat_fs_open(char *name, int64_t oflag)
 {
     fs_file_t *file_md = find_file_by_name(name);
     
@@ -185,8 +186,7 @@ int64_t _moat_fs_open(char *name, int oflag)
         file_md->file_descriptor = fd;
         file_md->offset = 0;
         file_md->length = 0;
-        file_md->read_permission = o_rdonly(oflag) || o_rdwr(oflag);
-        file_md->write_permission = o_wronly(oflag) || o_rdwr(oflag);
+        file_md->oflag = oflag;
         file_md->blocks = list_create();
 
         list_insert_value(g_files, file_md);
@@ -238,7 +238,7 @@ int64_t _moat_fs_read(int64_t fd, void* buf, int64_t len)
 
     //error-checking
     if (len < 0 || len > MAX_FILE_LEN) { return -1; } //bad len argument
-    if (!file_md->read_permission) { return -1; }
+    if (! (o_rdonly(file_md->oflag) || o_rdwr(file_md->oflag))) { return -1; }
 
     //we need to iterate through all blocks that hold the requested data
     int64_t offset_reached = 0, len_completed = 0;
@@ -288,7 +288,7 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
     //error-checking
     if (len < 0 || len > MAX_FILE_LEN) { return -1; } //bad len argument
     if ((MAX_FILE_LEN - file_md->offset) < len) { return -1; } //writing len bytes will exceed max len
-    if (!file_md->write_permission) { return -1; }
+    if (! (o_wronly(file_md->oflag) || o_rdwr(file_md->oflag))) { return -1; }
 
     //we need to iterate through all blocks that hold the requested data
     int64_t offset_reached = 0, len_completed = 0;

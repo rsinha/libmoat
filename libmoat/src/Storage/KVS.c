@@ -19,14 +19,11 @@
 #define MAX_KVS_COUNT 16
 #define MAX_KVS_NAME_LEN 64
 
-#define TMP_NAME_PREFIX "tmp://"
-#define INPUT_NAME_PREFIX "in://"
-#define OUTPUT_NAME_PREFIX "out://"
-#define INOUT_NAME_PREFIX "inout://"
-
 #define o_rdonly(oflag) ((O_RDONLY & (oflag)) != 0)
 #define o_wronly(oflag) ((O_WRONLY & (oflag)) != 0)
 #define o_rdwr(oflag) ((O_RDWR & (oflag)) != 0)
+#define o_creat(oflag) ((O_CREAT & (oflag)) != 0)
+#define o_tmpfile(oflag) ((O_TMPFILE & (oflag)) != 0)
 
 typedef struct
 {
@@ -34,8 +31,7 @@ typedef struct
     char         db_name[MAX_KVS_NAME_LEN];
     int64_t      db_descriptor; //integer id
     int64_t      size; //number of keys inserted
-    bool         read_permission;
-    bool         write_permission;
+    int64_t      oflag;
 } kvs_db_t;
 
 /***************************************************
@@ -121,7 +117,7 @@ int64_t kvs_write_helper(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_
 
     //error-checking
     if (!addition_is_safe((uint64_t) buf, buf_len)) { return -1; } //buf + buf_len causes integer overflow
-    if (!db_md->write_permission) { return -1; } //need write permission for this DB
+    if (! (o_wronly(db_md->oflag) || o_rdwr(db_md->oflag))) { return -1; } //need write permission for this DB
 
     uint8_t *untrusted_buf;
     uint64_t untrusted_len = chunk_storage_payload_len(buf_len); /* ask chunky storage module how much space it needs */
@@ -153,7 +149,7 @@ int64_t kvs_write_helper(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_
 
 bool is_db_temporary(kvs_db_t *db_md)
 {
-    return strncmp(TMP_NAME_PREFIX, db_md->db_name, strlen(TMP_NAME_PREFIX)) == 0;
+    return o_tmpfile(db_md->oflag);
 }
 
 /***************************************************
@@ -173,7 +169,7 @@ void _moat_kvs_module_init()
 /*
  oflag is one or more of O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
  */
-int64_t _moat_kvs_open(char *name, int oflag)
+int64_t _moat_kvs_open(char *name, int64_t oflag)
 {
     kvs_db_t *db_md = find_db_by_name(name);
     
@@ -198,8 +194,7 @@ int64_t _moat_kvs_open(char *name, int oflag)
         strcpy(db_md->db_name, name);
         db_md->db_descriptor = fd;
         db_md->size = 0;
-        db_md->read_permission = o_rdonly(oflag) || o_rdwr(oflag);
-        db_md->write_permission = o_wronly(oflag) || o_rdwr(oflag);
+        db_md->oflag = oflag;
         db_md->cipher_ctx.counter = 0;
         status = sgx_read_rand((uint8_t *) &(db_md->cipher_ctx.key), sizeof(sgx_aes_gcm_128bit_key_t));
         assert(status == SGX_SUCCESS);
@@ -224,7 +219,7 @@ int64_t _moat_kvs_get(int64_t fd, void *k, uint64_t k_len, uint64_t offset, void
 
     //error-checking
     if (!addition_is_safe(offset, buf_len)) { return -1; } //offset + len shouldn't cause integer overflow
-    if (!db_md->read_permission) { return -1; }
+    if (! (o_rdonly(db_md->oflag) || o_rdwr(db_md->oflag))) { return -1; }
 
     uint8_t *untrusted_buf;
     //request untrusted database to populate a buffer in untrusted memory; ocall returns address of that buffer
