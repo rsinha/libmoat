@@ -73,6 +73,19 @@ bool RocksDBInterface::backend_db_create(int64_t fd, const char *db_path)
     return true;
 }
 
+bool RocksDBInterface::backend_db_destroy(int64_t fd, const char *db_path)
+{
+    std::map<int64_t, rocksdb_t *>::iterator iter = this->db_instances->find(fd);
+    if (iter == this->db_instances->end()) { return false; }
+
+    rocksdb_close(iter->second);
+
+    char *err = NULL;
+    rocksdb_destroy_db(this->options, db_path, &err); /* clear old contents */
+    if (err) { return false; }
+    return true;
+}
+
 bool RocksDBInterface::backend_db_put(int64_t fd, uint8_t *k, size_t k_len, uint8_t *v, size_t v_len)
 {
     std::map<int64_t, rocksdb_t *>::iterator iter = this->db_instances->find(fd);

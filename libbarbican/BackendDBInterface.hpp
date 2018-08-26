@@ -10,6 +10,7 @@ public:
   virtual bool  backend_db_connect_server() = 0;
   virtual bool  backend_db_disconnect_server() = 0;
   virtual bool  backend_db_create(int64_t fd, const char *name) = 0;
+  virtual bool  backend_db_destroy(int64_t fd, const char *name) = 0;
   virtual bool  backend_db_get(int64_t fd, uint8_t *k, size_t k_len, uint8_t **v, size_t *v_len) = 0;
   virtual bool  backend_db_free(void *obj) = 0;
   virtual bool  backend_db_put(int64_t fd, uint8_t *k, size_t k_len, uint8_t *v, size_t v_len) = 0;

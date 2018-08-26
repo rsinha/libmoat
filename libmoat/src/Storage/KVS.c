@@ -167,9 +167,9 @@ void _moat_kvs_module_init()
 }
 
 /*
- oflag is one or more of O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
+ oflag is one or more of O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_TMPFILE
  */
-int64_t _moat_kvs_open(char *name, int64_t oflag)
+int64_t _moat_kvs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 {
     kvs_db_t *db_md = find_db_by_name(name);
     
@@ -185,8 +185,7 @@ int64_t _moat_kvs_open(char *name, int64_t oflag)
         if (o_rdwr(oflag)) { if (o_rdonly(oflag) || o_wronly(oflag)) { return -1; } }
 
         size_t retstatus;
-        sgx_status_t status = kvs_create_ocall(&retstatus, fd, name);
-        assert(status == SGX_SUCCESS && retstatus == 0);
+        sgx_status_t status;
 
         db_md = (kvs_db_t *) malloc(sizeof(kvs_db_t));
         assert(db_md != NULL);
@@ -196,8 +195,17 @@ int64_t _moat_kvs_open(char *name, int64_t oflag)
         db_md->size = 0;
         db_md->oflag = oflag;
         db_md->cipher_ctx.counter = 0;
-        status = sgx_read_rand((uint8_t *) &(db_md->cipher_ctx.key), sizeof(sgx_aes_gcm_128bit_key_t));
-        assert(status == SGX_SUCCESS);
+
+        if (o_creat(oflag)) {
+            status = kvs_create_ocall(&retstatus, fd, name);
+            assert(status == SGX_SUCCESS && retstatus == 0);
+            status = sgx_read_rand((uint8_t *) &(db_md->cipher_ctx.key), sizeof(sgx_aes_gcm_128bit_key_t));
+            assert(status == SGX_SUCCESS);
+        } else {
+            //status = kvs_load_ocall
+            assert(key != NULL);
+            memcpy((uint8_t *) &(db_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
+        }
 
         list_insert_value(g_dbs, db_md);
     }
@@ -270,7 +278,7 @@ int64_t _moat_kvs_close(int64_t fd)
     /* if this was a temporary file, request untrusted world to delete the DB (though it may never honor it) */
     if (is_db_temporary(db_md)) {
         size_t retstatus;
-        sgx_status_t status = kvs_destroy_ocall(&retstatus, fd);
+        sgx_status_t status = kvs_destroy_ocall(&retstatus, fd, db_md->db_name);
         assert(status == SGX_SUCCESS && retstatus == 0);
     }
 

@@ -361,9 +361,10 @@ extern "C" size_t kvs_delete_ocall(int64_t fd, void *k, size_t k_len)
     return success ? 0 : -1;
 }
 
-extern "C" size_t kvs_destroy_ocall(int64_t fd)
+extern "C" size_t kvs_destroy_ocall(int64_t fd, const char *name)
 {
-    return 0; /* TODO */
+    bool success = g_db_context->backend_db_destroy(fd, name);
+    return success ? 0 : -1;
 }
 
 extern "C" size_t malloc_ocall(size_t num_bytes, void **untrusted_buf)
