@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <cstdlib>
 
 /* Internal Definitions */
 
@@ -322,6 +323,13 @@ extern "C" size_t kvs_init_service_ocall()
     g_db_context->backend_db_connect_server();
     g_prev_reply = NULL;
 
+    const int dir_err = system("mkdir -p /tmp/barbican");
+    if (-1 == dir_err)
+    {
+        printf("Error creating directory!n");
+        exit(1);
+    }
+
     return 0;
 }
 
@@ -330,6 +338,14 @@ extern "C" size_t kvs_create_ocall(int64_t fd, const char *name)
     std::string db_path(name);
     db_path = "/tmp/barbican/" + db_path;
     bool success = g_db_context->backend_db_create(fd, db_path.c_str());
+    return success ? 0 : -1;
+}
+
+extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
+{
+    std::string db_path(name);
+    db_path = "/tmp/barbican/" + db_path;
+    bool success = g_db_context->backend_db_save(fd, db_path.c_str());
     return success ? 0 : -1;
 }
 

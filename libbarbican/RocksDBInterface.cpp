@@ -149,7 +149,7 @@ bool RocksDBInterface::backend_db_save(int64_t fd, const char* db_backup_path)
     return true;
 }
 
-bool RocksDBInterface::backend_db_reload(int64_t fd, const char *db_path, const char *db_backup_path)
+bool RocksDBInterface::backend_db_load(int64_t fd, const char *db_path, const char *db_backup_path)
 {
     char *err = NULL;
     rocksdb_backup_engine_t *be = rocksdb_backup_engine_open(this->options, db_backup_path, &err);

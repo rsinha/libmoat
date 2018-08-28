@@ -40,6 +40,7 @@ sgx_status_t SGX_CDECL kvs_set_ocall(size_t *retval, int64_t fd, void *k, size_t
 sgx_status_t SGX_CDECL kvs_get_ocall(size_t *retval, int64_t fd, void *k, size_t k_len, void **untrusted_buf);
 sgx_status_t SGX_CDECL kvs_delete_ocall(size_t *retval, int64_t fd, void *k, size_t k_len);
 sgx_status_t SGX_CDECL kvs_destroy_ocall(size_t *retval, int64_t fd, const char *str);
+sgx_status_t SGX_CDECL kvs_save_ocall(size_t *retval, int64_t fd, const char *name);
 
 sgx_status_t SGX_CDECL malloc_ocall(size_t* retval, size_t num_bytes, void **untrusted_buf);
 sgx_status_t SGX_CDECL free_ocall(size_t* retval, void *untrusted_buf);

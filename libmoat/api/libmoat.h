@@ -70,6 +70,7 @@ int64_t LIBMOAT_API _moat_kvs_get(int64_t fd, void *k, uint64_t k_len, uint64_t 
 int64_t LIBMOAT_API _moat_kvs_insert(int64_t fd, void *k, uint64_t k_len, void* buf, uint64_t buf_len);
 int64_t LIBMOAT_API _moat_kvs_delete(int64_t fd, void *k, uint64_t k_len);
 int64_t LIBMOAT_API _moat_kvs_close(int64_t fd);
+int64_t LIBMOAT_API _moat_kvs_save(int64_t fd, char *name);
 
 /***************************************************
         KEY MANAGEMENT INTERFACE

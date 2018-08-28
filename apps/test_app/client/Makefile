@@ -229,3 +229,4 @@ clean:
 	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
 	@rm -f host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o
 	@rm -f $(Trust_Lib) $(Untrust_Lib)
+	@$(MAKE) -C $(Trust_Lib_Path) clean

@@ -202,9 +202,12 @@ int64_t _moat_kvs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
             status = sgx_read_rand((uint8_t *) &(db_md->cipher_ctx.key), sizeof(sgx_aes_gcm_128bit_key_t));
             assert(status == SGX_SUCCESS);
         } else {
-            //status = kvs_load_ocall
-            assert(key != NULL);
-            memcpy((uint8_t *) &(db_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
+            assert(false);
+            //ask host to load db with specified name if it knows about it, and bind it to fd
+            //status = kvs_load_ocall(&retstatus, fd, name);
+            //assert(status == SGX_SUCCESS && retstatus == 0);
+            //assert(key != NULL);
+            //memcpy((uint8_t *) &(db_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
         }
 
         list_insert_value(g_dbs, db_md);
@@ -267,13 +270,20 @@ int64_t _moat_kvs_delete(int64_t fd, void *k, uint64_t k_len)
     return 0;
 }
 
+int64_t _moat_kvs_save(int64_t fd, char *save_name)
+{
+    size_t retstatus;
+    sgx_status_t status = kvs_save_ocall(&retstatus, fd, save_name);
+    assert(status == SGX_SUCCESS);
+    if (retstatus != 0) { return -1; }
+
+    return 0;
+}
+
 int64_t _moat_kvs_close(int64_t fd)
 {
     kvs_db_t *db_md = find_db_by_descriptor(fd);
     if (db_md == NULL) { return -1; } //this needs an error code
-
-    bool deleted_successfully = list_delete_value(g_dbs, db_md);
-    assert(deleted_successfully);
 
     /* if this was a temporary file, request untrusted world to delete the DB (though it may never honor it) */
     if (is_db_temporary(db_md)) {
@@ -281,6 +291,9 @@ int64_t _moat_kvs_close(int64_t fd)
         sgx_status_t status = kvs_destroy_ocall(&retstatus, fd, db_md->db_name);
         assert(status == SGX_SUCCESS && retstatus == 0);
     }
+
+    bool deleted_successfully = list_delete_value(g_dbs, db_md);
+    assert(deleted_successfully);
 
     return 0;
 }

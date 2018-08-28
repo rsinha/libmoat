@@ -162,9 +162,12 @@ uint64_t enclave_test()
     _moat_print_debug("KVS check 5 successful\n");
 
     //save db
-    _moat_kvs_close(dbd);
-    assert(dbd != -1);
+    api_result = _moat_kvs_save(dbd, "out_test_app_db");
+    assert (api_result == 0);
     _moat_print_debug("KVS check 6 successful\n");
+    api_result = _moat_kvs_close(dbd);
+    assert(api_result != -1);
+    _moat_print_debug("KVS check 7 successful\n");
 
     _moat_print_debug("Finished checks...\n--------------------\n");
 
