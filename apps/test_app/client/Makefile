@@ -230,3 +230,4 @@ clean:
 	@rm -f host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o
 	@rm -f $(Trust_Lib) $(Untrust_Lib)
 	@$(MAKE) -C $(Trust_Lib_Path) clean
+	@$(MAKE) -C $(Untrust_Lib_Path) clean

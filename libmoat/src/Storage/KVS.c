@@ -198,18 +198,14 @@ int64_t _moat_kvs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 
         if (o_creat(oflag)) {
             status = kvs_create_ocall(&retstatus, fd, name);
-            assert(status == SGX_SUCCESS && retstatus == 0);
-            status = sgx_read_rand((uint8_t *) &(db_md->cipher_ctx.key), sizeof(sgx_aes_gcm_128bit_key_t));
-            assert(status == SGX_SUCCESS);
         } else {
-            assert(false);
             //ask host to load db with specified name if it knows about it, and bind it to fd
-            //status = kvs_load_ocall(&retstatus, fd, name);
-            //assert(status == SGX_SUCCESS && retstatus == 0);
-            //assert(key != NULL);
-            //memcpy((uint8_t *) &(db_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
+            status = kvs_load_ocall(&retstatus, fd, name);
         }
 
+        assert(status == SGX_SUCCESS && retstatus == 0);
+        assert(key != NULL);
+        memcpy((uint8_t *) &(db_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
         list_insert_value(g_dbs, db_md);
     }
 

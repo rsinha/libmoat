@@ -349,6 +349,16 @@ extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
     return success ? 0 : -1;
 }
 
+extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
+{
+    std::string db_path(name);
+    db_path = "/tmp/barbican/" + db_path;
+    std::string db_backup_path(name);
+    db_backup_path = "/tmp/barbican/out_" + db_backup_path;
+    bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());
+    return success ? 0 : -1;
+}
+
 extern "C" size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len)
 {
     bool success = g_db_context->backend_db_put(fd, (uint8_t *) k, k_len, (uint8_t *) buf, buf_len);

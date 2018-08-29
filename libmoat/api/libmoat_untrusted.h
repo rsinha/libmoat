@@ -36,6 +36,7 @@ sgx_status_t SGX_CDECL fs_read_block_ocall(size_t* retval, size_t addr, void* bu
 
 sgx_status_t SGX_CDECL kvs_init_service_ocall(size_t *retval);
 sgx_status_t SGX_CDECL kvs_create_ocall(size_t *retval, int64_t fd, const char *str);
+sgx_status_t SGX_CDECL kvs_load_ocall(size_t *retval, int64_t fd, const char *str);
 sgx_status_t SGX_CDECL kvs_set_ocall(size_t *retval, int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len);
 sgx_status_t SGX_CDECL kvs_get_ocall(size_t *retval, int64_t fd, void *k, size_t k_len, void **untrusted_buf);
 sgx_status_t SGX_CDECL kvs_delete_ocall(size_t *retval, int64_t fd, void *k, size_t k_len);

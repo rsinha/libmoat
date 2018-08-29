@@ -7,6 +7,7 @@
 #include "common.h"
 
 #include "sgx_dh.h"
+#include "sgx_trts.h"
 
 uint64_t enclave_test()
 {
@@ -104,8 +105,12 @@ uint64_t enclave_test()
     }
     _moat_print_debug("FS check 6 successful\n");
 
+    sgx_aes_gcm_128bit_key_t db_encr_key;
+    sgx_status_t status = sgx_read_rand((uint8_t *) &(db_encr_key), sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(status == SGX_SUCCESS);
+
     /* Test 1 (KVS) just tries to open a temp DB */
-    int64_t dbd = _moat_kvs_open("test_app_db", O_RDWR | O_CREAT, NULL);
+    int64_t dbd = _moat_kvs_open("test_app_db", O_RDWR | O_CREAT, &db_encr_key);
     assert(dbd != -1);
     _moat_print_debug("KVS check 1 successful\n");
 
@@ -168,6 +173,15 @@ uint64_t enclave_test()
     api_result = _moat_kvs_close(dbd);
     assert(api_result != -1);
     _moat_print_debug("KVS check 7 successful\n");
+
+    int64_t db2d = _moat_kvs_open("test_app_db2", O_RDWR, &db_encr_key);
+    assert(db2d != -1);
+    _moat_print_debug("KVS check 8 successful\n");
+    api_result = _moat_kvs_get(db2d, &k2, sizeof(k2), 0, &v2_get, sizeof(v2_get));
+    assert(api_result == sizeof(v2));
+    assert(memcmp(v2, v2_get, sizeof(v2)) == 0);
+    _moat_print_debug("KVS check 9 successful\n");
+
 
     _moat_print_debug("Finished checks...\n--------------------\n");
 

@@ -14,3 +14,4 @@ venv
 .vscode/
 libmoat.xcodeproj/
 upload.sh
+experimental/sgx-trust-management/
