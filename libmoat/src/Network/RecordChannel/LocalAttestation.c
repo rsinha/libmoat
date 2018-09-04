@@ -10,7 +10,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "../../../api/libmoat_untrusted.h"
+#include "../../../api/libbarbican.h"
 #include "api/RecordChannel.h"
 
 /***************************************************

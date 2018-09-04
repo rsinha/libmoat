@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "../../api/libmoat_untrusted.h"
+#include "../../api/libbarbican.h"
 
 /***************************************************
  PUBLIC API IMPLEMENTATION

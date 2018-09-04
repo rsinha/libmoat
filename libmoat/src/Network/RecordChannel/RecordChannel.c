@@ -12,7 +12,7 @@
 
 #include "api/RecordChannel.h"
 #include "../../Utils/api/Utils.h"
-#include "../../../api/libmoat_untrusted.h"
+#include "../../../api/libbarbican.h"
 
 /***************************************************
  DEFINITIONS FOR INTERNAL USE
