@@ -11,6 +11,11 @@
 #include "interface_u.h"
 #include "host.h"
 
+#include <string>
+
+void register_input_dir(const std::string &name, const std::string &backup_path);
+void register_output_dir(const std::string &name, const std::string &backup_path);
+
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
 
@@ -21,7 +26,10 @@ int enclave_computation(void)
   /* Setup enclave */
   sgx_status_t ret;
   sgx_launch_token_t token = { 0 };
-     
+
+  register_output_dir("test_app_db", "out_test_app_db");
+  register_input_dir("test_app_db2", "out_test_app_db");
+
   int token_updated = 0;
 
   ret = sgx_create_enclave("enclave.signed.so", SGX_DEBUG_FLAG, &token, &token_updated, &global_eid, NULL);

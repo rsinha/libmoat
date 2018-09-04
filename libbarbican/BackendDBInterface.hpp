@@ -16,6 +16,7 @@ public:
   virtual bool  backend_db_put(int64_t fd, uint8_t *k, size_t k_len, uint8_t *v, size_t v_len) = 0;
   virtual bool  backend_db_insert(int64_t fd, uint8_t *k, size_t k_len, uint8_t *v, size_t v_len) = 0;
   virtual bool  backend_db_delete(int64_t fd, uint8_t *k, size_t k_len) = 0;
+  virtual bool  backend_db_close(int64_t fd) = 0;
   virtual bool  backend_db_save(int64_t fd, const char* name) = 0;
   virtual bool  backend_db_load(int64_t fd, const char *db_path, const char *db_backup_path) = 0;
 };

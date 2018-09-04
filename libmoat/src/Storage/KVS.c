@@ -266,10 +266,15 @@ int64_t _moat_kvs_delete(int64_t fd, void *k, uint64_t k_len)
     return 0;
 }
 
-int64_t _moat_kvs_save(int64_t fd, char *save_name)
+int64_t _moat_kvs_save(int64_t fd)
 {
+    kvs_db_t *db_md = find_db_by_descriptor(fd);
+    if (db_md == NULL) { return -1; }
+    if (o_tmpfile(db_md->oflag)) { return -1; } //tmp files cannot be saved
+
     size_t retstatus;
-    sgx_status_t status = kvs_save_ocall(&retstatus, fd, save_name);
+    /* giving both fd and db_name to help out barbican */
+    sgx_status_t status = kvs_save_ocall(&retstatus, fd, db_md->db_name);
     assert(status == SGX_SUCCESS);
     if (retstatus != 0) { return -1; }
 
@@ -278,15 +283,22 @@ int64_t _moat_kvs_save(int64_t fd, char *save_name)
 
 int64_t _moat_kvs_close(int64_t fd)
 {
+    size_t retstatus;
+    sgx_status_t status;
+
     kvs_db_t *db_md = find_db_by_descriptor(fd);
     if (db_md == NULL) { return -1; } //this needs an error code
 
     /* if this was a temporary file, request untrusted world to delete the DB (though it may never honor it) */
     if (is_db_temporary(db_md)) {
-        size_t retstatus;
-        sgx_status_t status = kvs_destroy_ocall(&retstatus, fd, db_md->db_name);
+        /* giving both fd and db_name to help out barbican */
+        status = kvs_destroy_ocall(&retstatus, fd, db_md->db_name);
         assert(status == SGX_SUCCESS && retstatus == 0);
     }
+
+    /* giving both fd and db_name to help out barbican */
+    status = kvs_close_ocall(&retstatus, fd);
+    assert(status == SGX_SUCCESS && retstatus == 0);
 
     bool deleted_successfully = list_delete_value(g_dbs, db_md);
     assert(deleted_successfully);

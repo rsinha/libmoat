@@ -16,6 +16,8 @@
 
 /* Internal Definitions */
 
+#define STORAGE_ROOT "/tmp/barbican/"
+
 typedef struct
 {
     size_t type;
@@ -45,6 +47,8 @@ merkle_node_t                        **g_merkle_leaves;
 size_t                                 g_in_order_traversal_counter;
 BackendDBInterface                    *g_db_context;
 void                                  *g_prev_reply;
+std::map<std::string, std::string>     g_db_input_path;
+std::map<std::string, std::string>     g_db_output_path;
 
 void server_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
 {
@@ -323,10 +327,14 @@ extern "C" size_t kvs_init_service_ocall()
     g_db_context->backend_db_connect_server();
     g_prev_reply = NULL;
 
-    const int dir_err = system("mkdir -p /tmp/barbican");
+    std::string command("");
+    command = (command + "mkdir -p ") + STORAGE_ROOT;
+
+    std::cout << "invoking " << command << std::endl;
+    const int dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
-        printf("Error creating directory!n");
+        std::cout << "Error creating directory " << STORAGE_ROOT << std::endl;
         exit(1);
     }
 
@@ -336,25 +344,44 @@ extern "C" size_t kvs_init_service_ocall()
 extern "C" size_t kvs_create_ocall(int64_t fd, const char *name)
 {
     std::string db_path(name);
-    db_path = "/tmp/barbican/" + db_path;
+    db_path = STORAGE_ROOT + db_path;
+
+    std::cout << "creating " << db_path << std::endl;
+
     bool success = g_db_context->backend_db_create(fd, db_path.c_str());
+    return success ? 0 : -1;
+}
+
+extern "C" size_t kvs_destroy_ocall(int64_t fd, const char *name)
+{
+    bool success = g_db_context->backend_db_destroy(fd, name);
     return success ? 0 : -1;
 }
 
 extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
 {
     std::string db_path(name);
-    db_path = "/tmp/barbican/" + db_path;
-    bool success = g_db_context->backend_db_save(fd, db_path.c_str());
+
+    std::map<std::string, std::string>::iterator iter = g_db_output_path.find(db_path);
+    if (iter == g_db_output_path.end()) { return -1; }
+
+    std::cout << "saving " << db_path << " to " << iter->second << std::endl;
+
+    std::string db_backup_path = STORAGE_ROOT + iter->second;
+    bool success = g_db_context->backend_db_save(fd, db_backup_path.c_str());
     return success ? 0 : -1;
 }
 
 extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
 {
     std::string db_path(name);
-    db_path = "/tmp/barbican/" + db_path;
-    std::string db_backup_path(name);
-    db_backup_path = "/tmp/barbican/out_" + db_backup_path;
+    std::map<std::string, std::string>::iterator iter = g_db_input_path.find(db_path);
+    if (iter == g_db_input_path.end()) { return -1; }
+
+    std::cout << "loading " << db_path << " from " << iter->second << std::endl;
+
+    db_path = STORAGE_ROOT + db_path;
+    std::string db_backup_path = STORAGE_ROOT + iter->second;
     bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());
     return success ? 0 : -1;
 }
@@ -387,9 +414,9 @@ extern "C" size_t kvs_delete_ocall(int64_t fd, void *k, size_t k_len)
     return success ? 0 : -1;
 }
 
-extern "C" size_t kvs_destroy_ocall(int64_t fd, const char *name)
+extern "C" size_t kvs_close_ocall(int64_t fd)
 {
-    bool success = g_db_context->backend_db_destroy(fd, name);
+    bool success = g_db_context->backend_db_close(fd);
     return success ? 0 : -1;
 }
 
@@ -403,4 +430,16 @@ extern "C" size_t free_ocall(void *untrusted_buf)
 {
     free(untrusted_buf);
     return 0;
+}
+
+void register_input_dir(const std::string &name, const std::string &backup_path)
+{
+    g_db_input_path.insert(std::pair<std::string, std::string>(name, backup_path));
+    std::cout << "Noting that input db " << name << " is backed up at " << backup_path << std::endl;
+}
+
+void register_output_dir(const std::string &name, const std::string &backup_path)
+{
+    g_db_output_path.insert(std::pair<std::string, std::string>(name, backup_path));
+    std::cout << "Noting that output db " << name << " is backed up at " << backup_path << std::endl;
 }

@@ -38,11 +38,11 @@ size_t LIBMOAT_API _moat_scc_destroy(scc_handle_t *handle);
         STORAGE RELATED DEFINITIONS
  ***************************************************/
 
-#define O_RDONLY (1 << 0)
-#define O_WRONLY (1 << 1)
-#define O_RDWR (1 << 2)
-#define O_CREAT (1 << 3)
-#define O_TMPFILE (1 << 4)
+#define O_RDONLY (1 << 0)  /* only reads allowed, use this for inputs */
+#define O_WRONLY (1 << 1)  /* only writes allowed */
+#define O_RDWR (1 << 2)    /* both reads and writes allowed, use this for state */
+#define O_CREAT (1 << 3)   /* not loaded but created, used for creating state or outputs */
+#define O_TMPFILE (1 << 4) /* temporary state, not loaded nor saved */
 
 /***************************************************
         SECURE FILE SYSTEM INTERFACE
@@ -70,7 +70,7 @@ int64_t LIBMOAT_API _moat_kvs_get(int64_t fd, void *k, uint64_t k_len, uint64_t 
 int64_t LIBMOAT_API _moat_kvs_insert(int64_t fd, void *k, uint64_t k_len, void* buf, uint64_t buf_len);
 int64_t LIBMOAT_API _moat_kvs_delete(int64_t fd, void *k, uint64_t k_len);
 int64_t LIBMOAT_API _moat_kvs_close(int64_t fd);
-int64_t LIBMOAT_API _moat_kvs_save(int64_t fd, char *name);
+int64_t LIBMOAT_API _moat_kvs_save(int64_t fd);
 
 /***************************************************
         KEY MANAGEMENT INTERFACE
