@@ -24,13 +24,14 @@ void _moat_scc_module_init()
     record_channel_module_init();
 }
 
-scc_handle_t *_moat_scc_create(bool is_server, sgx_measurement_t *measurement, scc_attributes_t *attr)
+scc_handle_t *_moat_scc_create(scc_role_t role, sgx_measurement_t *measurement, scc_attributes_t *attr)
 {
     size_t status;
     size_t session_id;
 
     dh_session_t *session_info = session_open();
     if (session_info == NULL) { return NULL; } //can't handle another session
+    bool is_server = (role == ROLE_SERVER);
 
     //fill session_info->AEK
     status = establish_shared_secret(is_server, measurement, session_info);

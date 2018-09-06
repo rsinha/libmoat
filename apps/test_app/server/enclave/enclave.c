@@ -18,7 +18,7 @@ uint64_t enclave_test()
                                              0x11,0xB8,0x86,0x5A,0x77,0x2A,0x53,0xEA,
                                              0x7D,0x56,0x45,0x10,0x51,0xD4,0x9C,0x52 } };
     scc_attributes_t attr = { .record_size = 128, .side_channel_protection = 0 };
-    scc_handle_t *handle = _moat_scc_create(true, &measurement, &attr);
+    scc_handle_t *handle = _moat_scc_create(ROLE_SERVER, &measurement, &attr);
     assert(handle != NULL);
     _moat_print_debug("ECDHE+AES-GCM-128 channel established with client...\n");
 
