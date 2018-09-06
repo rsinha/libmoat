@@ -12,9 +12,10 @@
 #include "host.h"
 
 #include <string>
+#include <fstream>
+#include <iostream>
 
-void register_input_dir(const std::string &name, const std::string &backup_path);
-void register_output_dir(const std::string &name, const std::string &backup_path);
+void init_barbican(const std::string &json_str);
 
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
@@ -26,9 +27,6 @@ int enclave_computation(void)
   /* Setup enclave */
   sgx_status_t ret;
   sgx_launch_token_t token = { 0 };
-
-  register_output_dir("test_app_db", "out_test_app_db");
-  register_input_dir("test_app_db2", "out_test_app_db");
 
   int token_updated = 0;
 
@@ -64,13 +62,15 @@ int enclave_computation(void)
 
 int SGX_CDECL main(int argc, char *argv[])
 {
-    (void)(argc);
-    (void)(argv);
+  if (argc < 2) {
+    std::cout << "Insufficient arguments: must pass a json config" << std::endl;
+    exit(1);
+  }
 
-    int r = enclave_computation();
+  std::ifstream f(argv[1]);
+  std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  init_barbican(json_str);
 
-    return r;
+  return enclave_computation();
 }
-
-
 

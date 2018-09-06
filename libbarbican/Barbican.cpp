@@ -13,6 +13,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <cstdlib>
+#include "json.hpp"
+
+using json = nlohmann::json;
 
 /* Internal Definitions */
 
@@ -442,4 +445,27 @@ void register_output_dir(const std::string &name, const std::string &backup_path
 {
     g_db_output_path.insert(std::pair<std::string, std::string>(name, backup_path));
     std::cout << "Noting that output db " << name << " is backed up at " << backup_path << std::endl;
+}
+
+void init_barbican(const std::string &json_str)
+{
+    try {
+        json j = json::parse(json_str);
+
+        json inputs = j["kvs_inputs"];
+        std::cout << "Reading input config ..." << std::endl;
+        for (json::iterator it = inputs.begin(); it != inputs.end(); ++it) {
+            register_input_dir(it.key(), it.value().get<std::string>());
+        }
+
+        json outputs = j["kvs_outputs"];
+        std::cout << "Reading output config ..." << std::endl;
+        for (json::iterator it = outputs.begin(); it != outputs.end(); ++it) {
+            register_output_dir(it.key(), it.value().get<std::string>());
+        }
+
+    } catch (const std::exception& ex) {
+        std::cout << "Error parsing json config: " << ex.what() << std::endl;
+        exit(1);
+    }
 }
