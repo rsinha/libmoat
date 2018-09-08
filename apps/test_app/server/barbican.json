@@ -1,0 +1,10 @@
+{
+  "kvs_outputs": {
+  },
+  "kvs_inputs": {
+  },
+  "scc_self": "5555",
+  "scc_actors": {
+    "remote_client": "tcp://localhost:5556"
+  }
+}

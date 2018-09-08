@@ -3,17 +3,22 @@
 #include <assert.h>
 #include <inttypes.h>
 
-# include <unistd.h>
-# include <pwd.h>
-# define MAX_PATH FILENAME_MAX
-#include <zmq.h>
+#include <unistd.h>
+#include <pwd.h>
+#define MAX_PATH FILENAME_MAX
 
 #include "sgx_urts.h"
 #include "host.h"
 #include "interface_u.h"
 
+#include <string>
+#include <fstream>
+#include <iostream>
+
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
+
+void init_barbican(const std::string &json_str);
 
 int enclave_computation(void)
 {
@@ -58,11 +63,15 @@ int enclave_computation(void)
 
 int SGX_CDECL main(int argc, char *argv[])
 {
-    (void)(argc);
-    (void)(argv);
+  if (argc < 2) {
+    std::cout << "Insufficient arguments: must pass a json config" << std::endl;
+    exit(1);
+  }
 
-    int r = enclave_computation();
+  std::ifstream f(argv[1]);
+  std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  init_barbican(json_str);
 
-    return r;
+  return enclave_computation();
 }
 

@@ -51,52 +51,11 @@ merkle_node_t                        **g_merkle_leaves;
 size_t                                 g_in_order_traversal_counter;
 BackendDBInterface                    *g_db_context;
 void                                  *g_prev_reply;
-std::map<std::string, std::string>     g_db_input_path;
-std::map<std::string, std::string>     g_db_output_path;
+std::map<std::string, std::string>     g_config_kvs_inputs;
+std::map<std::string, std::string>     g_config_kvs_outputs;
+std::string                            g_config_scc_self;
+std::map<std::string, std::string>     g_config_scc_actors;
 
-/*
-void server_setup_socket(char *name, sgx_measurement_t *target_enclave, size_t session_id)
-{
-    //ideally I should be asking some name discovery service
-    untrusted_channel_t channel;
-    memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
-
-    channel.remote_name = malloc(strlen(name) + 1);
-    memcpy(channel.remote_name, name, strlen(name) + 1);
-
-    channel.zmq_ctx_outbound = zmq_ctx_new();
-    channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
-    assert(zmq_bind(channel.zmq_skt_outbound, "tcp://*:5555") == 0);
-    printf("server running on tcp://localhost:5555...\n");
-
-    channel.zmq_ctx_inbound = zmq_ctx_new();
-    channel.zmq_skt_inbound = zmq_socket(channel.zmq_ctx_inbound, ZMQ_PULL);
-    assert(zmq_connect(channel.zmq_skt_inbound, "tcp://localhost:5556") == 0);
-    printf("Connected to client running on tcp://localhost:5556...\n");
-
-    g_channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
-}
-
-void client_setup_socket(char *name, sgx_measurement_t *target_enclave, size_t session_id)
-{
-    //ideally I should be asking some name discovery service
-    untrusted_channel_t channel;
-    memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
-
-    channel.zmq_ctx_inbound = zmq_ctx_new();
-    channel.zmq_skt_inbound = zmq_socket(channel.zmq_ctx_inbound, ZMQ_PULL);
-    assert(zmq_connect(channel.zmq_skt_inbound, "tcp://localhost:5555") == 0);
-    printf("Connected to server running on tcp://localhost:5555...\n");
-
-    channel.zmq_ctx_outbound = zmq_ctx_new();
-    channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
-    assert(zmq_bind(channel.zmq_skt_outbound, "tcp://*:5556") == 0);
-    printf("client running on tcp://localhost:5556...\n");
-
-
-    g_channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
-}
-*/
 
 void teardown_channel(size_t session_id)
 {
@@ -119,27 +78,31 @@ extern "C" size_t start_session_ocall(const char *name, sgx_measurement_t *targe
     assert(channel.remote_name != NULL);
     memcpy(channel.remote_name, name, strlen(name) + 1);
 
+    std::string actor_name(name);
+    std::map<std::string, std::string>::iterator iter = g_config_scc_actors.find(actor_name);
+    if (iter == g_config_scc_actors.end()) { return -1; }
+    std::string self_addr = "tcp://*:" + g_config_scc_self;
+
+    std::cout << "within " << (is_server ? "server" : "client") << std::endl;
+
     if (is_server) {
         channel.zmq_ctx_outbound = zmq_ctx_new();
         channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
-        assert(zmq_bind(channel.zmq_skt_outbound, "tcp://*:5555") == 0);
-        printf("server running on tcp://localhost:5555...\n");
-
+        assert(zmq_bind(channel.zmq_skt_outbound, self_addr.c_str()) == 0);
         channel.zmq_ctx_inbound = zmq_ctx_new();
         channel.zmq_skt_inbound = zmq_socket(channel.zmq_ctx_inbound, ZMQ_PULL);
-        assert(zmq_connect(channel.zmq_skt_inbound, "tcp://localhost:5556") == 0);
-        printf("Connected to client running on tcp://localhost:5556...\n");
+        assert(zmq_connect(channel.zmq_skt_inbound, iter->second.c_str()) == 0);
     } else {
         channel.zmq_ctx_inbound = zmq_ctx_new();
         channel.zmq_skt_inbound = zmq_socket(channel.zmq_ctx_inbound, ZMQ_PULL);
-        assert(zmq_connect(channel.zmq_skt_inbound, "tcp://localhost:5555") == 0);
-        printf("Connected to server running on tcp://localhost:5555...\n");
-
+        assert(zmq_connect(channel.zmq_skt_inbound, iter->second.c_str()) == 0);
         channel.zmq_ctx_outbound = zmq_ctx_new();
         channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
-        assert(zmq_bind(channel.zmq_skt_outbound, "tcp://*:5556") == 0);
-        printf("client running on tcp://localhost:5556...\n");
+        assert(zmq_bind(channel.zmq_skt_outbound, self_addr.c_str()) == 0);
     }
+
+    std::cout << "self running at " << self_addr << std::endl;
+    std::cout << "Connected to " << name << " running on " << iter->second << std::endl;
 
     g_channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
     return 0;
@@ -406,8 +369,8 @@ extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
 {
     std::string db_path(name);
 
-    std::map<std::string, std::string>::iterator iter = g_db_output_path.find(db_path);
-    if (iter == g_db_output_path.end()) { return -1; }
+    std::map<std::string, std::string>::iterator iter = g_config_kvs_outputs.find(db_path);
+    if (iter == g_config_kvs_outputs.end()) { return -1; }
 
     std::cout << "saving " << db_path << " to " << iter->second << std::endl;
 
@@ -419,8 +382,8 @@ extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
 extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
 {
     std::string db_path(name);
-    std::map<std::string, std::string>::iterator iter = g_db_input_path.find(db_path);
-    if (iter == g_db_input_path.end()) { return -1; }
+    std::map<std::string, std::string>::iterator iter = g_config_kvs_inputs.find(db_path);
+    if (iter == g_config_kvs_inputs.end()) { return -1; }
 
     std::cout << "loading " << db_path << " from " << iter->second << std::endl;
 
@@ -476,16 +439,22 @@ extern "C" size_t free_ocall(void *untrusted_buf)
     return 0;
 }
 
-void register_input_dir(const std::string &name, const std::string &backup_path)
+void register_kvs_input(const std::string &name, const std::string &backup_path)
 {
-    g_db_input_path.insert(std::pair<std::string, std::string>(name, backup_path));
+    g_config_kvs_inputs.insert(std::pair<std::string, std::string>(name, backup_path));
     std::cout << "Noting that input db " << name << " is backed up at " << backup_path << std::endl;
 }
 
-void register_output_dir(const std::string &name, const std::string &backup_path)
+void register_kvs_output(const std::string &name, const std::string &backup_path)
 {
-    g_db_output_path.insert(std::pair<std::string, std::string>(name, backup_path));
+    g_config_kvs_outputs.insert(std::pair<std::string, std::string>(name, backup_path));
     std::cout << "Noting that output db " << name << " is backed up at " << backup_path << std::endl;
+}
+
+void register_scc_actor(const std::string &name, const std::string &ip_addr)
+{
+    g_config_scc_actors.insert(std::pair<std::string, std::string>(name, ip_addr));
+    std::cout << "Noting that remote actor " << name << " can be reached at " << ip_addr << std::endl;
 }
 
 void init_barbican(const std::string &json_str)
@@ -496,13 +465,22 @@ void init_barbican(const std::string &json_str)
         json inputs = j["kvs_inputs"];
         std::cout << "Reading input config ..." << std::endl;
         for (json::iterator it = inputs.begin(); it != inputs.end(); ++it) {
-            register_input_dir(it.key(), it.value().get<std::string>());
+            register_kvs_input(it.key(), it.value().get<std::string>());
         }
 
         json outputs = j["kvs_outputs"];
         std::cout << "Reading output config ..." << std::endl;
         for (json::iterator it = outputs.begin(); it != outputs.end(); ++it) {
-            register_output_dir(it.key(), it.value().get<std::string>());
+            register_kvs_output(it.key(), it.value().get<std::string>());
+        }
+
+        json self_addr = j["scc_self"];
+        g_config_scc_self = self_addr.get<std::string>();
+
+        json actors = j["scc_actors"];
+        std::cout << "Reading network config ..." << std::endl;
+        for (json::iterator it = actors.begin(); it != actors.end(); ++it) {
+            register_scc_actor(it.key(), it.value().get<std::string>());
         }
 
     } catch (const std::exception& ex) {

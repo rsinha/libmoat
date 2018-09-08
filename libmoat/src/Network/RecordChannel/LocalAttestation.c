@@ -170,6 +170,7 @@ size_t establish_shared_secret(char *name, bool is_server, sgx_measurement_t *ta
 {
     size_t retstatus;
     sgx_status_t status = start_session_ocall(&retstatus, name, target_enclave, session_info->session_id, (size_t) is_server);
+
     assert(status == SGX_SUCCESS);
     if (retstatus != 0) { return -1; }
 
