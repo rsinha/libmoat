@@ -24,7 +24,7 @@ void _moat_scc_module_init()
     record_channel_module_init();
 }
 
-scc_handle_t *_moat_scc_create(scc_role_t role, sgx_measurement_t *measurement, scc_attributes_t *attr)
+scc_handle_t *_moat_scc_create(char *name, scc_role_t role, sgx_measurement_t *measurement, scc_attributes_t *attr)
 {
     size_t status;
     size_t session_id;
@@ -34,7 +34,7 @@ scc_handle_t *_moat_scc_create(scc_role_t role, sgx_measurement_t *measurement, 
     bool is_server = (role == ROLE_SERVER);
 
     //fill session_info->AEK
-    status = establish_shared_secret(is_server, measurement, session_info);
+    status = establish_shared_secret(name, is_server, measurement, session_info);
     assert(status == 0);
 
     //derive server and client keys

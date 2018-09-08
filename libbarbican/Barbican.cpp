@@ -33,6 +33,7 @@ typedef struct {
     void *zmq_ctx_inbound = NULL;     //zmq ctx of connection for receiving msg
     void *zmq_skt_inbound = NULL;     //zmq socket of connection for receiving msg
     sgx_measurement_t target_enclave; //measurement of remote enclave
+    char *remote_name = NULL;
 } untrusted_channel_t;
 
 typedef struct _merkle_node {
@@ -53,11 +54,15 @@ void                                  *g_prev_reply;
 std::map<std::string, std::string>     g_db_input_path;
 std::map<std::string, std::string>     g_db_output_path;
 
-void server_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
+/*
+void server_setup_socket(char *name, sgx_measurement_t *target_enclave, size_t session_id)
 {
     //ideally I should be asking some name discovery service
     untrusted_channel_t channel;
     memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
+
+    channel.remote_name = malloc(strlen(name) + 1);
+    memcpy(channel.remote_name, name, strlen(name) + 1);
 
     channel.zmq_ctx_outbound = zmq_ctx_new();
     channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
@@ -72,7 +77,7 @@ void server_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
     g_channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
 }
 
-void client_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
+void client_setup_socket(char *name, sgx_measurement_t *target_enclave, size_t session_id)
 {
     //ideally I should be asking some name discovery service
     untrusted_channel_t channel;
@@ -91,6 +96,7 @@ void client_setup_socket(sgx_measurement_t *target_enclave, size_t session_id)
 
     g_channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
 }
+*/
 
 void teardown_channel(size_t session_id)
 {
@@ -104,12 +110,47 @@ void teardown_channel(size_t session_id)
     }
 }
 
+extern "C" size_t start_session_ocall(const char *name, sgx_measurement_t *target_enclave, size_t session_id, size_t is_server)
+{
+    untrusted_channel_t channel;
+    memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
+
+    channel.remote_name = (char *) malloc(strlen(name) + 1);
+    assert(channel.remote_name != NULL);
+    memcpy(channel.remote_name, name, strlen(name) + 1);
+
+    if (is_server) {
+        channel.zmq_ctx_outbound = zmq_ctx_new();
+        channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
+        assert(zmq_bind(channel.zmq_skt_outbound, "tcp://*:5555") == 0);
+        printf("server running on tcp://localhost:5555...\n");
+
+        channel.zmq_ctx_inbound = zmq_ctx_new();
+        channel.zmq_skt_inbound = zmq_socket(channel.zmq_ctx_inbound, ZMQ_PULL);
+        assert(zmq_connect(channel.zmq_skt_inbound, "tcp://localhost:5556") == 0);
+        printf("Connected to client running on tcp://localhost:5556...\n");
+    } else {
+        channel.zmq_ctx_inbound = zmq_ctx_new();
+        channel.zmq_skt_inbound = zmq_socket(channel.zmq_ctx_inbound, ZMQ_PULL);
+        assert(zmq_connect(channel.zmq_skt_inbound, "tcp://localhost:5555") == 0);
+        printf("Connected to server running on tcp://localhost:5555...\n");
+
+        channel.zmq_ctx_outbound = zmq_ctx_new();
+        channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
+        assert(zmq_bind(channel.zmq_skt_outbound, "tcp://*:5556") == 0);
+        printf("client running on tcp://localhost:5556...\n");
+    }
+
+    g_channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
+    return 0;
+}
+
 extern "C" size_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t* dh_msg1, size_t session_id)
 {
     //get dh_msg1 from remote, and populate dh_msg1 struct
     //we need to communicate with a remote with right measurement,
     //though we don't verify the measurement until we get inside the enclave
-    server_setup_socket(target_enclave, session_id);
+    //server_setup_socket(target_enclave, session_id);
 
     //step 3: recv dh_msg1 from the remote (client)
     std::map<size_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
@@ -138,7 +179,7 @@ extern "C" size_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh
 
 extern "C" size_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_enclave, sgx_dh_msg1_t *dh_msg1, sgx_dh_msg2_t *dh_msg2, size_t session_id)
 {
-    client_setup_socket(target_enclave, session_id);
+    //client_setup_socket(target_enclave, session_id);
 
     std::map<size_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {

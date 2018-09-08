@@ -11,11 +11,13 @@
 #include <stdbool.h>
 
 #define MAX_SESSION_COUNT  16
+#define MAX_SCC_NAME_LEN   64
 
 //Session information structure
 typedef struct
 {
     size_t                   session_id; //Identifies the current session
+    char                     remote_name[MAX_SCC_NAME_LEN];
     sgx_measurement_t        measurement; //measurement of the remote enclave
     sgx_dh_session_role_t    role; //role of this enclave: initiator or responder?
     sgx_aes_gcm_128bit_key_t AEK; //Session master secret
@@ -41,7 +43,7 @@ LOCAL ATTESTATION
  ***************************************************/
 
 void local_attestation_module_init();
-size_t establish_shared_secret(bool is_server, sgx_measurement_t *target_enclave, dh_session_t *session_info);
+size_t establish_shared_secret(char *name, bool is_server, sgx_measurement_t *target_enclave, dh_session_t *session_info);
 
 /***************************************************
  RECORD LAYER

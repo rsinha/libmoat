@@ -80,7 +80,7 @@ size_t server_dh_exchange(sgx_measurement_t *target_enclave, dh_session_t *sessi
     //Intialize the session as a session initiator
     status = sgx_dh_init_session(SGX_DH_SESSION_INITIATOR, &sgx_dh_session);
     if(SGX_SUCCESS != status) { return -1; }
-    
+
     //Ocall to request for a session with the destination enclave and obtain Message 1 if successful
     status = recv_dh_msg1_ocall(&retstatus, target_enclave, &dh_msg1, session_info->session_id);
     if ((status != SGX_SUCCESS) || ((attestation_status_t)retstatus != SUCCESS)) { return -1; }
@@ -166,8 +166,13 @@ size_t client_dh_exchange(sgx_measurement_t *target_enclave, dh_session_t *sessi
 void local_attestation_module_init() { }
 
 //Create a session with the destination enclave
-size_t establish_shared_secret(bool is_server, sgx_measurement_t *target_enclave, dh_session_t *session_info)
+size_t establish_shared_secret(char *name, bool is_server, sgx_measurement_t *target_enclave, dh_session_t *session_info)
 {
+    size_t retstatus;
+    sgx_status_t status = start_session_ocall(&retstatus, name, target_enclave, session_info->session_id, (size_t) is_server);
+    assert(status == SGX_SUCCESS);
+    if (retstatus != 0) { return -1; }
+
     if (is_server) {
         return server_dh_exchange(target_enclave, session_info);
     } else {
