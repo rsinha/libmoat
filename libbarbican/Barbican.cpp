@@ -119,7 +119,7 @@ extern "C" size_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_m
     std::map<size_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
         zmq_recv(iter->second.zmq_skt_inbound, dh_msg1, sizeof(sgx_dh_msg1_t), 0);
-        printf("Received dh_msg1...\n");
+        std::cout << "Received dh_msg1...\n";
         return 0;
     }
     return 1; //ERROR
@@ -131,10 +131,10 @@ extern "C" size_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh
     if (iter != g_channels.end()) {
         //send dh_msg2 to the remote (client)
         zmq_send(iter->second.zmq_skt_outbound, dh_msg2, sizeof(sgx_dh_msg2_t), 0);
-        printf("Sent dh_msg2...\n");
+        std::cout << "Sent dh_msg2...\n";
         //recv dh_msg3 from the remote (client)
         zmq_recv(iter->second.zmq_skt_inbound, dh_msg3, sizeof(sgx_dh_msg3_t), 0);
-        printf("Received dh_msg3...\n");
+        std::cout << "Received dh_msg3...\n";
         return 0;
     }
     return 1; //ERROR
@@ -148,10 +148,10 @@ extern "C" size_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_encl
     if (iter != g_channels.end()) {
         //send dh_msg1 to the remote (client)
          zmq_send(iter->second.zmq_skt_outbound, dh_msg1, sizeof(sgx_dh_msg1_t), 0);
-         printf("Sent dh_msg1...\n");
+         std::cout << "Sent dh_msg1...\n";
          //recv dh_msg2 from the remote (client)
          zmq_recv(iter->second.zmq_skt_inbound, dh_msg2, sizeof(sgx_dh_msg2_t), 0);
-         printf("Received dh_msg2...\n");
+         std::cout << "Received dh_msg2...\n";
          return 0;
     }
     return 1; //ERROR
@@ -163,7 +163,7 @@ extern "C" size_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, size_t session_id)
     std::map<size_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
         zmq_send(iter->second.zmq_skt_outbound, dh_msg3, sizeof(sgx_dh_msg3_t), 0);
-        printf("Sent dh_msg3...\n");
+        std::cout << "Sent dh_msg3...\n";
         return 0;
     }
     return 1;
