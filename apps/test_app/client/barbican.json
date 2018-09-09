@@ -7,6 +7,9 @@
   },
   "scc_self": "5556",
   "scc_actors": {
-    "remote_server": "tcp://localhost:5555"
+    "remote_server": { 
+      "url": "tcp://localhost:5555", 
+      "role_server": false
+    }
   }
 }

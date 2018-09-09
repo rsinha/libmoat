@@ -59,6 +59,13 @@ attestation_status_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t
     return SUCCESS;
 }
 
+
+/***************************************************
+            PUBLIC API IMPLEMENTATION
+***************************************************/
+
+void local_attestation_module_init() { }
+
 size_t server_dh_exchange(sgx_measurement_t *target_enclave, dh_session_t *session_info)
 {
     sgx_dh_msg1_t dh_msg1;            //Diffie-Hellman Message 1
@@ -157,27 +164,3 @@ size_t client_dh_exchange(sgx_measurement_t *target_enclave, dh_session_t *sessi
 
     return 0;
 }
-
-
-/***************************************************
-            PUBLIC API IMPLEMENTATION
-***************************************************/
-
-void local_attestation_module_init() { }
-
-//Create a session with the destination enclave
-size_t establish_shared_secret(char *name, bool is_server, sgx_measurement_t *target_enclave, dh_session_t *session_info)
-{
-    size_t retstatus;
-    sgx_status_t status = start_session_ocall(&retstatus, name, target_enclave, session_info->session_id, (size_t) is_server);
-
-    assert(status == SGX_SUCCESS);
-    if (retstatus != 0) { return -1; }
-
-    if (is_server) {
-        return server_dh_exchange(target_enclave, session_info);
-    } else {
-        return client_dh_exchange(target_enclave, session_info);
-    }
-}
-

@@ -18,15 +18,13 @@ uint64_t enclave_test()
                                              0x11,0xB8,0x86,0x5A,0x77,0x2A,0x53,0xEA,
                                              0x7D,0x56,0x45,0x10,0x51,0xD4,0x9C,0x52 } };
     scc_attributes_t attr = { .record_size = 128, .side_channel_protection = 0 };
-    scc_handle_t *handle = _moat_scc_create("remote_client", ROLE_SERVER, &measurement, &attr);
+    scc_handle_t *handle = _moat_scc_create("remote_client", &measurement, &attr);
     assert(handle != NULL);
     _moat_print_debug("ECDHE+AES-GCM-128 channel established with client...\n");
 
     blob_t blob;
     size_t api_result;
-    
-    //api_result = _moat_scc_recv(handle, &blob.x1, sizeof(blob.x1)); assert(api_result == 0);
-    //api_result = _moat_scc_recv(handle, &blob.x2, sizeof(blob.x2)); assert(api_result == 0);
+
     api_result = _moat_scc_recv(handle, &blob, sizeof(blob)); assert(api_result == 0);
     api_result = _moat_print_debug("Received input...\n"); assert(api_result == 0);
     uint64_t result = blob.x1 + blob.x2;

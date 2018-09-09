@@ -5,6 +5,9 @@
   },
   "scc_self": "5555",
   "scc_actors": {
-    "remote_client": "tcp://localhost:5556"
+    "remote_client": { 
+      "url": "tcp://localhost:5556", 
+      "role_server": true
+    }
   }
 }

@@ -54,8 +54,8 @@ void                                  *g_prev_reply;
 std::map<std::string, std::string>     g_config_kvs_inputs;
 std::map<std::string, std::string>     g_config_kvs_outputs;
 std::string                            g_config_scc_self;
-std::map<std::string, std::string>     g_config_scc_actors;
-
+std::map<std::string, std::string>     g_config_scc_actors; //map remote entity name to ip address
+std::map<std::string, bool>            g_config_scc_roles; //map remote entity name to role (client / server)
 
 void teardown_channel(size_t session_id)
 {
@@ -69,7 +69,7 @@ void teardown_channel(size_t session_id)
     }
 }
 
-extern "C" size_t start_session_ocall(const char *name, sgx_measurement_t *target_enclave, size_t session_id, size_t is_server)
+extern "C" size_t start_session_ocall(const char *name, sgx_measurement_t *target_enclave, size_t session_id, size_t *is_server)
 {
     untrusted_channel_t channel;
     memcpy(&(channel.target_enclave), target_enclave, sizeof(sgx_measurement_t));
@@ -79,30 +79,35 @@ extern "C" size_t start_session_ocall(const char *name, sgx_measurement_t *targe
     memcpy(channel.remote_name, name, strlen(name) + 1);
 
     std::string actor_name(name);
+    std::map<std::string, bool>::iterator role_iter = g_config_scc_roles.find(actor_name);
+    if (role_iter == g_config_scc_roles.end()) { return -1; }
+    *is_server = (role_iter->second) ? 1 : 0;
+
     std::map<std::string, std::string>::iterator iter = g_config_scc_actors.find(actor_name);
     if (iter == g_config_scc_actors.end()) { return -1; }
     std::string self_addr = "tcp://*:" + g_config_scc_self;
+    std::string remote_addr = iter->second;
 
-    std::cout << "within " << (is_server ? "server" : "client") << std::endl;
+    std::cout << "within " << (*is_server ? "server" : "client") << std::endl;
 
-    if (is_server) {
+    if (*is_server) {
         channel.zmq_ctx_outbound = zmq_ctx_new();
         channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
         assert(zmq_bind(channel.zmq_skt_outbound, self_addr.c_str()) == 0);
         channel.zmq_ctx_inbound = zmq_ctx_new();
         channel.zmq_skt_inbound = zmq_socket(channel.zmq_ctx_inbound, ZMQ_PULL);
-        assert(zmq_connect(channel.zmq_skt_inbound, iter->second.c_str()) == 0);
+        assert(zmq_connect(channel.zmq_skt_inbound, remote_addr.c_str()) == 0);
     } else {
         channel.zmq_ctx_inbound = zmq_ctx_new();
         channel.zmq_skt_inbound = zmq_socket(channel.zmq_ctx_inbound, ZMQ_PULL);
-        assert(zmq_connect(channel.zmq_skt_inbound, iter->second.c_str()) == 0);
+        assert(zmq_connect(channel.zmq_skt_inbound, remote_addr.c_str()) == 0);
         channel.zmq_ctx_outbound = zmq_ctx_new();
         channel.zmq_skt_outbound = zmq_socket(channel.zmq_ctx_outbound, ZMQ_PUSH);
         assert(zmq_bind(channel.zmq_skt_outbound, self_addr.c_str()) == 0);
     }
 
     std::cout << "self running at " << self_addr << std::endl;
-    std::cout << "Connected to " << name << " running on " << iter->second << std::endl;
+    std::cout << "Connected to " << name << " running on " << remote_addr << std::endl;
 
     g_channels.insert(std::pair<size_t, untrusted_channel_t>(session_id, channel));
     return 0;
@@ -451,10 +456,12 @@ void register_kvs_output(const std::string &name, const std::string &backup_path
     std::cout << "Noting that output db " << name << " is backed up at " << backup_path << std::endl;
 }
 
-void register_scc_actor(const std::string &name, const std::string &ip_addr)
+void register_scc_actor(const std::string &name, const std::string &ip_addr, bool role_is_server)
 {
     g_config_scc_actors.insert(std::pair<std::string, std::string>(name, ip_addr));
-    std::cout << "Noting that remote actor " << name << " can be reached at " << ip_addr << std::endl;
+    g_config_scc_roles.insert(std::pair<std::string, bool>(name, role_is_server));
+    std::cout << "Noting that remote actor " << name << " can be reached at " << ip_addr << 
+        ", we will act as " << (role_is_server ? "server" : "client") << std::endl;
 }
 
 void init_barbican(const std::string &json_str)
@@ -480,7 +487,10 @@ void init_barbican(const std::string &json_str)
         json actors = j["scc_actors"];
         std::cout << "Reading network config ..." << std::endl;
         for (json::iterator it = actors.begin(); it != actors.end(); ++it) {
-            register_scc_actor(it.key(), it.value().get<std::string>());
+            json actor_info = actors[it.key()];
+            json ip_addr = actor_info["url"];
+            json role = actor_info["role_server"];
+            register_scc_actor(it.key(), ip_addr.get<std::string>(), role.get<bool>());
         }
 
     } catch (const std::exception& ex) {

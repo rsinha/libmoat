@@ -93,7 +93,7 @@ dh_session_t *find_session(size_t session_id)
 }
 
 //creates a session struct with a unique id
-dh_session_t *session_open()
+dh_session_t *session_open(char *name, sgx_measurement_t *target_enclave)
 {
     size_t session_id = generate_unique_session_id();
     if (session_id == 0) { return NULL; } //can't give you a session at this time. Try later.
@@ -101,8 +101,17 @@ dh_session_t *session_open()
     dh_session_t *session_info = (dh_session_t *) malloc(sizeof(dh_session_t));
     assert(session_info != NULL);
 
-    list_insert_value(g_dest_session_info, session_info);
     session_info->session_id = session_id;
+    size_t is_server;
+
+    size_t retstatus;
+    sgx_status_t status = start_session_ocall(&retstatus, name, target_enclave, session_id, &is_server);
+    assert(status == SGX_SUCCESS);
+    if (retstatus != 0) { return NULL; }
+    assert(is_server == 0 || is_server == 1);
+    session_info->role_is_server = is_server == 1;
+
+    list_insert_value(g_dest_session_info, session_info);
 
     return session_info;
 }

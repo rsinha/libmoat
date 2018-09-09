@@ -18,6 +18,7 @@ typedef struct
 {
     size_t                   session_id; //Identifies the current session
     char                     remote_name[MAX_SCC_NAME_LEN];
+    bool                     role_is_server;
     sgx_measurement_t        measurement; //measurement of the remote enclave
     sgx_dh_session_role_t    role; //role of this enclave: initiator or responder?
     sgx_aes_gcm_128bit_key_t AEK; //Session master secret
@@ -43,14 +44,15 @@ LOCAL ATTESTATION
  ***************************************************/
 
 void local_attestation_module_init();
-size_t establish_shared_secret(char *name, bool is_server, sgx_measurement_t *target_enclave, dh_session_t *session_info);
+size_t client_dh_exchange(sgx_measurement_t *target_enclave, dh_session_t *session_info);
+size_t server_dh_exchange(sgx_measurement_t *target_enclave, dh_session_t *session_info);
 
 /***************************************************
  RECORD LAYER
  ***************************************************/
 
 void record_channel_module_init();
-dh_session_t *session_open();
+dh_session_t *session_open(char *name, sgx_measurement_t *target_enclave);
 size_t session_close(dh_session_t *session_info);
 dh_session_t *find_session(size_t session_id);
 size_t session_recv(dh_session_t *session_info, void *record, size_t record_size);

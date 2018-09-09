@@ -24,17 +24,18 @@ void _moat_scc_module_init()
     record_channel_module_init();
 }
 
-scc_handle_t *_moat_scc_create(char *name, scc_role_t role, sgx_measurement_t *measurement, scc_attributes_t *attr)
+scc_handle_t *_moat_scc_create(char *name, sgx_measurement_t *measurement, scc_attributes_t *attr)
 {
     size_t status;
     size_t session_id;
 
-    dh_session_t *session_info = session_open();
+    dh_session_t *session_info = session_open(name, measurement);
     if (session_info == NULL) { return NULL; } //can't handle another session
-    bool is_server = (role == ROLE_SERVER);
 
     //fill session_info->AEK
-    status = establish_shared_secret(name, is_server, measurement, session_info);
+    status = session_info->role_is_server ?
+        server_dh_exchange(measurement, session_info) :
+        client_dh_exchange(measurement, session_info);
     assert(status == 0);
 
     //derive server and client keys
@@ -49,8 +50,8 @@ scc_handle_t *_moat_scc_create(char *name, scc_role_t role, sgx_measurement_t *m
                   okm,
                   2 * sizeof(sgx_aes_gcm_128bit_key_t));
     assert(status == 0);
-    size_t local_key_offset = is_server ? sizeof(sgx_aes_gcm_128bit_key_t) : 0;
-    size_t remote_key_offset = is_server ? 0 : sizeof(sgx_aes_gcm_128bit_key_t);
+    size_t local_key_offset = session_info->role_is_server ? sizeof(sgx_aes_gcm_128bit_key_t) : 0;
+    size_t remote_key_offset = session_info->role_is_server ? 0 : sizeof(sgx_aes_gcm_128bit_key_t);
     memcpy(((uint8_t *) &(session_info->local_key)), okm + local_key_offset, sizeof(sgx_aes_gcm_128bit_key_t));
     memcpy(((uint8_t *) &(session_info->remote_key)), okm + remote_key_offset, sizeof(sgx_aes_gcm_128bit_key_t));
 
@@ -68,7 +69,7 @@ scc_handle_t *_moat_scc_create(char *name, scc_role_t role, sgx_measurement_t *m
                   iv_constant,
                   2 * SGX_AESGCM_IV_SIZE);
     assert(status == 0);
-    size_t iv_offset = is_server ? SGX_AESGCM_IV_SIZE : 0;
+    size_t iv_offset = session_info->role_is_server ? SGX_AESGCM_IV_SIZE : 0;
     memcpy(((uint8_t *) &(session_info->iv_constant)), iv_constant + iv_offset, SGX_AESGCM_IV_SIZE);
 
     free(iv_constant);
