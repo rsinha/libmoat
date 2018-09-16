@@ -22,9 +22,8 @@ uint64_t enclave_test()
                                              0x6F,0x16,0x5B,0xC1,0x0D,0x06,0xCB,0x7A,
                                              0xAF,0x49,0xEF,0x4B,0xCE,0xBD,0xEA,0x90,
                                              0xD6,0x28,0x98,0xBC,0xBC,0x8F,0x50,0x36 } };
-    scc_attributes_t attr = { .record_size = 128, .side_channel_protection = 0 };
-    scc_handle_t *handle = _moat_scc_create("remote_server", &measurement, &attr);
-    assert(handle != NULL);
+    int64_t session_id = _moat_scc_create("remote_server", &measurement);
+    assert(session_id != -1);
     _moat_print_debug("ECDHE+AES-GCM-128 channel established with server...\n");
 
     /* Test 0 (SCC) sends two values to server and checks the result */
@@ -35,11 +34,11 @@ uint64_t enclave_test()
     
     _moat_print_debug("Commencing checks...\n--------------------\n");
 
-    api_result = _moat_scc_send(handle, &(blob1.x1), sizeof(blob1.x1)); assert(api_result == 0);
-    api_result = _moat_scc_send(handle, &(blob1.x2), sizeof(blob1.x2)); assert(api_result == 0);
-    api_result = _moat_scc_recv(handle, &result, sizeof(result)); assert(api_result == 0);
+    api_result = _moat_scc_send(session_id, &(blob1.x1), sizeof(blob1.x1)); assert(api_result == 0);
+    api_result = _moat_scc_send(session_id, &(blob1.x2), sizeof(blob1.x2)); assert(api_result == 0);
+    api_result = _moat_scc_recv(session_id, &result, sizeof(result)); assert(api_result == 0);
     api_result = _moat_print_debug("result: %" PRIu64 "\n", result); assert(api_result == 0);
-    api_result = _moat_scc_destroy(handle); assert(api_result == 0);
+    api_result = _moat_scc_destroy(session_id); assert(api_result == 0);
     
     assert(result == 86); //using the server to add x1 to x2
     _moat_print_debug("SCC check 1 successful\n");

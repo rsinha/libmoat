@@ -13,28 +13,17 @@
  ***************************************************/
 
 void LIBMOAT_API _moat_debug_module_init();
-size_t LIBMOAT_API _moat_print_debug(const char *fmt, ...);
+int64_t LIBMOAT_API _moat_print_debug(const char *fmt, ...);
 
 /***************************************************
         SECURE COMMUNICATION CHANNEL
  ***************************************************/
 
-typedef struct {
-    size_t session_id;
-} scc_handle_t;
-
-typedef struct {
-    size_t record_size;
-    size_t side_channel_protection;
-} scc_attributes_t;
-
-//typedef enum { ROLE_SERVER, ROLE_CLIENT } scc_role_t;
-
 void LIBMOAT_API _moat_scc_module_init();
-scc_handle_t * LIBMOAT_API _moat_scc_create(char *name, sgx_measurement_t *measurement, scc_attributes_t *attr);
-size_t LIBMOAT_API _moat_scc_send(scc_handle_t *handle, void *buf, size_t len);
-size_t LIBMOAT_API _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len);
-size_t LIBMOAT_API _moat_scc_destroy(scc_handle_t *handle);
+int64_t LIBMOAT_API _moat_scc_create(char *name, sgx_measurement_t *measurement);
+int64_t LIBMOAT_API _moat_scc_send(int64_t handle, void *buf, size_t len);
+int64_t LIBMOAT_API _moat_scc_recv(int64_t handle, void *buf, size_t len);
+int64_t LIBMOAT_API _moat_scc_destroy(int64_t handle);
 
 /***************************************************
         STORAGE RELATED DEFINITIONS

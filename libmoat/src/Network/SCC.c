@@ -24,13 +24,12 @@ void _moat_scc_module_init()
     record_channel_module_init();
 }
 
-scc_handle_t *_moat_scc_create(char *name, sgx_measurement_t *measurement, scc_attributes_t *attr)
+int64_t _moat_scc_create(char *name, sgx_measurement_t *measurement)
 {
     size_t status;
-    size_t session_id;
 
     dh_session_t *session_info = session_open(name, measurement);
-    if (session_info == NULL) { return NULL; } //can't handle another session
+    if (session_info == NULL) { return -1; } //can't handle another session
 
     //fill session_info->AEK
     status = session_info->role_is_server ?
@@ -39,8 +38,7 @@ scc_handle_t *_moat_scc_create(char *name, sgx_measurement_t *measurement, scc_a
     assert(status == 0);
 
     //derive server and client keys
-    uint8_t* okm = malloc(2 * sizeof(sgx_aes_gcm_128bit_key_t));
-    assert(okm != NULL);
+    uint8_t okm[2 * sizeof(sgx_aes_gcm_128bit_key_t)];
 
     static const char key_label[] = "key";
     status = hkdf(((uint8_t *) &(session_info->AEK)),
@@ -55,11 +53,8 @@ scc_handle_t *_moat_scc_create(char *name, sgx_measurement_t *measurement, scc_a
     memcpy(((uint8_t *) &(session_info->local_key)), okm + local_key_offset, sizeof(sgx_aes_gcm_128bit_key_t));
     memcpy(((uint8_t *) &(session_info->remote_key)), okm + remote_key_offset, sizeof(sgx_aes_gcm_128bit_key_t));
 
-    free(okm);
-
     //derive iv constant
-    uint8_t* iv_constant = malloc(2 * SGX_AESGCM_IV_SIZE);
-    assert(iv_constant != NULL);
+    uint8_t iv_constant[2 * SGX_AESGCM_IV_SIZE];
 
     static const char iv_label[] = "iv";
     status = hkdf(((uint8_t *) &(session_info->AEK)),
@@ -72,8 +67,6 @@ scc_handle_t *_moat_scc_create(char *name, sgx_measurement_t *measurement, scc_a
     size_t iv_offset = session_info->role_is_server ? SGX_AESGCM_IV_SIZE : 0;
     memcpy(((uint8_t *) &(session_info->iv_constant)), iv_constant + iv_offset, SGX_AESGCM_IV_SIZE);
 
-    free(iv_constant);
-
     //local_seq_number is used as IV, and is incremented by 1 for each invocation of AES-GCM-128
     session_info->local_seq_number = 0;
     session_info->remote_seq_number = 0;
@@ -81,9 +74,8 @@ scc_handle_t *_moat_scc_create(char *name, sgx_measurement_t *measurement, scc_a
     session_info->recv_carryover_ptr = NULL;
     session_info->recv_carryover_bytes = 0;
 
-    //side channel protections
-    session_info->side_channel_protection = attr->side_channel_protection;
-    session_info->record_size = attr->record_size;
+    //parameter
+    session_info->record_size = 128;
 
 
 #ifndef RELEASE
@@ -106,22 +98,17 @@ scc_handle_t *_moat_scc_create(char *name, sgx_measurement_t *measurement, scc_a
     }
     _moat_print_debug("\n");
 #endif
-
-    //allocate memory for the context
-    scc_handle_t *handle = (scc_handle_t *) malloc(sizeof(scc_handle_t));
-    assert(handle != NULL);
-    handle->session_id = session_info->session_id;
     
     //all ok if we got here
-    return handle;
+    return session_info->session_id;
 }
 
 //decomposes buf into record-sized chunks and sends it to the RecordChannel layer
-size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
+int64_t _moat_scc_send(int64_t session_id, void *buf, size_t len)
 {
     size_t status;
 
-    dh_session_t *session_info = find_session(handle->session_id);
+    dh_session_t *session_info = find_session(session_id);
     if (session_info == NULL) { return -1; }
 
     uint8_t *record = malloc(sizeof(scc_cleartext_header_t) + session_info->record_size);
@@ -152,11 +139,11 @@ size_t _moat_scc_send(scc_handle_t *handle, void *buf, size_t len)
     return 0;
 }
 
-size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
+int64_t _moat_scc_recv(int64_t session_id, void *buf, size_t len)
 {
     size_t status;
 
-    dh_session_t *session_info = find_session(handle->session_id);
+    dh_session_t *session_info = find_session(session_id);
     if (session_info == NULL) { return -1; }
 
     size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
@@ -209,15 +196,13 @@ size_t _moat_scc_recv(scc_handle_t *handle, void *buf, size_t len)
     
 }
 
-size_t _moat_scc_destroy(scc_handle_t *handle)
+int64_t _moat_scc_destroy(int64_t session_id)
 {
-    dh_session_t *session_info = find_session(handle->session_id);
+    dh_session_t *session_info = find_session(session_id);
     if (session_info == NULL) { return -1; }
 
     size_t status = session_close(session_info);
     assert(status == 0);
-
-    free(handle);
 
     return 0;
 }

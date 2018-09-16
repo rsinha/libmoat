@@ -10,7 +10,7 @@
 
 void _moat_debug_module_init() { }
 
-size_t _moat_print_debug(const char *fmt, ...)
+int64_t _moat_print_debug(const char *fmt, ...)
 {
     size_t retstatus;
     char buf[256] = {0};

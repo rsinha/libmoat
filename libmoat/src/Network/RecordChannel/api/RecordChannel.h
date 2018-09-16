@@ -16,7 +16,7 @@
 //Session information structure
 typedef struct
 {
-    size_t                   session_id; //Identifies the current session
+    int64_t                  session_id; //Identifies the current session
     char                     remote_name[MAX_SCC_NAME_LEN];
     bool                     role_is_server;
     sgx_measurement_t        measurement; //measurement of the remote enclave
@@ -31,7 +31,6 @@ typedef struct
     uint8_t                  *recv_carryover_ptr;
     size_t                   recv_carryover_bytes;
     size_t                   record_size;
-    size_t                   side_channel_protection;
 } dh_session_t;
 
 typedef struct
@@ -54,7 +53,7 @@ size_t server_dh_exchange(sgx_measurement_t *target_enclave, dh_session_t *sessi
 void record_channel_module_init();
 dh_session_t *session_open(char *name, sgx_measurement_t *target_enclave);
 size_t session_close(dh_session_t *session_info);
-dh_session_t *find_session(size_t session_id);
+dh_session_t *find_session(int64_t session_id);
 size_t session_recv(dh_session_t *session_info, void *record, size_t record_size);
 size_t session_send(dh_session_t *session_info, void *record, size_t record_size);
 
