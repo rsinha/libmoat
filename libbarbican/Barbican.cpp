@@ -19,7 +19,8 @@ using json = nlohmann::json;
 
 /* Internal Definitions */
 
-#define STORAGE_ROOT "/tmp/barbican/"
+#define STORAGE_KVS_ROOT "/tmp/barbican/kvs/"
+#define STORAGE_FS_ROOT "/tmp/barbican/fs/"
 
 typedef struct
 {
@@ -195,6 +196,7 @@ extern "C" size_t send_msg_ocall(void *buf, size_t len, size_t session_id)
     if (iter != g_channels.end()) {
         zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, sizeof(libmoat_ciphertext_header_t), 0);
         zmq_send(iter->second.zmq_skt_outbound, ((uint8_t *) buf) + sizeof(libmoat_ciphertext_header_t), len - sizeof(libmoat_ciphertext_header_t), 0);
+        //zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, len, 0);
         printf("Sent %zu bytes in session %zu\n", len, session_id);
         return 0;
     }
@@ -215,11 +217,11 @@ extern "C" size_t recv_msg_ocall(void *buf, size_t len, size_t session_id)
 extern "C" size_t fs_init_service_ocall(size_t num_blocks)
 {
     struct stat st = {0};
-    if (stat("/tmp/libmoat", &st) == 0) {
-        printf("WARNING: /tmp/libmoat already exists. Deleting it...\n");
-        rmdir("/tmp/libmoat");
+    if (stat(STORAGE_FS_ROOT, &st) == 0) {
+        printf("WARNING: %s already exists. Deleting it...\n", STORAGE_FS_ROOT);
+        rmdir(STORAGE_FS_ROOT);
     }
-    mkdir("/tmp/libmoat", 0700);
+    mkdir(STORAGE_FS_ROOT, 0700);
     return 0;
 }
 
@@ -227,7 +229,7 @@ extern "C" size_t fs_write_block_ocall(size_t addr, void *buf, size_t len)
 {
     std::ofstream fout;
 
-    std::string prefix = "/tmp/libmoat/";
+    std::string prefix = STORAGE_FS_ROOT;
     std::string filename = prefix + std::to_string(addr);
 
     fout.open(filename.c_str(), std::ios::binary | std::ios::out);
@@ -242,7 +244,7 @@ extern "C" size_t fs_read_block_ocall(size_t addr, void *buf, size_t len)
 {
     std::ifstream fin;
 
-    std::string prefix = "/tmp/libmoat/";
+    std::string prefix = STORAGE_FS_ROOT;
     std::string filename = prefix + std::to_string(addr);
 
     fin.open(filename, std::ios::binary | std::ios::in);
@@ -340,13 +342,13 @@ extern "C" size_t kvs_init_service_ocall()
     g_prev_reply = NULL;
 
     std::string command("");
-    command = (command + "mkdir -p ") + STORAGE_ROOT;
+    command = (command + "mkdir -p ") + STORAGE_KVS_ROOT;
 
     std::cout << "invoking " << command << std::endl;
     const int dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
-        std::cout << "Error creating directory " << STORAGE_ROOT << std::endl;
+        std::cout << "Error creating directory " << STORAGE_KVS_ROOT << std::endl;
         exit(1);
     }
 
@@ -356,7 +358,7 @@ extern "C" size_t kvs_init_service_ocall()
 extern "C" size_t kvs_create_ocall(int64_t fd, const char *name)
 {
     std::string db_path(name);
-    db_path = STORAGE_ROOT + db_path;
+    db_path = STORAGE_KVS_ROOT + db_path;
 
     std::cout << "creating " << db_path << std::endl;
 
@@ -379,7 +381,7 @@ extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
 
     std::cout << "saving " << db_path << " to " << iter->second << std::endl;
 
-    std::string db_backup_path = STORAGE_ROOT + iter->second;
+    std::string db_backup_path = STORAGE_KVS_ROOT + iter->second;
     bool success = g_db_context->backend_db_save(fd, db_backup_path.c_str());
     return success ? 0 : -1;
 }
@@ -392,8 +394,8 @@ extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
 
     std::cout << "loading " << db_path << " from " << iter->second << std::endl;
 
-    db_path = STORAGE_ROOT + db_path;
-    std::string db_backup_path = STORAGE_ROOT + iter->second;
+    db_path = STORAGE_KVS_ROOT + db_path;
+    std::string db_backup_path = STORAGE_KVS_ROOT + iter->second;
     bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());
     return success ? 0 : -1;
 }
