@@ -103,15 +103,16 @@ int64_t _moat_scc_create(char *name, sgx_measurement_t *measurement)
     return session_info->session_id;
 }
 
+//TODO: handle IV wraparound so we can do session rengotiation
 //decomposes buf into record-sized chunks and sends it to the RecordChannel layer
 int64_t _moat_scc_send(int64_t session_id, void *buf, size_t len)
 {
-    size_t status;
-
     dh_session_t *session_info = find_session(session_id);
     if (session_info == NULL) { return -1; }
 
-    uint8_t *record = malloc(sizeof(scc_cleartext_header_t) + session_info->record_size);
+    /* each record has the form: record_size[64] || plaintext[record_size] */
+    size_t record_len = sizeof(scc_cleartext_header_t) + session_info->record_size;
+    uint8_t *record = malloc(record_len);
     assert(record != NULL);
 
     size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
@@ -131,8 +132,12 @@ int64_t _moat_scc_send(int64_t session_id, void *buf, size_t len)
             len_completed += delta;
         }
 
-        status = session_send(session_info, record, sizeof(scc_cleartext_header_t) + session_info->record_size);
-        if (status != 0) { free(record); return -1; } //TODO: handle IV wraparound so we can do session rengotiation
+        /* argument is a plaintext record of the form: record_size[64] || plaintext[record_size] */
+        int64_t status = session_send(session_info, record, record_len);
+        if (status != 0) {
+            free(record);
+            return -1;
+        }
     }
 
     free(record);
@@ -148,7 +153,7 @@ int64_t _moat_scc_recv(int64_t session_id, void *buf, size_t len)
 
     size_t len_completed = 0; //how many of the requested len bytes have we fulfilled?
     
-    //are there any left over bytes from the previous invocation of _moat_scc_recv?
+    //are there any left over bytes from the previous invocation of _moat_scc_recv? 
     if (session_info->recv_carryover_ptr != NULL) {
         size_t bytes_to_copy = min(session_info->recv_carryover_bytes, len);
 

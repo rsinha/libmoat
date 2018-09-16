@@ -3,6 +3,7 @@ Bug Fixes
 2. Implement file system re-encryption after IV wrap around
 3. error codes and error messages (print them in debug mode)
 4. Use __builtin_add_overflow_p to detect overflows 
+5. reduce the number of malloc calls using static allocation
 
 Future Work
 1. Asynchronous Ocalls, concurrent User threads

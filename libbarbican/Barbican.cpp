@@ -22,12 +22,6 @@ using json = nlohmann::json;
 #define STORAGE_KVS_ROOT "/tmp/barbican/kvs/"
 #define STORAGE_FS_ROOT "/tmp/barbican/fs/"
 
-typedef struct
-{
-    size_t type;
-    size_t length;
-} libmoat_ciphertext_header_t;
-
 typedef struct {
     void *zmq_ctx_outbound = NULL;    //zmq ctx of connection for sending msg
     void *zmq_skt_outbound = NULL;    //zmq socket of connection for sending msg
@@ -193,9 +187,7 @@ extern "C" size_t send_msg_ocall(void *buf, size_t len, int64_t session_id)
 {
     std::map<int64_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
-        zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, sizeof(libmoat_ciphertext_header_t), 0);
-        zmq_send(iter->second.zmq_skt_outbound, ((uint8_t *) buf) + sizeof(libmoat_ciphertext_header_t), len - sizeof(libmoat_ciphertext_header_t), 0);
-        //zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, len, 0);
+        zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, len, 0);
         printf("Sent %zu bytes in session %zu\n", len, session_id);
         return 0;
     }

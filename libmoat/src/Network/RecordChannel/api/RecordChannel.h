@@ -51,10 +51,10 @@ size_t server_dh_exchange(sgx_measurement_t *target_enclave, dh_session_t *sessi
  ***************************************************/
 
 void record_channel_module_init();
-dh_session_t *session_open(char *name, sgx_measurement_t *target_enclave);
-size_t session_close(dh_session_t *session_info);
 dh_session_t *find_session(int64_t session_id);
-size_t session_recv(dh_session_t *session_info, void *record, size_t record_size);
-size_t session_send(dh_session_t *session_info, void *record, size_t record_size);
+dh_session_t *session_open(char *name, sgx_measurement_t *target_enclave);
+int64_t session_close(dh_session_t *session_info);
+int64_t session_recv(dh_session_t *session_info, void *record, size_t record_size);
+int64_t session_send(dh_session_t *session_info, void *record, size_t record_size);
 
 #endif

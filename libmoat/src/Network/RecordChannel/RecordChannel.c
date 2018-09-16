@@ -30,6 +30,9 @@ typedef struct
     size_t length;
 } scc_ciphertext_header_t;
 
+//ciphertext expansion
+#define aes_gcm_ciphertext_len(x) ((x) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)
+
 /***************************************************
  INTERNAL STATE
  ***************************************************/
@@ -117,7 +120,7 @@ dh_session_t *session_open(char *name, sgx_measurement_t *target_enclave)
 }
 
 //Close an open session, and free all associated resources (inverse of open_session)
-size_t session_close(dh_session_t *session_info)
+int64_t session_close(dh_session_t *session_info)
 {
     sgx_status_t status;
     size_t retstatus;
@@ -138,7 +141,7 @@ size_t session_close(dh_session_t *session_info)
     return 0;
 }
 
-size_t session_send(dh_session_t *session_info, void *record, size_t record_size)
+int64_t session_send(dh_session_t *session_info, void *record, size_t record_size)
 {
     sgx_status_t status;
     size_t retstatus;
@@ -155,53 +158,56 @@ size_t session_send(dh_session_t *session_info, void *record, size_t record_size
     //but we stop at 2^24 because of TLS 1.3 spec
     if (session_info->local_seq_number > (1 << 24)) { return -1; }
     
-    //allocate memory for ciphertext
-    size_t dst_len = sizeof(scc_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + record_size;
-    
-    uint8_t *ciphertext = (uint8_t *) malloc(dst_len);
+    size_t ciphertext_len = aes_gcm_ciphertext_len(record_size);
+     /* msg of form type[64] || length[64] || ciphertext[length], where
+       ciphertext has form iv[SGX_AESGCM_IV_SIZE] + mac[SGX_AESGCM_MAC_SIZE] || record_size[64] || record[record_size] */
+    uint8_t *ciphertext = (uint8_t *) malloc(ciphertext_len);
     assert (ciphertext != NULL);
-    
-    ((scc_ciphertext_header_t *) ciphertext)->type = APPLICATION_DATA;
-    ((scc_ciphertext_header_t *) ciphertext)->length = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + record_size;
-    
-    uint8_t *payload = ciphertext + sizeof(scc_ciphertext_header_t);
+
+    scc_ciphertext_header_t header;
+    header.type = APPLICATION_DATA;
+    header.length = ciphertext_len;
+
+    status = send_msg_ocall(&retstatus, &header, sizeof(scc_ciphertext_header_t), session_info->session_id);
+    assert(status == SGX_SUCCESS && retstatus == 0);
     
     //compute the per-record nonce
     //(1) The 64-bit record sequence number is encoded in network byte order and padded to the left with zeroes to iv_length.
     for (size_t i = 0; i < sizeof(session_info->local_seq_number); i++)
     {
-        payload[i] = (session_info->local_seq_number >> (56 - i * 8)) & 0xFF;
+        ciphertext[i] = (session_info->local_seq_number >> (56 - i * 8)) & 0xFF;
     }
-    memset(payload + sizeof(session_info->local_seq_number), 0, SGX_AESGCM_IV_SIZE - sizeof(session_info->local_seq_number));
+    memset(ciphertext + sizeof(session_info->local_seq_number), 0, SGX_AESGCM_IV_SIZE - sizeof(session_info->local_seq_number));
     //(2) The padded sequence number is XORed with the static client_write_iv or server_write_iv, depending on the role.
     for (size_t i = 0; i < SGX_AESGCM_IV_SIZE; i++)
     {
-        payload[i] = payload[i] ^ (session_info->iv_constant)[i];
+        ciphertext[i] = ciphertext[i] ^ (session_info->iv_constant)[i];
     }
     
     /* ciphertext: IV || MAC || encrypted */
     status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(session_info->local_key),
                                         record, /* input */
                                         record_size, /* input length */
-                                        payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
-                                        payload + 0, /* IV */
+                                        ciphertext + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
+                                        ciphertext + 0, /* IV */
                                         SGX_AESGCM_IV_SIZE, /* 12 bytes of IV */
                                         (uint8_t *) &(session_info->local_seq_number), /* additional data */
                                         sizeof(session_info->local_seq_number), /* zero bytes of additional data */
-                                        (sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); /* mac */
+                                        (sgx_aes_gcm_128bit_tag_t *) (ciphertext + SGX_AESGCM_IV_SIZE)); /* mac */
     assert(status == SGX_SUCCESS);
     
     //so we don't reuse IVs
     session_info->local_seq_number = session_info->local_seq_number + 1;
     
-    status = send_msg_ocall(&retstatus, ciphertext, dst_len, session_info->session_id);
+    status = send_msg_ocall(&retstatus, ciphertext, ciphertext_len, session_info->session_id);
     assert(status == SGX_SUCCESS && retstatus == 0);
+
     free(ciphertext);
     return 0;
 }
 
 
-size_t session_recv(dh_session_t *session_info, void *record, size_t record_size)
+int64_t session_recv(dh_session_t *session_info, void *record, size_t record_size)
 {
     sgx_status_t status;
     size_t retstatus;
@@ -216,7 +222,9 @@ size_t session_recv(dh_session_t *session_info, void *record, size_t record_size
     assert(status == SGX_SUCCESS && retstatus == 0);
     
     if (header.type != APPLICATION_DATA) { return -1; }
-    if (header.length != (record_size + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE)) { return -1; }
+    if (header.length != aes_gcm_ciphertext_len(record_size)) { return -1; } //TODO: we may want to relax this
+    //ideally we just care about message being sufficiently small to load it into the enclave
+    if (header.length > (1 << 20)) { return -1; }
     
     uint8_t *ciphertext = (uint8_t *) malloc(header.length);
     assert(ciphertext != NULL);
