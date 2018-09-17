@@ -31,10 +31,8 @@ typedef struct
  INTERNAL STATE
  ***************************************************/
 
-static uint64_t                   g_local_counter; //used as IV
-static sgx_aes_gcm_128bit_key_t  *g_key;   //key used to protect file contents
-static sgx_sha256_hash_t         *g_latest_hash;   //for freshness
-static size_t                     g_num_blocks;
+static sgx_sha256_hash_t     *g_latest_hash;   //for freshness
+static size_t                 g_num_blocks;
 
 /***************************************************
  PRIVATE METHODS
@@ -66,28 +64,19 @@ void auth_enc_storage_module_init(size_t num_blocks)
     size_t retstatus;
 
     g_num_blocks = num_blocks;
-    g_key = malloc(sizeof(sgx_aes_gcm_128bit_key_t));
-    assert(g_key != NULL);
-    status = sgx_read_rand((uint8_t *) g_key, sizeof(sgx_aes_gcm_128bit_key_t));
-    assert(status == SGX_SUCCESS);
 
     g_latest_hash = malloc(sizeof(sgx_sha256_hash_t) * num_blocks);
     assert(g_latest_hash != NULL);
-
-    g_local_counter = 0;
 }
 
 //NOTE: addr ranges from 1 to g_num_blocks
-size_t auth_enc_storage_read(size_t addr, block_data_t data)
+size_t auth_enc_storage_read(cipher_ctx_t *ctx, size_t addr, block_data_t data)
 {
     sgx_status_t status;
     size_t retstatus;
     
     /* error checking */
     if (addr >= g_num_blocks) { return -1; }
-
-    //NIST guidelines for using AES-GCM
-    if (g_local_counter > ((uint32_t) -2)) { return -1; }
 
     //allocate memory for ciphertext
     uint8_t ciphertext[sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t)];
@@ -106,7 +95,7 @@ size_t auth_enc_storage_read(size_t addr, block_data_t data)
     integrity_check_freshness(addr, ciphertext, sizeof(ciphertext));
     
     /* ciphertext: header || IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) g_key, //key
+    status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(ctx->key), //key
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, //src
                                         sizeof(block_data_t), //src_len
                                         data, //dst
@@ -122,13 +111,17 @@ size_t auth_enc_storage_read(size_t addr, block_data_t data)
 
 //NOTE: addr ranges from 1 to g_num_blocks
 //performs authenticated encryption of data, and writes it as a file
-size_t auth_enc_storage_write(size_t addr, block_data_t data)
+size_t auth_enc_storage_write(cipher_ctx_t *ctx, size_t addr, block_data_t data)
 {
     sgx_status_t status;
     size_t retstatus;
 
     /* error checking */
     if (addr >= g_num_blocks) { return -1; }
+
+    size_t iv_counter = ctx->counter;
+    //NIST guidelines for using AES-GCM
+    if (iv_counter > ((uint32_t) -2)) { return -1; }
 
     //allocate memory for ciphertext
     uint8_t ciphertext[sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t)];
@@ -141,11 +134,11 @@ size_t auth_enc_storage_write(size_t addr, block_data_t data)
     uint8_t *payload = ciphertext + sizeof(fs_ciphertext_header_t);
     
     //nonce is 32 bits of 0 followed by the message sequence number
-    memcpy(payload + 0, &g_local_counter, sizeof(g_local_counter));
-    memset(payload + sizeof(g_local_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(g_local_counter));
+    memcpy(payload + 0, &iv_counter, sizeof(iv_counter));
+    memset(payload + sizeof(iv_counter), 0, SGX_AESGCM_IV_SIZE - sizeof(iv_counter));
     
     /* ciphertext: IV || MAC || encrypted */
-    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) g_key,
+    status = sgx_rijndael128GCM_encrypt((const sgx_aes_gcm_128bit_key_t *) &(ctx->key),
                                         data, /* input */
                                         sizeof(block_data_t), /* input length */
                                         payload + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE, /* out */
@@ -160,7 +153,7 @@ size_t auth_enc_storage_write(size_t addr, block_data_t data)
     integrity_record_freshness(addr, ciphertext, sizeof(ciphertext));
     
     //so we don't reuse IVs
-    g_local_counter = g_local_counter + 1;
+    ctx->counter = ctx->counter + 1;
     
     status = fs_write_block_ocall(&retstatus, addr, ciphertext, sizeof(ciphertext));
     assert(status == SGX_SUCCESS && retstatus == 0);

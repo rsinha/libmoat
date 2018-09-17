@@ -10,6 +10,7 @@
 #include "../../api/libbarbican.h"
 #include "../Utils/api/Utils.h"
 #include "BlockStorage/api/BlockStorage.h"
+#include "ChunkyStorage/api/ChunkyStorage.h"
 
 //this module implements journaling: mapping files to blocks
 
@@ -38,12 +39,13 @@ typedef struct
 
 typedef struct
 {
-    char      file_name[MAX_FILE_NAME_LEN]; //use a constant string here
-    int64_t   file_descriptor; //integer file id
-    int64_t   offset; //current offset in the file
-    int64_t   length; //number of bytes written to this file
-    int64_t   oflag;
-    ll_t      *blocks;   //head of the linked list of blocks for this file
+    cipher_ctx_t cipher_ctx;
+    char         file_name[MAX_FILE_NAME_LEN]; //use a constant string here
+    int64_t      file_descriptor; //integer file id
+    int64_t      offset; //current offset in the file
+    int64_t      length; //number of bytes written to this file
+    int64_t      oflag;
+    ll_t         *blocks;   //head of the linked list of blocks for this file
 } fs_file_t;
 
 /***************************************************
@@ -166,10 +168,11 @@ void _moat_fs_module_init()
 /*
  oflag is one or more of O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_LOAD
  */
-int64_t _moat_fs_open(char *name, int64_t oflag)
+int64_t _moat_fs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 {
     fs_file_t *file_md = find_file_by_name(name);
-    
+    assert(key != NULL);
+
     if (file_md == NULL) //else file already exists by that name
     {
         if (strlen(name) >= MAX_FILE_NAME_LEN) { return -1; }
@@ -187,6 +190,8 @@ int64_t _moat_fs_open(char *name, int64_t oflag)
         file_md->offset = 0;
         file_md->length = 0;
         file_md->oflag = oflag;
+        file_md->cipher_ctx.counter = 0;
+        memcpy((uint8_t *) &(file_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
         file_md->blocks = list_create();
 
         list_insert_value(g_files, file_md);
@@ -262,7 +267,7 @@ int64_t _moat_fs_read(int64_t fd, void* buf, int64_t len)
             //we either copy enough bytes to fulfill len, or enough available bytes after the offset_within_block
             size_t num_bytes_to_copy = min(len - len_completed, block->len - offset_within_block);
             
-            size_t status = block_storage_read(block->addr, block_data);
+            size_t status = block_storage_read(&(file_md->cipher_ctx), block->addr, block_data);
             assert(status == 0);
             
             memcpy(((uint8_t *) buf) + len_completed, ((uint8_t *) block_data) + offset_within_block, num_bytes_to_copy);
@@ -315,7 +320,7 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
             //read either if block has bytes after or before the written region
             if (num_bytes_to_copy < block->len || offset_within_block > 0)
             {
-                status = block_storage_read(block->addr, block_data); //read old data
+                status = block_storage_read(&(file_md->cipher_ctx), block->addr, block_data); //read old data
                 assert(status == 0);
             }
             
@@ -323,7 +328,7 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
             memcpy(((uint8_t *) block_data) + offset_within_block, ((uint8_t *) buf) + len_completed, num_bytes_to_copy);
             
             //write the entire block back to untrusted storage
-            status = block_storage_write(block->addr, block_data);
+            status = block_storage_write(&(file_md->cipher_ctx), block->addr, block_data);
             assert(status == 0);
             
             block->len = max(block->len, num_bytes_to_copy + offset_within_block);
@@ -355,7 +360,7 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
         memcpy(((uint8_t *) block_data), ((uint8_t *) buf) + len_completed, num_bytes_to_copy);
         
         //write the entire block back to untrusted storage
-        size_t status = block_storage_write(block->addr, block_data);
+        size_t status = block_storage_write(&(file_md->cipher_ctx), block->addr, block_data);
         assert(status == 0);
 
         len_completed += block->len; //which is also num_bytes_to_copy

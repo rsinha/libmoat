@@ -207,12 +207,17 @@ extern "C" size_t recv_msg_ocall(void *buf, size_t len, int64_t session_id)
 
 extern "C" size_t fs_init_service_ocall(size_t num_blocks)
 {
-    struct stat st = {0};
-    if (stat(STORAGE_FS_ROOT, &st) == 0) {
-        printf("WARNING: %s already exists. Deleting it...\n", STORAGE_FS_ROOT);
-        rmdir(STORAGE_FS_ROOT);
+    std::string command("");
+    command = (command + "mkdir -p ") + STORAGE_FS_ROOT;
+
+    std::cout << "invoking " << command << std::endl;
+    const int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error creating directory " << STORAGE_FS_ROOT << std::endl;
+        exit(1);
     }
-    mkdir(STORAGE_FS_ROOT, 0700);
+
     return 0;
 }
 

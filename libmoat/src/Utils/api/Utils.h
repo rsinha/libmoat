@@ -60,6 +60,12 @@ void *list_get_next(ll_iterator_t *iter);
             CRYPTO UTILITIES
  ***************************************************/
 
+typedef struct
+{
+    uint64_t counter;
+    sgx_aes_gcm_128bit_key_t key;
+} cipher_ctx_t;
+
 size_t hkdf(uint8_t *ikm, size_t ikm_len, uint8_t *info, size_t info_len, uint8_t *okm, size_t okm_len);
 size_t hmac_sha256(uint8_t *key, size_t key_len, uint8_t *msg, size_t msg_len, sgx_sha256_hash_t *out);
 

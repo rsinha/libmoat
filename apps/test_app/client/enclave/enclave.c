@@ -43,8 +43,12 @@ uint64_t enclave_test()
     assert(result == 86); //using the server to add x1 to x2
     _moat_print_debug("SCC check 1 successful\n");
 
+    sgx_aes_gcm_128bit_key_t fs_encr_key;
+    sgx_status_t status = sgx_read_rand((uint8_t *) &(fs_encr_key), sizeof(sgx_aes_gcm_128bit_key_t));
+    assert(status == SGX_SUCCESS);
+
     /* Test 1 (FS) just tries to open a tmpfile */
-    int64_t fd = _moat_fs_open("tmp://file", O_RDWR);
+    int64_t fd = _moat_fs_open("tmp://file", O_RDWR | O_TMPFILE, &fs_encr_key);
     assert(fd != -1);
     _moat_print_debug("FS check 1 successful\n");
 
@@ -62,7 +66,7 @@ uint64_t enclave_test()
     assert(api_result == 0);
     api_result = _moat_fs_write(fd, &result, sizeof(result));
     assert(api_result != 0);
-    fd = _moat_fs_open("tmp://file", O_RDWR);
+    fd = _moat_fs_open("tmp://file", O_RDWR | O_TMPFILE, &fs_encr_key);
     assert(fd != -1);
     _moat_print_debug("FS check 3 successful\n");
 
@@ -104,7 +108,7 @@ uint64_t enclave_test()
     _moat_print_debug("FS check 6 successful\n");
 
     sgx_aes_gcm_128bit_key_t db_encr_key;
-    sgx_status_t status = sgx_read_rand((uint8_t *) &(db_encr_key), sizeof(sgx_aes_gcm_128bit_key_t));
+    status = sgx_read_rand((uint8_t *) &(db_encr_key), sizeof(sgx_aes_gcm_128bit_key_t));
     assert(status == SGX_SUCCESS);
 
     /* Test 1 (KVS) just tries to open a temp DB */
