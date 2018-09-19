@@ -59,6 +59,9 @@ uint64_t enclave_test()
     api_result = _moat_fs_read(fd, &reload_result, sizeof(reload_result));
     assert(api_result == sizeof(reload_result));
     assert(reload_result == result);
+    api_result = _moat_fs_read(fd, &reload_result, sizeof(reload_result) + 1);
+    assert(api_result == sizeof(reload_result));
+    assert(reload_result == result);
     _moat_print_debug("FS check 2 successful\n");
 
     /* Test 3 (FS) closes the file and checks that file operations do not succeed. Then, reopens it */

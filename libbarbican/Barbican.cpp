@@ -251,6 +251,23 @@ extern "C" size_t fs_read_block_ocall(size_t addr, void *buf, size_t len)
     return 0;
 }
 
+extern "C" size_t fs_delete_block_ocall(size_t addr)
+{
+    std::string prefix = STORAGE_FS_ROOT;
+    std::string filename = prefix + std::to_string(addr);
+    std::string command = "rm " + filename;
+
+    std::cout << "invoking " << command << std::endl;
+
+    const int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error removing file " << filename << std::endl;
+        exit(1);
+    }
+    return 0;
+}
+
 /*
  INPUT node: current node in the recursion
  INPUT depth: current depth in the recursion

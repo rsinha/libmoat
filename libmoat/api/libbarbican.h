@@ -30,6 +30,7 @@ sgx_status_t SGX_CDECL recv_msg_ocall(size_t* retval, void* buf, size_t len, int
 sgx_status_t SGX_CDECL fs_init_service_ocall(size_t* retval, size_t num_blocks);
 sgx_status_t SGX_CDECL fs_write_block_ocall(size_t* retval, size_t addr, void* buf, size_t len);
 sgx_status_t SGX_CDECL fs_read_block_ocall(size_t* retval, size_t addr, void* buf, size_t len);
+sgx_status_t SGX_CDECL fs_delete_block_ocall(size_t* retval, size_t addr);
 
 //sgx_status_t SGX_CDECL create_merkle_ocall(size_t* retval, sgx_sha256_hash_t* buf, size_t num_hashes, size_t num_blocks);
 //sgx_status_t SGX_CDECL read_merkle_ocall(size_t* retval, size_t addr, sgx_sha256_hash_t* buf, size_t num_hashes);

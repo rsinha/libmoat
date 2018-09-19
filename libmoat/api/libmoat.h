@@ -46,6 +46,7 @@ int64_t LIBMOAT_API _moat_scc_destroy(int64_t handle);
 void LIBMOAT_API _moat_fs_module_init();
 int64_t LIBMOAT_API _moat_fs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key);
 int64_t LIBMOAT_API _moat_fs_lseek(int64_t fd, int64_t offset, int base);
+int64_t LIBMOAT_API _moat_fs_tell(int64_t fd);
 int64_t LIBMOAT_API _moat_fs_read(int64_t fd, void* buf, int64_t len);
 int64_t LIBMOAT_API _moat_fs_write(int64_t fd, void* buf, int64_t len);
 int64_t LIBMOAT_API _moat_fs_close(int64_t fd);

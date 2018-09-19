@@ -155,6 +155,12 @@ fs_file_t *find_file_by_name(char *name)
     return NULL; //didn't find anything
 }
 
+bool is_file_temporary(fs_file_t *file_md)
+{
+    return o_tmpfile(file_md->oflag);
+}
+
+
 /***************************************************
  PUBLIC API IMPLEMENTATION
  ***************************************************/
@@ -236,6 +242,23 @@ int64_t _moat_fs_lseek(int64_t fd, int64_t offset, int base)
     return file_md->offset;
 }
 
+/* returns the current value of the position indicator of file
+   To get the size of a file f:
+     _moat_fs_lseek(f, 0, SEEK_END); // seek to end of file
+     size = _moat_fs_tell(f); // get current file pointer
+     _moat_fs_lseek(f, 0, SEEK_SET); // seek back to beginning of file
+ */
+int64_t _moat_fs_tell(int64_t fd)
+{
+    fs_file_t *file_md = find_file_by_descriptor(fd);
+    if (file_md == NULL) { return -1; } //this needs an error code
+
+    return file_md->offset;
+}
+
+/* read len bytes from the file into buf, starting from the current offset
+   returns the number of bytes that the api was able to read before SEEK_END
+ */
 int64_t _moat_fs_read(int64_t fd, void* buf, int64_t len)
 {    
     fs_file_t *file_md = find_file_by_descriptor(fd);
@@ -283,6 +306,9 @@ int64_t _moat_fs_read(int64_t fd, void* buf, int64_t len)
     return len_completed;
 }
 
+/* write len bytes from buf into the file, starting from the current offset
+   should return len, or -1 during exceptions
+ */
 int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
 {
     size_t status;
@@ -370,6 +396,7 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
     return len_completed;
 }
 
+//TODO: only delete the file contents if the file is tmp
 int64_t _moat_fs_close(int64_t fd)
 {
     fs_file_t *file_md = find_file_by_descriptor(fd);
@@ -379,6 +406,14 @@ int64_t _moat_fs_close(int64_t fd)
     while (list_has_next(block_iter))
     {
         fs_block_t *current_block = (fs_block_t *) list_get_next(block_iter);
+
+        //delete blocks on disk since file was tmp
+        if (is_file_temporary(file_md)) {
+            size_t retstatus;
+            sgx_status_t status = kvs_delete_ocall(&retstatus, current_block->addr);
+            assert(status == SGX_SUCCESS);
+        }
+
         bool deleted_successfully = list_delete_value(file_md->blocks, current_block);
         assert(deleted_successfully);
         free(current_block);
