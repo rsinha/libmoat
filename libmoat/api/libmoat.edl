@@ -20,7 +20,7 @@ enclave {
         size_t fs_write_block_ocall(int64_t fd, size_t addr, [in, size=len] void *buf, size_t len);
         size_t fs_read_block_ocall(int64_t fd, size_t addr, [out, size=len] void *buf, size_t len);
         size_t fs_delete_block_ocall(int64_t fd, size_t addr);
-        size_t fs_save_ocall(int64_t fd, [in,string] const char *name);
+        size_t fs_save_ocall(int64_t fd, [in,string] const char *name, int64_t length);
         size_t fs_load_ocall(int64_t fd, [in,string] const char *name);
 
         //size_t create_merkle_ocall([in, count=num_hashes] sgx_sha256_hash_t *buf, size_t num_hashes, size_t num_blocks);

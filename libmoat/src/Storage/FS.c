@@ -417,7 +417,21 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
     return len_completed;
 }
 
-//TODO: only delete the file contents if the file is tmp
+int64_t _moat_fs_save(int64_t fd)
+{
+    fs_file_t *file_md = find_file_by_descriptor(fd);
+    if (file_md == NULL) { return -1; }
+    if (o_tmpfile(file_md->oflag)) { return -1; } //tmp files cannot be saved
+
+    size_t retstatus;
+    /* giving both fd and db_name to help out barbican */
+    sgx_status_t status = fs_save_ocall(&retstatus, fd, file_md->file_name, file_md->length);
+    assert(status == SGX_SUCCESS);
+    if (retstatus != 0) { return -1; }
+
+    return 0;
+}
+
 int64_t _moat_fs_close(int64_t fd)
 {
     size_t retstatus;
@@ -443,8 +457,10 @@ int64_t _moat_fs_close(int64_t fd)
     }
     list_destroy_iterator(block_iter);
 
-    status = fs_destroy_ocall(&retstatus, fd, file_md->file_name);
-    assert(status == SGX_SUCCESS && retstatus == 0);
+    if (is_file_temporary(file_md)) {
+        status = fs_destroy_ocall(&retstatus, fd, file_md->file_name);
+        assert(status == SGX_SUCCESS && retstatus == 0);
+    }
 
     free(file_md->blocks);
     bool deleted_successfully = list_delete_value(g_files, file_md);

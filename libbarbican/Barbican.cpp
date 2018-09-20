@@ -47,6 +47,7 @@ BackendDBInterface                     *g_db_context;
 void                                   *g_prev_reply;
 std::map<std::string, std::string>      g_config_kvs_inputs;
 std::map<std::string, std::string>      g_config_kvs_outputs;
+std::map<std::string, std::string>      g_config_fs_outputs;
 std::string                             g_config_scc_self;
 std::map<std::string, std::string>      g_config_scc_actors; //map remote entity name to ip address
 std::map<std::string, bool>             g_config_scc_roles; //map remote entity name to role (client / server)
@@ -311,20 +312,42 @@ extern "C" size_t fs_delete_block_ocall(int64_t fd, size_t addr)
     return 0;
 }
 
-extern "C" size_t fs_save_ocall(int64_t fd, const char *name)
+extern "C" size_t fs_save_ocall(int64_t fd, const char *name, int64_t length)
 {
-    /*
-    std::string db_path(name);
+    std::string file_name(name);
+    std::string file_path = STORAGE_FS_ROOT + file_name;
+    std::map<std::string, std::string>::iterator iter = g_config_fs_outputs.find(file_name);
+    if (iter == g_config_fs_outputs.end()) { return -1; }
+    std::string file_backup_path = STORAGE_FS_ROOT + iter->second;
+    std::cout << "saving " << file_path << " to " << file_backup_path << std::endl;
 
-    std::map<std::string, std::string>::iterator iter = g_config_kvs_outputs.find(db_path);
-    if (iter == g_config_kvs_outputs.end()) { return -1; }
+    std::cout << "creating " << file_backup_path << std::endl;
+    std::string command = "mkdir -p " + file_backup_path;
+    std::cout << "invoking " << command << std::endl;
+    int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error creating directory " << file_backup_path << std::endl;
+        exit(1);
+    }
 
-    std::cout << "saving " << db_path << " to " << iter->second << std::endl;
+    command = "cp " + file_path + "/* " + file_backup_path + "/";
+    std::cout << "invoking " << command << std::endl;
+    dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error copying files from " << file_path << " to " << file_backup_path << std::endl;
+        exit(1);
+    }
 
-    std::string db_backup_path = STORAGE_KVS_ROOT + iter->second;
-    bool success = g_db_context->backend_db_save(fd, db_backup_path.c_str());
-    return success ? 0 : -1;
-    */
+    std::string metadata_file_path = file_backup_path + "/metadata";
+    std::ofstream fout;
+    fout.open(metadata_file_path.c_str(), std::ios::binary | std::ios::out);
+    fout.write((char *) &length, (std::streamsize) sizeof(length));
+    std::cout << "Wrote " << std::to_string(sizeof(length)) << " bytes to " << metadata_file_path << std::endl;
+    fout.close();
+
+    return 0;
 }
 
 extern "C" size_t fs_load_ocall(int64_t fd, const char *name)
@@ -534,6 +557,12 @@ extern "C" size_t free_ocall(void *untrusted_buf)
     return 0;
 }
 
+void register_fs_output(const std::string &name, const std::string &backup_path)
+{
+    g_config_fs_outputs.insert(std::pair<std::string, std::string>(name, backup_path));
+    std::cout << "Noting that output file " << name << " is backed up at " << backup_path << std::endl;
+}
+
 void register_kvs_input(const std::string &name, const std::string &backup_path)
 {
     g_config_kvs_inputs.insert(std::pair<std::string, std::string>(name, backup_path));
@@ -560,15 +589,21 @@ void init_barbican(const std::string &json_str)
         json j = json::parse(json_str);
 
         json inputs = j["kvs_inputs"];
-        std::cout << "Reading input config ..." << std::endl;
+        std::cout << "Reading input config for key-value stores ..." << std::endl;
         for (json::iterator it = inputs.begin(); it != inputs.end(); ++it) {
             register_kvs_input(it.key(), it.value().get<std::string>());
         }
 
         json outputs = j["kvs_outputs"];
-        std::cout << "Reading output config ..." << std::endl;
+        std::cout << "Reading output config for key-value stores ..." << std::endl;
         for (json::iterator it = outputs.begin(); it != outputs.end(); ++it) {
             register_kvs_output(it.key(), it.value().get<std::string>());
+        }
+
+        outputs = j["fs_outputs"];
+        std::cout << "Reading output config for files ..." << std::endl;
+        for (json::iterator it = outputs.begin(); it != outputs.end(); ++it) {
+            register_fs_output(it.key(), it.value().get<std::string>());
         }
 
         json self_addr = j["scc_self"];

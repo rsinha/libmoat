@@ -119,6 +119,10 @@ uint64_t enclave_test()
     assert(reload_result == result);
     _moat_print_debug("FS check 7 successful\n");
 
+    api_result = _moat_fs_save(fd2);
+    assert(api_result == 0);
+    _moat_print_debug("FS check 8 successful\n");
+
 
 
 
