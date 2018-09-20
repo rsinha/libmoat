@@ -48,7 +48,7 @@ uint64_t enclave_test()
     assert(status == SGX_SUCCESS);
 
     /* Test 1 (FS) just tries to open a tmpfile */
-    int64_t fd = _moat_fs_open("tmp://file", O_RDWR | O_TMPFILE, &fs_encr_key);
+    int64_t fd = _moat_fs_open("tmp_file", O_RDWR | O_CREAT | O_TMPFILE, &fs_encr_key);
     assert(fd != -1);
     _moat_print_debug("FS check 1 successful\n");
 
@@ -69,7 +69,7 @@ uint64_t enclave_test()
     assert(api_result == 0);
     api_result = _moat_fs_write(fd, &result, sizeof(result));
     assert(api_result != 0);
-    fd = _moat_fs_open("tmp://file", O_RDWR | O_TMPFILE, &fs_encr_key);
+    fd = _moat_fs_open("tmp_file", O_RDWR | O_CREAT | O_TMPFILE, &fs_encr_key);
     assert(fd != -1);
     _moat_print_debug("FS check 3 successful\n");
 
@@ -109,6 +109,18 @@ uint64_t enclave_test()
         offset += 32;
     }
     _moat_print_debug("FS check 6 successful\n");
+
+    int64_t fd2 = _moat_fs_open("persistent_file", O_RDWR | O_CREAT, &fs_encr_key);
+    assert(fd2 != -1);
+    api_result = _moat_fs_write(fd2, &result, sizeof(result));
+    assert(api_result == sizeof(result));
+    api_result = _moat_fs_read(fd2, &reload_result, sizeof(reload_result));
+    assert(api_result == sizeof(reload_result));
+    assert(reload_result == result);
+    _moat_print_debug("FS check 7 successful\n");
+
+
+
 
     sgx_aes_gcm_128bit_key_t db_encr_key;
     status = sgx_read_rand((uint8_t *) &(db_encr_key), sizeof(sgx_aes_gcm_128bit_key_t));

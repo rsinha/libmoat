@@ -20,8 +20,10 @@
 
 /* don't see why an enclave would access more than 16 files */
 #define MAX_FILE_COUNT 16
+
 /* for now, we will let FS be at most 1 MB */
-#define MAX_BLOCKS 256
+//#define MAX_BLOCKS 256
+
 #define MAX_FILE_NAME_LEN 64
 #define MAX_FILE_LEN UINT32_MAX
 
@@ -44,6 +46,7 @@ typedef struct
     int64_t      file_descriptor; //integer file id
     int64_t      offset; //current offset in the file
     int64_t      length; //number of bytes written to this file
+    int64_t      num_blocks; //number of blocks in this file
     int64_t      oflag;
     ll_t         *blocks;   //head of the linked list of blocks for this file
 } fs_file_t;
@@ -86,6 +89,7 @@ int64_t generate_unique_file_descriptor()
 }
 
 /* -1 on error, >= 0 on success */
+/*
 int64_t generate_unique_block_id()
 {    
     bool occupied[MAX_BLOCKS];
@@ -119,6 +123,7 @@ int64_t generate_unique_block_id()
     
     return -1;
 }
+*/
 
 fs_file_t *find_file_by_descriptor(int64_t file_descriptor)
 {
@@ -168,7 +173,7 @@ bool is_file_temporary(fs_file_t *file_md)
 void _moat_fs_module_init()
 {
     g_files = list_create();
-    block_storage_module_init(MAX_BLOCKS);
+    block_storage_module_init();
 }
 
 /*
@@ -189,12 +194,23 @@ int64_t _moat_fs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
         if (o_wronly(oflag)) { if (o_rdonly(oflag) || o_rdwr(oflag)) { return -1; } }
         if (o_rdwr(oflag)) { if (o_rdonly(oflag) || o_wronly(oflag)) { return -1; } }
 
+        size_t retstatus;
+        sgx_status_t status;
+        if (o_creat(oflag)) {
+            status = fs_create_ocall(&retstatus, fd, name);
+        } else {
+            //ask host to load db with specified name if it knows about it, and bind it to fd
+            status = fs_load_ocall(&retstatus, fd, name);
+        }
+        assert(status == SGX_SUCCESS && retstatus == 0);
+
         file_md = (fs_file_t *) malloc(sizeof(fs_file_t)); assert(file_md != NULL);
 
         strcpy(file_md->file_name, name);
         file_md->file_descriptor = fd;
         file_md->offset = 0;
         file_md->length = 0;
+        file_md->num_blocks = 0;
         file_md->oflag = oflag;
         file_md->cipher_ctx.counter = 0;
         memcpy((uint8_t *) &(file_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
@@ -290,7 +306,8 @@ int64_t _moat_fs_read(int64_t fd, void* buf, int64_t len)
             //we either copy enough bytes to fulfill len, or enough available bytes after the offset_within_block
             size_t num_bytes_to_copy = min(len - len_completed, block->len - offset_within_block);
             
-            size_t status = block_storage_read(&(file_md->cipher_ctx), block->addr, block_data);
+            size_t status = block_storage_read(file_md->file_descriptor,
+                &(file_md->cipher_ctx), block->addr, block_data);
             assert(status == 0);
             
             memcpy(((uint8_t *) buf) + len_completed, ((uint8_t *) block_data) + offset_within_block, num_bytes_to_copy);
@@ -346,7 +363,8 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
             //read either if block has bytes after or before the written region
             if (num_bytes_to_copy < block->len || offset_within_block > 0)
             {
-                status = block_storage_read(&(file_md->cipher_ctx), block->addr, block_data); //read old data
+                status = block_storage_read(file_md->file_descriptor,
+                    &(file_md->cipher_ctx), block->addr, block_data); //read old data
                 assert(status == 0);
             }
             
@@ -354,7 +372,8 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
             memcpy(((uint8_t *) block_data) + offset_within_block, ((uint8_t *) buf) + len_completed, num_bytes_to_copy);
             
             //write the entire block back to untrusted storage
-            status = block_storage_write(&(file_md->cipher_ctx), block->addr, block_data);
+            status = block_storage_write(file_md->file_descriptor,
+                &(file_md->cipher_ctx), block->addr, block_data);
             assert(status == 0);
             
             block->len = max(block->len, num_bytes_to_copy + offset_within_block);
@@ -372,21 +391,23 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
     {
         size_t num_bytes_to_copy = min(len - len_completed, BLOCK_SIZE);
 
-        int64_t blk_uniq_id = generate_unique_block_id();
-        if (blk_uniq_id == -1) { break; } //ran out of space...no more blocks
+        //int64_t blk_uniq_id = generate_unique_block_id();
+        //if (blk_uniq_id == -1) { break; } //ran out of space...no more blocks
 
         fs_block_t *block = (fs_block_t *) malloc(sizeof(fs_block_t));
         assert(block != NULL);
 
-        block->addr = blk_uniq_id;
+        block->addr = file_md->num_blocks;
         block->len = num_bytes_to_copy;
-
         list_insert_value(file_md->blocks, block);
+
+        file_md->num_blocks += 1;
 
         memcpy(((uint8_t *) block_data), ((uint8_t *) buf) + len_completed, num_bytes_to_copy);
         
         //write the entire block back to untrusted storage
-        size_t status = block_storage_write(&(file_md->cipher_ctx), block->addr, block_data);
+        size_t status = block_storage_write(file_md->file_descriptor, 
+            &(file_md->cipher_ctx), block->addr, block_data);
         assert(status == 0);
 
         len_completed += block->len; //which is also num_bytes_to_copy
@@ -399,6 +420,9 @@ int64_t _moat_fs_write(int64_t fd, void* buf, int64_t len)
 //TODO: only delete the file contents if the file is tmp
 int64_t _moat_fs_close(int64_t fd)
 {
+    size_t retstatus;
+    sgx_status_t status;
+
     fs_file_t *file_md = find_file_by_descriptor(fd);
     if (file_md == NULL) { return -1; } //this needs an error code
 
@@ -409,8 +433,7 @@ int64_t _moat_fs_close(int64_t fd)
 
         //delete blocks on disk since file was tmp
         if (is_file_temporary(file_md)) {
-            size_t retstatus;
-            sgx_status_t status = kvs_delete_ocall(&retstatus, current_block->addr);
+            status = fs_delete_block_ocall(&retstatus, fd, current_block->addr);
             assert(status == SGX_SUCCESS);
         }
 
@@ -419,6 +442,9 @@ int64_t _moat_fs_close(int64_t fd)
         free(current_block);
     }
     list_destroy_iterator(block_iter);
+
+    status = fs_destroy_ocall(&retstatus, fd, file_md->file_name);
+    assert(status == SGX_SUCCESS && retstatus == 0);
 
     free(file_md->blocks);
     bool deleted_successfully = list_delete_value(g_files, file_md);

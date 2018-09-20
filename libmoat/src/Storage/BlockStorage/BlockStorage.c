@@ -14,31 +14,31 @@
  DEFINITIONS FOR INTERNAL USE
  ***************************************************/
 
-void auth_enc_storage_module_init(size_t num_blocks);
-size_t auth_enc_storage_read(cipher_ctx_t *ctx, size_t addr, block_data_t data);
-size_t auth_enc_storage_write(cipher_ctx_t *ctx, size_t addr, block_data_t data);
+void auth_enc_storage_module_init();
+size_t auth_enc_storage_read(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data);
+size_t auth_enc_storage_write(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data);
 
 /***************************************************
                     PUBLIC API
  ***************************************************/
 
-void block_storage_module_init(size_t num_blocks)
+void block_storage_module_init()
 {
     sgx_status_t status;
     size_t retstatus;
 
-    status = fs_init_service_ocall(&retstatus, num_blocks);
+    status = fs_init_service_ocall(&retstatus);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
-    auth_enc_storage_module_init(num_blocks);
+    auth_enc_storage_module_init();
 }
 
-size_t block_storage_read(cipher_ctx_t *ctx, size_t addr, block_data_t data)
+size_t block_storage_read(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data)
 {
-    return auth_enc_storage_read(ctx, addr, data);
+    return auth_enc_storage_read(fd, ctx, addr, data);
 }
 
-size_t block_storage_write(cipher_ctx_t *ctx, size_t addr, block_data_t data)
+size_t block_storage_write(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data)
 {
-    return auth_enc_storage_write(ctx, addr, data);
+    return auth_enc_storage_write(fd, ctx, addr, data);
 }

@@ -50,6 +50,7 @@ std::map<std::string, std::string>      g_config_kvs_outputs;
 std::string                             g_config_scc_self;
 std::map<std::string, std::string>      g_config_scc_actors; //map remote entity name to ip address
 std::map<std::string, bool>             g_config_scc_roles; //map remote entity name to role (client / server)
+std::map<int64_t, std::string>          g_file_paths;
 
 void teardown_channel(int64_t session_id)
 {
@@ -205,7 +206,7 @@ extern "C" size_t recv_msg_ocall(void *buf, size_t len, int64_t session_id)
     return -1;
 }
 
-extern "C" size_t fs_init_service_ocall(size_t num_blocks)
+extern "C" size_t fs_init_service_ocall()
 {
     std::string command("");
     command = (command + "mkdir -p ") + STORAGE_FS_ROOT;
@@ -221,13 +222,53 @@ extern "C" size_t fs_init_service_ocall(size_t num_blocks)
     return 0;
 }
 
-extern "C" size_t fs_write_block_ocall(size_t addr, void *buf, size_t len)
+extern "C" size_t fs_create_ocall(int64_t fd, const char *name)
 {
+    std::string path(name);
+    path = STORAGE_FS_ROOT + path;
+    std::cout << "creating " << path << std::endl;
+    std::string command = "mkdir -p " + path;
+    std::cout << "invoking " << command << std::endl;
+    const int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error creating directory " << path << std::endl;
+        exit(1);
+    }
+
+    std::map<int64_t, std::string>::iterator iter = g_file_paths.find(fd);
+    assert(iter == g_file_paths.end()); //fd shouldn't already exist
+    g_file_paths.insert(std::pair<int64_t, std::string>(fd, path));
+
+    return 0;
+}
+
+extern "C" size_t fs_destroy_ocall(int64_t fd, const char *name)
+{
+    std::map<int64_t, std::string>::iterator iter = g_file_paths.find(fd);
+    if (iter == g_file_paths.end()) { return -1; }
+
+    std::string command = "rm -rf " + iter->second;
+    std::cout << "invoking " << command << std::endl;
+
+    const int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error removing file " << iter->second << std::endl;
+        exit(1);
+    }
+
+    g_file_paths.erase(iter);
+    return 0;
+}
+
+extern "C" size_t fs_write_block_ocall(int64_t fd, size_t addr, void *buf, size_t len)
+{
+    std::map<int64_t, std::string>::iterator iter = g_file_paths.find(fd);
+    if (iter == g_file_paths.end()) { return -1; }
+    std::string filename = iter->second + "/" + std::to_string(addr);
+
     std::ofstream fout;
-
-    std::string prefix = STORAGE_FS_ROOT;
-    std::string filename = prefix + std::to_string(addr);
-
     fout.open(filename.c_str(), std::ios::binary | std::ios::out);
     fout.write((char *) buf, (std::streamsize) len);
     printf("Wrote %zu bytes to %s\n", len, filename.c_str());
@@ -236,13 +277,13 @@ extern "C" size_t fs_write_block_ocall(size_t addr, void *buf, size_t len)
     return 0;
 }
 
-extern "C" size_t fs_read_block_ocall(size_t addr, void *buf, size_t len)
+extern "C" size_t fs_read_block_ocall(int64_t fd, size_t addr, void *buf, size_t len)
 {
+    std::map<int64_t, std::string>::iterator iter = g_file_paths.find(fd);
+    if (iter == g_file_paths.end()) { return -1; }
+    std::string filename = iter->second + "/" + std::to_string(addr);
+
     std::ifstream fin;
-
-    std::string prefix = STORAGE_FS_ROOT;
-    std::string filename = prefix + std::to_string(addr);
-
     fin.open(filename, std::ios::binary | std::ios::in);
     fin.read((char *) buf, (std::streamsize) len);
     printf("Read %zu bytes from %s\n", len, filename.c_str());
@@ -251,12 +292,13 @@ extern "C" size_t fs_read_block_ocall(size_t addr, void *buf, size_t len)
     return 0;
 }
 
-extern "C" size_t fs_delete_block_ocall(size_t addr)
+extern "C" size_t fs_delete_block_ocall(int64_t fd, size_t addr)
 {
-    std::string prefix = STORAGE_FS_ROOT;
-    std::string filename = prefix + std::to_string(addr);
-    std::string command = "rm " + filename;
+    std::map<int64_t, std::string>::iterator iter = g_file_paths.find(fd);
+    if (iter == g_file_paths.end()) { return -1; }
+    std::string filename = iter->second + "/" + std::to_string(addr);
 
+    std::string command = "rm " + filename;
     std::cout << "invoking " << command << std::endl;
 
     const int dir_err = system(command.c_str());
@@ -265,7 +307,40 @@ extern "C" size_t fs_delete_block_ocall(size_t addr)
         std::cout << "Error removing file " << filename << std::endl;
         exit(1);
     }
+
     return 0;
+}
+
+extern "C" size_t fs_save_ocall(int64_t fd, const char *name)
+{
+    /*
+    std::string db_path(name);
+
+    std::map<std::string, std::string>::iterator iter = g_config_kvs_outputs.find(db_path);
+    if (iter == g_config_kvs_outputs.end()) { return -1; }
+
+    std::cout << "saving " << db_path << " to " << iter->second << std::endl;
+
+    std::string db_backup_path = STORAGE_KVS_ROOT + iter->second;
+    bool success = g_db_context->backend_db_save(fd, db_backup_path.c_str());
+    return success ? 0 : -1;
+    */
+}
+
+extern "C" size_t fs_load_ocall(int64_t fd, const char *name)
+{
+    /*
+    std::string db_path(name);
+    std::map<std::string, std::string>::iterator iter = g_config_kvs_inputs.find(db_path);
+    if (iter == g_config_kvs_inputs.end()) { return -1; }
+
+    std::cout << "loading " << db_path << " from " << iter->second << std::endl;
+
+    db_path = STORAGE_KVS_ROOT + db_path;
+    std::string db_backup_path = STORAGE_KVS_ROOT + iter->second;
+    bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());
+    return success ? 0 : -1;
+    */
 }
 
 /*
