@@ -123,6 +123,12 @@ uint64_t enclave_test()
     assert(api_result == 0);
     _moat_print_debug("FS check 8 successful\n");
 
+    int64_t fd3 = _moat_fs_open("loaded_file", O_RDONLY, &fs_encr_key);
+    api_result = _moat_fs_read(fd3, &reload_result, sizeof(reload_result));
+    assert(api_result == sizeof(reload_result));
+    assert(reload_result == result);
+    _moat_print_debug("FS check 9 successful\n");
+
 
 
 

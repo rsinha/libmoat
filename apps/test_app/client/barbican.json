@@ -8,6 +8,9 @@
   "fs_outputs": {
     "persistent_file": "forever_stored"
   },
+  "fs_inputs": {
+    "loaded_file": "forever_stored"
+  },
   "scc_self": "5556",
   "scc_actors": {
     "remote_server": { 

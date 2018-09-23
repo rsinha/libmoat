@@ -48,6 +48,7 @@ void                                   *g_prev_reply;
 std::map<std::string, std::string>      g_config_kvs_inputs;
 std::map<std::string, std::string>      g_config_kvs_outputs;
 std::map<std::string, std::string>      g_config_fs_outputs;
+std::map<std::string, std::string>      g_config_fs_inputs;
 std::string                             g_config_scc_self;
 std::map<std::string, std::string>      g_config_scc_actors; //map remote entity name to ip address
 std::map<std::string, bool>             g_config_scc_roles; //map remote entity name to role (client / server)
@@ -350,20 +351,46 @@ extern "C" size_t fs_save_ocall(int64_t fd, const char *name, int64_t length)
     return 0;
 }
 
-extern "C" size_t fs_load_ocall(int64_t fd, const char *name)
+extern "C" size_t fs_load_ocall(int64_t fd, const char *name, int64_t *length)
 {
-    /*
-    std::string db_path(name);
-    std::map<std::string, std::string>::iterator iter = g_config_kvs_inputs.find(db_path);
-    if (iter == g_config_kvs_inputs.end()) { return -1; }
+    std::string file_name(name);
+    std::map<std::string, std::string>::iterator iter = g_config_fs_inputs.find(file_name);
+    if (iter == g_config_fs_inputs.end()) { return -1; }
 
-    std::cout << "loading " << db_path << " from " << iter->second << std::endl;
+    std::string file_path = STORAGE_FS_ROOT + file_name;
+    std::string file_backup_path = STORAGE_FS_ROOT + iter->second;
 
-    db_path = STORAGE_KVS_ROOT + db_path;
-    std::string db_backup_path = STORAGE_KVS_ROOT + iter->second;
-    bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());
-    return success ? 0 : -1;
-    */
+    std::cout << "loading " << file_path << " from " << file_backup_path << std::endl;
+
+    std::string command = "mkdir -p " + file_path;
+    std::cout << "invoking " << command << std::endl;
+    int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error creating directory " << file_path << std::endl;
+        exit(1);
+    }
+
+    command = "cp " + file_backup_path + "/* " + file_path + "/";
+    std::cout << "invoking " << command << std::endl;
+    dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error copying files from " << file_backup_path << " to " << file_path << std::endl;
+        exit(1);
+    }
+
+    std::string metadata_file_path = file_backup_path + "/metadata";
+    std::ifstream fin;
+    fin.open(metadata_file_path, std::ios::binary | std::ios::in);
+    fin.read((char *) length, (std::streamsize) sizeof(int64_t));
+    std::cout << "Read " << std::to_string(sizeof(int64_t)) << " bytes from " << metadata_file_path << std::endl;
+    fin.close();
+
+    assert(g_file_paths.find(fd) == g_file_paths.end()); //fd shouldn't already exist
+    g_file_paths.insert(std::pair<int64_t, std::string>(fd, file_path));
+
+    return 0;
 }
 
 /*
@@ -557,6 +584,12 @@ extern "C" size_t free_ocall(void *untrusted_buf)
     return 0;
 }
 
+void register_fs_input(const std::string &name, const std::string &backup_path)
+{
+    g_config_fs_inputs.insert(std::pair<std::string, std::string>(name, backup_path));
+    std::cout << "Noting that output file " << name << " is backed up at " << backup_path << std::endl;
+}
+
 void register_fs_output(const std::string &name, const std::string &backup_path)
 {
     g_config_fs_outputs.insert(std::pair<std::string, std::string>(name, backup_path));
@@ -598,6 +631,12 @@ void init_barbican(const std::string &json_str)
         std::cout << "Reading output config for key-value stores ..." << std::endl;
         for (json::iterator it = outputs.begin(); it != outputs.end(); ++it) {
             register_kvs_output(it.key(), it.value().get<std::string>());
+        }
+
+        inputs = j["fs_inputs"];
+        std::cout << "Reading input config for key-value stores ..." << std::endl;
+        for (json::iterator it = inputs.begin(); it != inputs.end(); ++it) {
+            register_fs_input(it.key(), it.value().get<std::string>());
         }
 
         outputs = j["fs_outputs"];

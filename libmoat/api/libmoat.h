@@ -50,6 +50,7 @@ int64_t LIBMOAT_API _moat_fs_tell(int64_t fd);
 int64_t LIBMOAT_API _moat_fs_read(int64_t fd, void* buf, int64_t len);
 int64_t LIBMOAT_API _moat_fs_write(int64_t fd, void* buf, int64_t len);
 int64_t LIBMOAT_API _moat_fs_close(int64_t fd);
+int64_t LIBMOAT_API _moat_fs_save(int64_t fd);
 
 /***************************************************
         SECURE KV-STORE INTERFACE

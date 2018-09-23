@@ -31,7 +31,7 @@ sgx_status_t SGX_CDECL fs_init_service_ocall(size_t* retval);
 sgx_status_t SGX_CDECL fs_create_ocall(size_t *retval, int64_t fd, const char *str);
 sgx_status_t SGX_CDECL fs_destroy_ocall(size_t *retval, int64_t fd, const char *str);
 sgx_status_t SGX_CDECL fs_save_ocall(size_t *retval, int64_t fd, const char *name, int64_t length);
-sgx_status_t SGX_CDECL fs_load_ocall(size_t *retval, int64_t fd, const char *str);
+sgx_status_t SGX_CDECL fs_load_ocall(size_t *retval, int64_t fd, const char *str, int64_t *length);
 sgx_status_t SGX_CDECL fs_write_block_ocall(size_t* retval, int64_t fd, size_t addr, void* buf, size_t len);
 sgx_status_t SGX_CDECL fs_read_block_ocall(size_t* retval, int64_t fd, size_t addr, void* buf, size_t len);
 sgx_status_t SGX_CDECL fs_delete_block_ocall(size_t* retval, int64_t fd, size_t addr);
