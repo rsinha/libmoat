@@ -3,7 +3,11 @@ Bug Fixes
 2. Implement file system re-encryption after IV wrap around
 3. error codes and error messages (print them in debug mode)
 4. Use __builtin_add_overflow_p to detect overflows 
-5. reduce the number of malloc calls using static allocation
+5. On file loading, we want to make sure we don't use the same IV (dont restart at 0 with the same key)
+
+Optimizations
+1. reduce the number of malloc calls using static allocation
+2. No need to have a list of blocks in the FS implementation
 
 Future Work
 1. Asynchronous Ocalls, concurrent User threads
