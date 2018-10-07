@@ -929,13 +929,16 @@ CurveParams::serialize(SERIALIZE_MODE mode, char *buffer, int maxBuffer)
     //ZZn2 Zprecomp;
     //ZZn2 cube;
     
-    Big bbits = this->bits;
-    int size = BigTochar(bbits, buffer, maxBuffer);
-    if (size <= 0) return 0;
-    totSize += size;
-    buffer += size;
+    //Big bbits = this->bits;
+    //int size = BigTochar(bbits, buffer, maxBuffer);
+    //if (size <= 0) return 0;
+    //totSize += size;
+    //buffer += size;
+    memcpy(buffer, &(this->bits), sizeof(this->bits));
+    totSize += sizeof(this->bits);
+    buffer += sizeof(this->bits);
     
-    size = BigTochar(this->p, buffer, maxBuffer - totSize);
+    int size = BigTochar(this->p, buffer, maxBuffer - totSize);
     if (size <= 0) return 0;
     totSize += size;
     buffer += size;
@@ -945,6 +948,11 @@ CurveParams::serialize(SERIALIZE_MODE mode, char *buffer, int maxBuffer)
     totSize += size;
     buffer += size;
     
+    size = BigTochar(this->qsquared, buffer, maxBuffer - totSize);
+    if (size <= 0) return 0;
+    totSize += size;
+    buffer += size;
+
     size = ECnTochar(this->P, buffer, maxBuffer - totSize);
     if (size <= 0) return 0;
     totSize += size;
@@ -993,9 +1001,11 @@ CurveParams::deserialize(SERIALIZE_MODE mode, char *buffer, int bufSize)
     //ZZn2 cube;
     
     int len;
-    this->bits = toint(charToBig(buffer, &len));
-    if (len <= 0) return FALSE;
-    buffer += len;
+    //this->bits = toint(charToBig(buffer, &len));
+    //if (len <= 0) return FALSE;
+    //buffer += len;
+    memcpy(&(this->bits), buffer, sizeof(this->bits));
+    buffer += sizeof(this->bits);
 
     this->p = charToBig(buffer, &len);
     if (len <= 0) return FALSE;
@@ -1005,7 +1015,10 @@ CurveParams::deserialize(SERIALIZE_MODE mode, char *buffer, int bufSize)
     if (len <= 0) return FALSE;
     buffer += len;
 
-    this->qsquared = pow(q, 2);
+    //this->qsquared = pow(q, 2);
+    this->qsquared = charToBig(buffer, &len);
+    if (len <= 0) return FALSE;
+    buffer += len;
 
     this->P = charToECn(buffer, &len);
     if (len <= 0) return FALSE;
