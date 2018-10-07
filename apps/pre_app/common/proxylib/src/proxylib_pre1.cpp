@@ -484,22 +484,24 @@ SerializeDelegationKey_PRE1(DelegationKey_PRE1 &delKey, SERIALIZE_MODE mode, cha
 
   switch (mode) {
   case SERIALIZE_BINARY:
-    int len = ECnTochar (delKey, buffer, maxBuffer);
-    if (len <= 0) return 0;
-    return len;
-    break;
-
+  { // Added by Jet, Sep 06, 2016
+	  int len = ECnTochar (delKey, buffer, maxBuffer);
+	  if (len <= 0) return 0;
+	  return len;
+	  break;
+  }
   case SERIALIZE_HEXASCII:
+  {
+	  //string temp;
+	  //buffer << delKey;
+	  //temp.append(buffer);
+	  //temp.append(ASCII_SEPARATOR);
 
-    //string temp;
-    //buffer << delKey;
-    //temp.append(buffer);
-    //temp.append(ASCII_SEPARATOR);
-
-    //strcpy(buffer, temp.c_str());
-    //return strlen(buffer);
-    return 0;
-    break;
+	  //strcpy(buffer, temp.c_str());
+	  //return strlen(buffer);
+	  return 0;
+	  break;
+  }
   }
 
   // Invalid serialization mode
@@ -578,45 +580,49 @@ ProxyPK_PRE1::serialize(SERIALIZE_MODE mode, char *buffer, int maxBuffer)
 
   switch (mode) {
   case SERIALIZE_BINARY:
-    int size = ZZn2Tochar(this->Zpub1, buffer, maxBuffer);
-    if (size <= 0) return 0;
-    totSize += size;
-    buffer += size;
-    //cout << "Zpub1: " << this->Zpub1 << endl;
-    //cout << "Ppub2: " << this->Ppub2 << endl;
-    //cout << "zzn size: " << size << endl;
+  {
+	  int size = ZZn2Tochar(this->Zpub1, buffer, maxBuffer);
+	  if (size <= 0) return 0;
+	  totSize += size;
+	  buffer += size;
+	  //cout << "Zpub1: " << this->Zpub1 << endl;
+	  //cout << "Ppub2: " << this->Ppub2 << endl;
+	  //cout << "zzn size: " << size << endl;
 
-    size = ECnTochar(this->Ppub2, buffer, maxBuffer - totSize);
-    if (size <= 0) return 0;
-    totSize += size;
-    buffer += size;
+	  size = ECnTochar(this->Ppub2, buffer, maxBuffer - totSize);
+	  if (size <= 0) return 0;
+	  totSize += size;
+	  buffer += size;
 
-    return totSize;
-    break;
+	  return totSize;
+	  break;
+  }
 
   case SERIALIZE_HEXASCII:
     // Serialize to hexadecimal in ASCII 
-    Big x, y;
-    string temp;
-    this->Zpub1.get(x, y);
-    buffer << x;
-    temp.append(buffer);
-    temp.append(ASCII_SEPARATOR);
-    buffer << y;
-    temp.append(buffer);
-    temp.append(ASCII_SEPARATOR);
+  {
+	  Big x, y;
+	  string temp;
+	  this->Zpub1.get(x, y);
+	  buffer << x;
+	  temp.append(buffer);
+	  temp.append(ASCII_SEPARATOR);
+	  buffer << y;
+	  temp.append(buffer);
+	  temp.append(ASCII_SEPARATOR);
 
-    this->Ppub2.get(x, y);
-    buffer << x;
-    temp.append(buffer);
-    temp.append(ASCII_SEPARATOR);
-    buffer << y;
-    temp.append(buffer);
-    temp.append(ASCII_SEPARATOR);
+	  this->Ppub2.get(x, y);
+	  buffer << x;
+	  temp.append(buffer);
+	  temp.append(ASCII_SEPARATOR);
+	  buffer << y;
+	  temp.append(buffer);
+	  temp.append(ASCII_SEPARATOR);
 
-    strcpy(buffer, temp.c_str());
-    return strlen(buffer);
-    break;
+	  strcpy(buffer, temp.c_str());
+	  return strlen(buffer);
+	  break;
+  }
   }
 
   // Invalid serialization mode
@@ -696,7 +702,8 @@ ProxySK_PRE1::serialize(SERIALIZE_MODE mode, char *buffer, int maxBuffer)
 
   switch (mode) {
   case SERIALIZE_BINARY:
-    int len = BigTochar (this->a1, buffer, maxBuffer);
+  {
+	  int len = BigTochar (this->a1, buffer, maxBuffer);
     if (len <= 0) return 0;
     buffer += len;
     totSize += len;
@@ -712,6 +719,7 @@ ProxySK_PRE1::serialize(SERIALIZE_MODE mode, char *buffer, int maxBuffer)
     return totSize;
 
     break;
+  }
 
   case SERIALIZE_HEXASCII:
 
@@ -806,49 +814,52 @@ ProxyCiphertext_PRE1::serialize(SERIALIZE_MODE mode, char *buffer, int maxBuffer
 
   switch (mode) {
   case SERIALIZE_BINARY:
-    *buffer = (char)this->type;
-    buffer++;
-    totSize++;
+  {
+	  *buffer = (char)this->type;
+	  buffer++;
+	  totSize++;
 
-    int len = ECnTochar (this->c1a, buffer, maxBuffer - totSize);
-    if (len <= 0) return 0;
-    buffer += len;
-    totSize += len;
+	  int len = ECnTochar (this->c1a, buffer, maxBuffer - totSize);
+	  if (len <= 0) return 0;
+	  buffer += len;
+	  totSize += len;
 
-    len = ZZn2Tochar (this->c1b, buffer, maxBuffer - totSize);
-    if (len <= 0) return 0;
-    buffer += len;
-    totSize += len;
+	  len = ZZn2Tochar (this->c1b, buffer, maxBuffer - totSize);
+	  if (len <= 0) return 0;
+	  buffer += len;
+	  totSize += len;
 
-    len = ZZn2Tochar (this->c2, buffer, maxBuffer - totSize);
-    if (len <= 0) return 0;
-    buffer += len;
-    totSize += len;
+	  len = ZZn2Tochar (this->c2, buffer, maxBuffer - totSize);
+	  if (len <= 0) return 0;
+	  buffer += len;
+	  totSize += len;
 
-    return totSize;
+	  return totSize;
 
     break;
+  }
 
   case SERIALIZE_HEXASCII:
-
+  {
 #if 0
-    string temp;
-    buffer << this->c1a;
-    temp.append(buffer);
-    temp.append(ASCII_SEPARATOR);
-    buffer << this->c1b;
-    temp.append(buffer);
-    temp.append(ASCII_SEPARATOR);
-    buffer << this->c2;
-    temp.append(buffer);
-    temp.append(ASCII_SEPARATOR);
+	  string temp;
+	  buffer << this->c1a;
+	  temp.append(buffer);
+	  temp.append(ASCII_SEPARATOR);
+	  buffer << this->c1b;
+	  temp.append(buffer);
+	  temp.append(ASCII_SEPARATOR);
+	  buffer << this->c2;
+	  temp.append(buffer);
+	  temp.append(ASCII_SEPARATOR);
 
-    strcpy(buffer, temp.c_str());
-    return strlen(buffer);
+	  strcpy(buffer, temp.c_str());
+	  return strlen(buffer);
 #endif
 
-    return 0;
-    break;
+	  return 0;
+	  break;
+  }
   }
 
   // Invalid serialization mode

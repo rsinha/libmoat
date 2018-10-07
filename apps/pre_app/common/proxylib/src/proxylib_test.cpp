@@ -126,7 +126,9 @@ using namespace std;
 
 #define NUMENCRYPTIONS 100
 
-static CurveParams gParams;
+// Jet: the following causes segmentation fault
+// move it inside the main function.
+//static CurveParams gParams;
 int testNum = 0, testsSuccess = 0;
 
 #ifdef BENCHMARKING
@@ -142,6 +144,8 @@ int main()
   cout << "Proxy Re-encryption Library" << endl << "Diagnostic Test Routines" << endl
        << endl;
 
+// Jet: declare here to avoid segmentation fault
+  CurveParams gParams;
   //
   // Initialize library test
   //

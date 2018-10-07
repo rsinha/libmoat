@@ -26,7 +26,9 @@ all: ${MIRACLLIBRARY} ${PROXYLIB} proxylib_test
 withmiracl: ${MIRACLLIBRARY} ${PROXYLIBWITHMIRACL}
 
 ${MIRACLLIBRARY}:
-	cd ${MIRACLPATH}; bash linux; cd -
+	#cd ${MIRACLPATH}; bash linux; cd -
+	#Jet: For my linux 64bits system@20160908
+	cd ${MIRACLPATH}; bash linux64; cd -
 
 ${PROXYLIB}: ${MIRACLLIBRARY} ${LIBRARYOBJ} ${LIBRARYH}
 	${CC} ${CCFLAGS} -o ${MIRACLPATH}/zzn2.o -c ${MIRACLPATH}/zzn2.cpp 	

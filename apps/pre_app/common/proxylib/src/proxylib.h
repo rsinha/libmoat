@@ -135,7 +135,10 @@ class CurveParams {
   virtual int maxPlaintextSize() {
     Big temp;
     this->Z.get(temp);
-    return ::bits(temp);
+					  
+    //return ::bits(temp);
+    // Jet: Sep 06, 2016
+	return bits = toint(temp);
   }
 
   BOOL operator==(CurveParams &second) {
