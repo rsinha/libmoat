@@ -14,6 +14,8 @@ PROXYLIBTEST = proxylib_test
 PROXYLIBTESTOBJ = proxylib_test.o
 PROXYLIBTESTH =
 PROXYLIBTESTWITHMIRACL = proxylib_test_withmiracl
+PP_SERVICE_OBJ = ppservice.o
+PP_SERVICE = ppservice
 
 LIBRARYOBJ = proxylib_utilities.o proxylib_pre1.o proxylib_benchmark.o \
 	proxylib_pre2.o \
@@ -23,7 +25,8 @@ LIBRARYH = proxylib.h proxylib_pre1.h proxylib_benchmark.h proxylib_pre2.h \
 	proxylib_api.h
 
 all: ${MIRACLLIBRARY} ${PROXYLIB} proxylib_test
-withmiracl: ${MIRACLLIBRARY} ${PROXYLIBWITHMIRACL}
+withmiracl: ${MIRACLLIBRARY} ${PROXYLIBWITHMIRACL} proxylib_test_withmiracl
+pp: ${MIRACLLIBRARY} ${PROXYLIBWITHMIRACL} ppservice
 
 ${MIRACLLIBRARY}:
 	#cd ${MIRACLPATH}; bash linux; cd -
@@ -38,13 +41,16 @@ ${PROXYLIBWITHMIRACL}: ${MIRACLLIBRARY} ${PROXYLIB}
 	rm -f temp/*.o
 	cd temp; ${AR} x ../${MIRACLLIBRARY}; cd -
 	${AR} ${ARARGS} ${PROXYLIBWITHMIRACL} ${LIBRARYOBJ} temp/*.o
-	rm -f temp/*.o
+	#rm -f temp/*.o
 
 ${PROXYLIBTEST}: ${PROXYLIB} ${PROXYLIBTESTOBJ} ${PROXYLIBTESTH}
 	${CC} ${CCFLAGS} ${CCLIBS} -o ${PROXYLIBTEST} ${PROXYLIBTESTOBJ} ${PROXYLIB} ${MIRACLLIBRARY}
 
 ${PROXYLIBTESTWITHMIRACL}: ${PROXYLIBWITHMIRACL} ${PROXYLIBTESTOBJ} ${PROXYLIBTESTH}
 	${CC} ${CCFLAGS} ${CCLIBS} -o ${PROXYLIBTESTWITHMIRACL} ${PROXYLIBTESTOBJ} ${PROXYLIBWITHMIRACL}
+
+${PP_SERVICE}: ${PROXYLIBWITHMIRACL} ${PP_SERVICE_OBJ}
+	${CC} ${CCFLAGS} ${CCLIBS} -o ${PP_SERVICE} ${PP_SERVICE_OBJ} ${PROXYLIBWITHMIRACL}
  
 #pairingsetup: ${PAIRINGSETUPOBJ} ${PAIRINGSETUPH} ${MIRACLLIBRARY}
 #	${CC} ${CCFLAGS} ${CCLIBS} -o pairingsetup ${PAIRINGSETUPOBJ} \
