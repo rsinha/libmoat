@@ -57,6 +57,9 @@ int get_drng_support (void);
 
 #define RDRAND_RETRIES 10
 
+#ifdef __cplusplus
+extern "C"{
+#endif
 /* RDRAND primitives */
 
 int rdrand16_step (uint16_t *rand);
@@ -85,6 +88,10 @@ int rdseed16_step (uint16_t *seed);
 int rdseed32_step (uint32_t *seed);
 #ifdef __x86_64__
 int rdseed64_step (uint64_t *seed);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif
