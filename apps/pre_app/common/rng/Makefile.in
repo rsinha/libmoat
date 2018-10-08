@@ -1,0 +1,37 @@
+CC=@CC@
+CFLAGS=-g
+AR=ar
+ARFLAGS=-rc
+OBJS_TESTDRNG=cpuid.o drng.o testdrng.o hexdump.o
+OBJS_SEEDFROMRDRAND=cpuid.o drng.o seed_from_rdrand.o hexdump.o
+OBJS_RDRAND128=cpuid.o drng.o rdrand128.o hexdump.o
+TARGET_BINS=@TARGET_BINS@
+OBJS_LIBRNG=cpuid.o drng.o
+LIBRARIES=librng.a
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $<
+
+all: $(TARGET_BINS) $(LIBRARIES)
+
+librng.a: 
+	$(AR) $(ARFLAGS) $@ $(OBJS_LIBRNG)
+
+testdrng: $(OBJS_TESTDRNG)
+	$(CC) -o $@ $(OBJS_TESTDRNG)
+
+seed_from_rdrand: $(OBJS_SEEDFROMRDRAND)
+	$(CC) -o $@ $(OBJS_SEEDFROMRDRAND) -lgcrypt
+
+rdrand128: $(OBJS_RDRAND128)
+	$(CC) -o $@ $(OBJS_RDRAND128) -lgcrypt
+
+clean:
+	rm -f *.o *.a *.so testdrng seed_from_rdrand rdrand128
+
+distclean: clean
+	rm -rf Makefile config.log config.status autom4te.cache config.h
+
+cpuid.c: cpuid.h
+drng.c: drng.h cpuid.h
+hexdump.c: hexdump.h

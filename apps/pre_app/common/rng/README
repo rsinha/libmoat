@@ -1,0 +1,33 @@
+These are the code samples contained in the Digital Random Number
+Generator Software Implementation Guide, along with some supplementary
+utilities and binaries that demonstrate their use. They are designed
+for the Linux and OS X environment, and compile with gcc.
+
+They will build and run on both 32-bit and 64-bit systems, though 64-bit
+random values and seeds will not be produced on 32-bit architectures.
+
+To build the samples, run:
+
+   % ./configure
+   % make
+
+This will create the following binaries (assuming all build dependancies
+are met):
+
+   testdrng - A program that generates random numbers and seeds using
+   the sample functions in drng.c. It calls both the RDRAND and the
+   RDSEED instructions if your CPU supports them.
+
+   rdrand128 - Generates a 128-bit random value from two 64-bit RDRANDs
+   (or four 32-bit RDRANDs, if in 32-bit mode) that are cryptographically
+   mixed using HMAC_SHA256. To build this sample you must have the
+   libgcrypt headers and libraries installed on your system.
+
+   seed_from_rdrand - Generates random seeds from the RDRAND instruction
+   using the CBC-MAC procedure described in the Software Implementation
+   Guide. To build this sample you must have the libgcrypt headers and
+   libraries installed on your system.
+
+If the libgcrypt headers and libraries are not present on your system
+then the rdrand128 and seed_from_rdrand binaries will be skipped.
+
