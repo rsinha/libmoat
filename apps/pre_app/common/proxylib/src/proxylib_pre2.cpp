@@ -346,7 +346,7 @@ SerializeDelegationKey_PRE2(DelegationKey_PRE2 &delKey, SERIALIZE_MODE mode, cha
 // Deserialize a delegation key from a buffer
 
 BOOL
-DeserializeDelegationKey_PRE2(DelegationKey_PRE1 &delKey, SERIALIZE_MODE mode, char *buffer, int bufSize)
+DeserializeDelegationKey_PRE2(DelegationKey_PRE2 &delKey, SERIALIZE_MODE mode, char *buffer, int bufSize)
 {
   DelegationKey_PRE1* dk = (DelegationKey_PRE1*)&delKey;
   return DeserializeDelegationKey_PRE1(*dk, mode, buffer, bufSize);
