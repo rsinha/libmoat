@@ -36,6 +36,239 @@ void generate_random_key(char *key, size_t len)
     }
 }
 
+typedef enum {
+    SUCCESS = 0,
+    ERROR_INSUFFICIENT_MEMORY,
+    ERROR_INIT_LIBRARY,
+    ERROR_GENERATE_PARAMS,
+    ERROR_SERIALIZE_PARAMS,
+    ERROR_DESERIALIZE_PARAMS,
+    ERROR_PKSK_KEYGEN,
+    ERROR_RK_KEYGEN,
+    ERROR_SERIALIZE_PK,
+    ERROR_DESERIALIZE_PK,
+    ERROR_SERIALIZE_SK,
+    ERROR_DESERIALIZE_SK,
+    ERROR_SERIALIZE_RK,
+    ERROR_DESERIALIZE_RK,
+    ERROR_ENCRYPTING,
+    ERROR_REENCRYPTING,
+    ERROR_SERIALIZE_CTXT,
+    ERROR_DESERIALIZE_CTXT,
+    ERROR_DECRYPTING,
+    ERROR_SERIALIZE_MSG
+} pureprivacy_result_t;
+
+
+pureprivacy_result_t pureprivacy_generate_params(char *params_buf, int params_buf_len)
+{
+    CurveParams gParams;
+
+    if (!initLibrary()) { 
+        return ERROR_INIT_LIBRARY;
+    }
+
+    if (!PRE2_generate_params(gParams)) { 
+        return ERROR_GENERATE_PARAMS;
+    }
+
+    int requested_len = gParams.getSerializedSize(SERIALIZE_BINARY);
+    if (requested_len > params_buf_len) { 
+        return ERROR_INSUFFICIENT_MEMORY; 
+    }
+
+    int actual_len = gParams.serialize(SERIALIZE_BINARY, params_buf, requested_len);
+    if (actual_len == 0) {
+        return ERROR_SERIALIZE_PARAMS; 
+    }
+
+    return SUCCESS;
+}
+
+pureprivacy_result_t pureprivacy_generate_keypair(
+    char *params_buf, int params_buf_len, //input
+    char *pk_buf, int pk_buf_len, //output
+    char *sk_buf, int sk_buf_len) //output
+{
+    ProxyPK_PRE2 pk;
+    ProxySK_PRE2 sk;
+
+    CurveParams gParams;
+    if (! gParams.deserialize(SERIALIZE_BINARY, params_buf, params_buf_len) ) { 
+        return ERROR_DESERIALIZE_PARAMS; 
+    }
+
+    if (!PRE2_keygen(gParams, pk, sk)) { 
+        return ERROR_PKSK_KEYGEN; 
+    }
+    
+    //serialize pk
+    if (pk.getSerializedSize(SERIALIZE_BINARY) > pk_buf_len) { 
+        return ERROR_INSUFFICIENT_MEMORY;
+    }
+    int actual_len = pk.serialize(SERIALIZE_BINARY, pk_buf, pk_buf_len);
+    if (actual_len == 0) { 
+        return ERROR_SERIALIZE_PK;
+    }
+
+    //serialize sk
+    if (sk.getSerializedSize(SERIALIZE_BINARY) > sk_buf_len) { 
+        return ERROR_INSUFFICIENT_MEMORY;
+    }
+    actual_len = sk.serialize(SERIALIZE_BINARY, sk_buf, sk_buf_len);
+    if (actual_len == 0) { return ERROR_SERIALIZE_SK; }
+
+    return SUCCESS;
+}
+
+pureprivacy_result_t pureprivacy_generate_delegation_key(
+    char *params_buf, int params_buf_len, //input
+    char *pk_buf, int pk_buf_len, //input
+    char *sk_buf, int sk_buf_len, //input
+    char *rk_buf, int rk_buf_len) //output
+{
+    DelegationKey_PRE2 rk;
+    ProxyPK_PRE2 pk;
+    ProxySK_PRE2 sk;
+
+    CurveParams gParams;
+    if (! gParams.deserialize(SERIALIZE_BINARY, params_buf, params_buf_len) ) { 
+        return ERROR_DESERIALIZE_PARAMS; 
+    }
+
+    //reconstruct pk
+    if (!pk.deserialize(SERIALIZE_BINARY, pk_buf, pk_buf_len)) {
+        return ERROR_DESERIALIZE_PK;
+    }
+
+    //reconstruct sk
+    if (!sk.deserialize(SERIALIZE_BINARY, pk_buf, pk_buf_len)) {
+        return ERROR_DESERIALIZE_PK;
+    }
+
+    if (!PRE2_delegate(gParams,pk, sk, rk)) {
+        return ERROR_RK_KEYGEN;
+    }
+
+    int len = SerializeDelegationKey_PRE2(rk, SERIALIZE_BINARY, rk_buf, rk_buf_len);
+    if (len > rk_buf_len || len == 0) {
+        return ERROR_SERIALIZE_RK;
+    }
+
+    return SUCCESS;
+}
+
+pureprivacy_result_t pureprivacy_encrypt(
+    char *params_buf, int params_buf_len, //input
+    char *pk_buf, int pk_buf_len, //input
+    char *msg_buf, int msg_buf_len, //input
+    char *ctxt_buf, int ctxt_buf_len) 
+{
+    CurveParams gParams;
+    if (! gParams.deserialize(SERIALIZE_BINARY, params_buf, params_buf_len) ) { 
+        return ERROR_DESERIALIZE_PARAMS; 
+    }
+
+    ProxyPK_PRE2 pk;
+    //reconstruct pk
+    if (!pk.deserialize(SERIALIZE_BINARY, pk_buf, pk_buf_len)) {
+        return ERROR_DESERIALIZE_PK;
+    }
+
+    Big msg_as_big = from_binary(msg_buf_len, msg_buf);
+    
+    ProxyCiphertext_PRE2 ctxt;
+    if(! PRE2_level2_encrypt(gParams, msg_as_big, pk, ctxt)) {
+        return ERROR_ENCRYPTING;
+    }
+
+    int len = ctxt.serialize(SERIALIZE_BINARY, ctxt_buf, ctxt_buf_len);
+    if (len > ctxt_buf_len || len == 0) {
+        return ERROR_SERIALIZE_CTXT;
+    }
+
+    return SUCCESS;
+}
+
+pureprivacy_result_t pureprivacy_reencrypt(
+    char *params_buf, int params_buf_len, //input
+    char *rk_buf, int rk_buf_len, //input
+    char *in_ctxt_buf, int in_ctxt_buf_len, //input
+    char *out_ctxt_buf, int out_ctxt_buf_len) //output
+{
+    CurveParams gParams;
+    if (! gParams.deserialize(SERIALIZE_BINARY, params_buf, params_buf_len) ) { 
+        return ERROR_DESERIALIZE_PARAMS; 
+    }
+
+    DelegationKey_PRE2 rk;
+    if (! DeserializeDelegationKey_PRE2(rk, SERIALIZE_BINARY, rk_buf, rk_buf_len)) {
+        return ERROR_DESERIALIZE_RK;
+    }
+    
+    ProxyCiphertext_PRE2 in_ctxt, out_ctxt;
+    if (!in_ctxt.deserialize(SERIALIZE_BINARY, in_ctxt_buf, in_ctxt_buf_len)) {
+        return ERROR_DESERIALIZE_CTXT;
+    }
+    
+    if (! PRE2_reencrypt(gParams, in_ctxt, rk, out_ctxt)) {
+        return ERROR_REENCRYPTING;
+    }
+
+    int len = out_ctxt.serialize(SERIALIZE_BINARY, out_ctxt_buf, out_ctxt_buf_len);
+    if (len > out_ctxt_buf_len || len == 0) {
+        return ERROR_SERIALIZE_CTXT;
+    }
+
+    return SUCCESS;
+}
+
+pureprivacy_result_t pureprivacy_decrypt(
+    char *params_buf, int params_buf_len, //input
+    char *sk_buf, int sk_buf_len, //input
+    char *ctxt_buf, int ctxt_buf_len, //input
+    char *msg_buf, int msg_buf_len) //output
+{
+    CurveParams gParams;
+    if (! gParams.deserialize(SERIALIZE_BINARY, params_buf, params_buf_len) ) { 
+        return ERROR_DESERIALIZE_PARAMS; 
+    }
+
+    ProxySK_PRE2 sk;
+    //reconstruct sk
+    if (!sk.deserialize(SERIALIZE_BINARY, sk_buf, sk_buf_len)) {
+        return ERROR_DESERIALIZE_SK;
+    }
+
+    ProxyCiphertext_PRE2 ctxt;
+    if (!ctxt.deserialize(SERIALIZE_BINARY, ctxt_buf, ctxt_buf_len)) {
+        return ERROR_DESERIALIZE_CTXT;
+    }
+
+    Big msg_as_big;
+    if(! PRE2_decrypt(gParams, ctxt, sk, msg_as_big)) {
+        return ERROR_DECRYPTING;
+    }
+
+    int len = to_binary(msg_as_big, msg_buf_len, msg_buf, TRUE);    
+    if (len != msg_buf_len) { return ERROR_SERIALIZE_MSG; }
+
+    return SUCCESS;
+}
+
+int main()
+{
+    char pk_p[1000];
+    char sk_p[1000];
+    char pk_c[1000];
+    char sk_c[1000];
+    char rk_p_c[1000];
+    char params[1000];
+
+    
+}
+
+
 void test1()
 {
     cout << "----------------------------------------" << endl;
@@ -141,8 +374,14 @@ void test1()
     bool serTestResult = TRUE;
     cout << ". Serialization/deserialization tests";
 
+    int serialSize = SerializeDelegationKey_PRE2(delKey, SERIALIZE_BINARY, buffer, 1000);
+    serTestResult = serTestResult && (serialSize != 0);
+    DelegationKey_PRE2 rk;
+    BOOL x = DeserializeDelegationKey_PRE2(rk, SERIALIZE_BINARY, buffer, serialSize);
+    serTestResult = serTestResult && (x != 0) && (rk == delKey);
+
     // Serialize a public key
-    int serialSize = ppk1.serialize(SERIALIZE_BINARY, buffer, 1000);
+    serialSize = ppk1.serialize(SERIALIZE_BINARY, buffer, 1000);
     ProxyPK_PRE2 nnewpk;
     nnewpk.deserialize(SERIALIZE_BINARY, buffer, serialSize);
     serTestResult = serTestResult && (nnewpk == ppk1);
@@ -243,7 +482,7 @@ int test2()
     //
     // enceypt
     //
-    Big original_msg = 100;
+    Big original_msg = aes_key_as_big;
     Big decrypted_msg = 0;
     ProxyCiphertext_PRE2 producer_ciphertext;
 
@@ -271,8 +510,24 @@ int test2()
     char buffer[1000];
     bool serTestResult = TRUE;
 
+    int serialSize = SerializeDelegationKey_PRE2(delKey, SERIALIZE_BINARY, buffer, 1000);
+    serTestResult = serTestResult && (serialSize != 0);
+
+    //cout << "delKey serialized to size " << serialSize << 
+    //    " with contents ";
+    //print_char_arr_to_hex_str(buffer, serialSize); cout << endl << endl;
+
+    DelegationKey_PRE2 rk;
+    BOOL x = DeserializeDelegationKey_PRE2(rk, SERIALIZE_BINARY, buffer, serialSize);
+    serTestResult = serTestResult && (x != 0) && (rk == delKey);
+
+    //serialSize = SerializeDelegationKey_PRE2(rk, SERIALIZE_BINARY, buffer, 1000);
+    //cout << "rk serialized to size " << serialSize << 
+    //    " with contents ";
+    //print_char_arr_to_hex_str(buffer, serialSize); cout << endl << endl;
+
     // Serialize a public key
-    int serialSize = ppk1.serialize(SERIALIZE_BINARY, buffer, 1000);
+    serialSize = ppk1.serialize(SERIALIZE_BINARY, buffer, 1000);
     //cout << "public key serialized to size " << serialSize << 
     //    " with contents ";
     //print_char_arr_to_hex_str(buffer, serialSize); cout << endl << endl;
@@ -322,10 +577,4 @@ int test2()
 
     cout << ". Serialization/deserialization tests";
     cout << status_msg(serTestResult) << endl;
-}
-
-
-int main()
-{
-    test2();
 }
