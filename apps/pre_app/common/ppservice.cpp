@@ -60,7 +60,8 @@ typedef enum {
 } pureprivacy_result_t;
 
 
-pureprivacy_result_t pureprivacy_generate_params(char *params_buf, int params_buf_len)
+pureprivacy_result_t pureprivacy_generate_params(
+    char *params_buf, int params_buf_len, int *params_buf_len_used)
 {
     CurveParams gParams;
 
@@ -82,13 +83,14 @@ pureprivacy_result_t pureprivacy_generate_params(char *params_buf, int params_bu
         return ERROR_SERIALIZE_PARAMS; 
     }
 
+    *params_buf_len_used = actual_len;
     return SUCCESS;
 }
 
 pureprivacy_result_t pureprivacy_generate_keypair(
     char *params_buf, int params_buf_len, //input
-    char *pk_buf, int pk_buf_len, //output
-    char *sk_buf, int sk_buf_len) //output
+    char *pk_buf, int pk_buf_len, int *pk_buf_len_used, //output
+    char *sk_buf, int sk_buf_len, int *sk_buf_len_used) //output
 {
     ProxyPK_PRE2 pk;
     ProxySK_PRE2 sk;
@@ -110,6 +112,7 @@ pureprivacy_result_t pureprivacy_generate_keypair(
     if (actual_len == 0) { 
         return ERROR_SERIALIZE_PK;
     }
+    *pk_buf_len_used = actual_len;
 
     //serialize sk
     if (sk.getSerializedSize(SERIALIZE_BINARY) > sk_buf_len) { 
@@ -117,6 +120,7 @@ pureprivacy_result_t pureprivacy_generate_keypair(
     }
     actual_len = sk.serialize(SERIALIZE_BINARY, sk_buf, sk_buf_len);
     if (actual_len == 0) { return ERROR_SERIALIZE_SK; }
+    *sk_buf_len_used = actual_len;
 
     return SUCCESS;
 }
@@ -125,7 +129,7 @@ pureprivacy_result_t pureprivacy_generate_delegation_key(
     char *params_buf, int params_buf_len, //input
     char *pk_buf, int pk_buf_len, //input
     char *sk_buf, int sk_buf_len, //input
-    char *rk_buf, int rk_buf_len) //output
+    char *rk_buf, int rk_buf_len, int *rk_buf_len_used) //output
 {
     DelegationKey_PRE2 rk;
     ProxyPK_PRE2 pk;
@@ -142,7 +146,7 @@ pureprivacy_result_t pureprivacy_generate_delegation_key(
     }
 
     //reconstruct sk
-    if (!sk.deserialize(SERIALIZE_BINARY, pk_buf, pk_buf_len)) {
+    if (!sk.deserialize(SERIALIZE_BINARY, sk_buf, sk_buf_len)) {
         return ERROR_DESERIALIZE_PK;
     }
 
@@ -155,6 +159,7 @@ pureprivacy_result_t pureprivacy_generate_delegation_key(
         return ERROR_SERIALIZE_RK;
     }
 
+    *rk_buf_len_used = len;
     return SUCCESS;
 }
 
@@ -162,7 +167,7 @@ pureprivacy_result_t pureprivacy_encrypt(
     char *params_buf, int params_buf_len, //input
     char *pk_buf, int pk_buf_len, //input
     char *msg_buf, int msg_buf_len, //input
-    char *ctxt_buf, int ctxt_buf_len) 
+    char *ctxt_buf, int ctxt_buf_len, int *ctxt_buf_len_used) 
 {
     CurveParams gParams;
     if (! gParams.deserialize(SERIALIZE_BINARY, params_buf, params_buf_len) ) { 
@@ -176,6 +181,7 @@ pureprivacy_result_t pureprivacy_encrypt(
     }
 
     Big msg_as_big = from_binary(msg_buf_len, msg_buf);
+    //cout << "msg_as_big: " << msg_as_big << endl;
     
     ProxyCiphertext_PRE2 ctxt;
     if(! PRE2_level2_encrypt(gParams, msg_as_big, pk, ctxt)) {
@@ -187,6 +193,7 @@ pureprivacy_result_t pureprivacy_encrypt(
         return ERROR_SERIALIZE_CTXT;
     }
 
+    *ctxt_buf_len_used = len;
     return SUCCESS;
 }
 
@@ -194,7 +201,7 @@ pureprivacy_result_t pureprivacy_reencrypt(
     char *params_buf, int params_buf_len, //input
     char *rk_buf, int rk_buf_len, //input
     char *in_ctxt_buf, int in_ctxt_buf_len, //input
-    char *out_ctxt_buf, int out_ctxt_buf_len) //output
+    char *out_ctxt_buf, int out_ctxt_buf_len, int *out_ctxt_buf_len_used) //output
 {
     CurveParams gParams;
     if (! gParams.deserialize(SERIALIZE_BINARY, params_buf, params_buf_len) ) { 
@@ -220,6 +227,7 @@ pureprivacy_result_t pureprivacy_reencrypt(
         return ERROR_SERIALIZE_CTXT;
     }
 
+    *out_ctxt_buf_len_used = len;
     return SUCCESS;
 }
 
@@ -227,7 +235,7 @@ pureprivacy_result_t pureprivacy_decrypt(
     char *params_buf, int params_buf_len, //input
     char *sk_buf, int sk_buf_len, //input
     char *ctxt_buf, int ctxt_buf_len, //input
-    char *msg_buf, int msg_buf_len) //output
+    char *msg_buf, int msg_buf_len, int *msg_buf_len_used) //output
 {
     CurveParams gParams;
     if (! gParams.deserialize(SERIALIZE_BINARY, params_buf, params_buf_len) ) { 
@@ -249,14 +257,16 @@ pureprivacy_result_t pureprivacy_decrypt(
     if(! PRE2_decrypt(gParams, ctxt, sk, msg_as_big)) {
         return ERROR_DECRYPTING;
     }
+    //cout << "msg_as_big: " << msg_as_big << endl;
 
-    int len = to_binary(msg_as_big, msg_buf_len, msg_buf, TRUE);    
+    int len = to_binary(msg_as_big, msg_buf_len, msg_buf, FALSE);    
     if (len != msg_buf_len) { return ERROR_SERIALIZE_MSG; }
 
+    *msg_buf_len_used = len;
     return SUCCESS;
 }
 
-int main()
+int test3()
 {
     char pk_p[1000];
     char sk_p[1000];
@@ -265,7 +275,72 @@ int main()
     char rk_p_c[1000];
     char params[1000];
 
+    pureprivacy_result_t result;
     
+    int params_len;
+    result = pureprivacy_generate_params(params, sizeof(params), &params_len);
+    cout << ". Generated curve parameters" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got params len " << params_len << endl;
+
+    int pk_p_len, sk_p_len;
+    result = pureprivacy_generate_keypair(
+        params, params_len,
+        pk_p, sizeof(pk_p), &pk_p_len, 
+        sk_p, sizeof(sk_p), &sk_p_len);
+    cout << ". Generated producer's keys" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got pk len " << pk_p_len << " sk len " << sk_p_len << endl;
+
+    int pk_c_len, sk_c_len;
+    result = pureprivacy_generate_keypair(
+        params, params_len,
+        pk_c, sizeof(pk_c), &pk_c_len, 
+        sk_c, sizeof(sk_c), &sk_c_len);
+    cout << ". Generated consumer's keys" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got pk len " << pk_c_len << " sk len " << sk_c_len << endl;
+
+    int rk_p_c_len;
+    result = pureprivacy_generate_delegation_key(
+        params, params_len,
+        pk_c, pk_c_len, 
+        sk_p, sk_p_len, 
+        rk_p_c, sizeof(rk_p_c), &rk_p_c_len);
+    cout << ". Generated re-encryption keys" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got rk len " << rk_p_c_len << endl;
+
+    char kek[16];
+    generate_random_key(kek, 16);
+    cout << "choosing key "; print_char_arr_to_hex_str(kek, 16); cout << endl;
+
+    char ctxt_p[1000];
+    int ctxt_p_len;
+    result = pureprivacy_encrypt(
+        params, params_len,
+        pk_p, pk_p_len, 
+        kek, 16, 
+        ctxt_p, sizeof(ctxt_p), &ctxt_p_len);
+    cout << ". Encrypted plaintext at producer" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got ctxt len " << ctxt_p_len << endl;
+    
+    char ctxt_c[1000];
+    int ctxt_c_len;
+    result = pureprivacy_reencrypt(
+        params, params_len,
+        rk_p_c, rk_p_c_len, 
+        ctxt_p, ctxt_p_len, 
+        ctxt_c, sizeof(ctxt_c), &ctxt_c_len);
+    cout << ". Reencrypted ciphertext at proxy" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got ctxt len " << ctxt_c_len << endl;
+
+    char kek_decrypted[16];
+    int kek_decrypted_len;
+    result = pureprivacy_decrypt(
+        params, params_len,
+        sk_c, sk_c_len,
+        ctxt_c, ctxt_c_len,
+        kek_decrypted, sizeof(kek_decrypted), &kek_decrypted_len);
+    cout << ". Decrypted ciphertext at consumer" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got msg len " << kek_decrypted_len << endl;
+    cout << "got key "; print_char_arr_to_hex_str(kek_decrypted, 16); cout << endl;
 }
 
 
@@ -449,6 +524,8 @@ int test2()
 
     cout << status_msg(memcmp(aes_key, aes_key_again, 16) == 0) << endl;
 
+    cout << "choosing key "; print_char_arr_to_hex_str(aes_key, 16); cout << endl;
+
     //char aes_key_again[16];
     //int aes_key_again_len;
     //success = decodePlaintextFromBig(gParams, aes_key_again, 16, &aes_key_again_len, aes_key_as_big);
@@ -503,6 +580,11 @@ int test2()
     success2 = PRE2_decrypt(gParams, consumer_ciphertext, ssk2, decrypted_msg);
     success = (original_msg == decrypted_msg) && success1 && success2;
     cout << status_msg(success) << endl;
+
+    char msg_buf[16]; memset(msg_buf, 0, 16);
+    int len = to_binary(decrypted_msg, 16, msg_buf, TRUE);
+    assert(memcmp(aes_key, msg_buf, 16) == 0);
+    cout << "got key "; print_char_arr_to_hex_str(msg_buf, 16); cout << endl;
 
     //
     // Serialization/Deserialization test
@@ -577,4 +659,8 @@ int test2()
 
     cout << ". Serialization/deserialization tests";
     cout << status_msg(serTestResult) << endl;
+}
+
+int main(){
+    test3();
 }
