@@ -14,6 +14,12 @@ using namespace std;
 
 #include "drng.h"
 
+#include "json.hpp"
+#include "cxxopts.hpp"
+#include "base64.hpp"
+
+using json = nlohmann::json;
+
 std::string status_msg(bool b)
 {
     return b ?  " ... OK" : " ... FAILED";
@@ -60,7 +66,7 @@ typedef enum {
 } pureprivacy_result_t;
 
 
-pureprivacy_result_t pureprivacy_generate_params(
+pureprivacy_result_t generate_params_helper(
     char *params_buf, int params_buf_len, int *params_buf_len_used)
 {
     CurveParams gParams;
@@ -87,7 +93,7 @@ pureprivacy_result_t pureprivacy_generate_params(
     return SUCCESS;
 }
 
-pureprivacy_result_t pureprivacy_generate_keypair(
+pureprivacy_result_t generate_keypair_helper(
     char *params_buf, int params_buf_len, //input
     char *pk_buf, int pk_buf_len, int *pk_buf_len_used, //output
     char *sk_buf, int sk_buf_len, int *sk_buf_len_used) //output
@@ -103,7 +109,7 @@ pureprivacy_result_t pureprivacy_generate_keypair(
     if (!PRE2_keygen(gParams, pk, sk)) { 
         return ERROR_PKSK_KEYGEN; 
     }
-    
+
     //serialize pk
     if (pk.getSerializedSize(SERIALIZE_BINARY) > pk_buf_len) { 
         return ERROR_INSUFFICIENT_MEMORY;
@@ -125,7 +131,7 @@ pureprivacy_result_t pureprivacy_generate_keypair(
     return SUCCESS;
 }
 
-pureprivacy_result_t pureprivacy_generate_delegation_key(
+pureprivacy_result_t generate_delegation_key_helper(
     char *params_buf, int params_buf_len, //input
     char *pk_buf, int pk_buf_len, //input
     char *sk_buf, int sk_buf_len, //input
@@ -163,7 +169,7 @@ pureprivacy_result_t pureprivacy_generate_delegation_key(
     return SUCCESS;
 }
 
-pureprivacy_result_t pureprivacy_encrypt(
+pureprivacy_result_t encrypt_helper(
     char *params_buf, int params_buf_len, //input
     char *pk_buf, int pk_buf_len, //input
     char *msg_buf, int msg_buf_len, //input
@@ -197,7 +203,7 @@ pureprivacy_result_t pureprivacy_encrypt(
     return SUCCESS;
 }
 
-pureprivacy_result_t pureprivacy_reencrypt(
+pureprivacy_result_t reencrypt_helper(
     char *params_buf, int params_buf_len, //input
     char *rk_buf, int rk_buf_len, //input
     char *in_ctxt_buf, int in_ctxt_buf_len, //input
@@ -231,7 +237,7 @@ pureprivacy_result_t pureprivacy_reencrypt(
     return SUCCESS;
 }
 
-pureprivacy_result_t pureprivacy_decrypt(
+pureprivacy_result_t decrypt_helper(
     char *params_buf, int params_buf_len, //input
     char *sk_buf, int sk_buf_len, //input
     char *ctxt_buf, int ctxt_buf_len, //input
@@ -265,84 +271,6 @@ pureprivacy_result_t pureprivacy_decrypt(
     *msg_buf_len_used = len;
     return SUCCESS;
 }
-
-int test3()
-{
-    char pk_p[1000];
-    char sk_p[1000];
-    char pk_c[1000];
-    char sk_c[1000];
-    char rk_p_c[1000];
-    char params[1000];
-
-    pureprivacy_result_t result;
-    
-    int params_len;
-    result = pureprivacy_generate_params(params, sizeof(params), &params_len);
-    cout << ". Generated curve parameters" << status_msg(result == SUCCESS) << endl;
-    //cout << "Got params len " << params_len << endl;
-
-    int pk_p_len, sk_p_len;
-    result = pureprivacy_generate_keypair(
-        params, params_len,
-        pk_p, sizeof(pk_p), &pk_p_len, 
-        sk_p, sizeof(sk_p), &sk_p_len);
-    cout << ". Generated producer's keys" << status_msg(result == SUCCESS) << endl;
-    //cout << "Got pk len " << pk_p_len << " sk len " << sk_p_len << endl;
-
-    int pk_c_len, sk_c_len;
-    result = pureprivacy_generate_keypair(
-        params, params_len,
-        pk_c, sizeof(pk_c), &pk_c_len, 
-        sk_c, sizeof(sk_c), &sk_c_len);
-    cout << ". Generated consumer's keys" << status_msg(result == SUCCESS) << endl;
-    //cout << "Got pk len " << pk_c_len << " sk len " << sk_c_len << endl;
-
-    int rk_p_c_len;
-    result = pureprivacy_generate_delegation_key(
-        params, params_len,
-        pk_c, pk_c_len, 
-        sk_p, sk_p_len, 
-        rk_p_c, sizeof(rk_p_c), &rk_p_c_len);
-    cout << ". Generated re-encryption keys" << status_msg(result == SUCCESS) << endl;
-    //cout << "Got rk len " << rk_p_c_len << endl;
-
-    char kek[16];
-    generate_random_key(kek, 16);
-    cout << "choosing key "; print_char_arr_to_hex_str(kek, 16); cout << endl;
-
-    char ctxt_p[1000];
-    int ctxt_p_len;
-    result = pureprivacy_encrypt(
-        params, params_len,
-        pk_p, pk_p_len, 
-        kek, 16, 
-        ctxt_p, sizeof(ctxt_p), &ctxt_p_len);
-    cout << ". Encrypted plaintext at producer" << status_msg(result == SUCCESS) << endl;
-    //cout << "Got ctxt len " << ctxt_p_len << endl;
-    
-    char ctxt_c[1000];
-    int ctxt_c_len;
-    result = pureprivacy_reencrypt(
-        params, params_len,
-        rk_p_c, rk_p_c_len, 
-        ctxt_p, ctxt_p_len, 
-        ctxt_c, sizeof(ctxt_c), &ctxt_c_len);
-    cout << ". Reencrypted ciphertext at proxy" << status_msg(result == SUCCESS) << endl;
-    //cout << "Got ctxt len " << ctxt_c_len << endl;
-
-    char kek_decrypted[16];
-    int kek_decrypted_len;
-    result = pureprivacy_decrypt(
-        params, params_len,
-        sk_c, sk_c_len,
-        ctxt_c, ctxt_c_len,
-        kek_decrypted, sizeof(kek_decrypted), &kek_decrypted_len);
-    cout << ". Decrypted ciphertext at consumer" << status_msg(result == SUCCESS) << endl;
-    //cout << "Got msg len " << kek_decrypted_len << endl;
-    cout << "got key "; print_char_arr_to_hex_str(kek_decrypted, 16); cout << endl;
-}
-
 
 void test1()
 {
@@ -661,6 +589,218 @@ int test2()
     cout << status_msg(serTestResult) << endl;
 }
 
-int main(){
-    test3();
+int test3()
+{
+    char pk_p[1000];
+    char sk_p[1000];
+    char pk_c[1000];
+    char sk_c[1000];
+    char rk_p_c[1000];
+    char params[1000];
+
+    pureprivacy_result_t result;
+    
+    int params_len;
+    result = generate_params_helper(params, sizeof(params), &params_len);
+    cout << ". Generated curve parameters" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got params len " << params_len << endl;
+
+    int pk_p_len, sk_p_len;
+    result = generate_keypair_helper(
+        params, params_len,
+        pk_p, sizeof(pk_p), &pk_p_len, 
+        sk_p, sizeof(sk_p), &sk_p_len);
+    cout << ". Generated producer's keys" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got pk len " << pk_p_len << " sk len " << sk_p_len << endl;
+
+    int pk_c_len, sk_c_len;
+    result = generate_keypair_helper(
+        params, params_len,
+        pk_c, sizeof(pk_c), &pk_c_len, 
+        sk_c, sizeof(sk_c), &sk_c_len);
+    cout << ". Generated consumer's keys" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got pk len " << pk_c_len << " sk len " << sk_c_len << endl;
+
+    int rk_p_c_len;
+    result = generate_delegation_key_helper(
+        params, params_len,
+        pk_c, pk_c_len, 
+        sk_p, sk_p_len, 
+        rk_p_c, sizeof(rk_p_c), &rk_p_c_len);
+    cout << ". Generated re-encryption keys" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got rk len " << rk_p_c_len << endl;
+
+    char kek[16];
+    generate_random_key(kek, 16);
+    cout << "choosing key "; print_char_arr_to_hex_str(kek, 16); cout << endl;
+
+    char ctxt_p[1000];
+    int ctxt_p_len;
+    result = encrypt_helper(
+        params, params_len,
+        pk_p, pk_p_len, 
+        kek, 16, 
+        ctxt_p, sizeof(ctxt_p), &ctxt_p_len);
+    cout << ". Encrypted plaintext at producer" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got ctxt len " << ctxt_p_len << endl;
+    
+    char ctxt_c[1000];
+    int ctxt_c_len;
+    result = reencrypt_helper(
+        params, params_len,
+        rk_p_c, rk_p_c_len, 
+        ctxt_p, ctxt_p_len, 
+        ctxt_c, sizeof(ctxt_c), &ctxt_c_len);
+    cout << ". Reencrypted ciphertext at proxy" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got ctxt len " << ctxt_c_len << endl;
+
+    char kek_decrypted[16];
+    int kek_decrypted_len;
+    result = decrypt_helper(
+        params, params_len,
+        sk_c, sk_c_len,
+        ctxt_c, ctxt_c_len,
+        kek_decrypted, sizeof(kek_decrypted), &kek_decrypted_len);
+    cout << ". Decrypted ciphertext at consumer" << status_msg(result == SUCCESS) << endl;
+    //cout << "Got msg len " << kek_decrypted_len << endl;
+    cout << "got key "; print_char_arr_to_hex_str(kek_decrypted, 16); cout << endl;
+}
+
+bool pureprivacy_gen_params(json &output)
+{
+    char params[1000];
+    int params_len;
+    pureprivacy_result_t result = 
+        generate_params_helper(params, sizeof(params), &params_len);
+    //std::string params_str = std::string(params, params_len);
+    //cout << "params_str: " << params_str << endl;
+    cout << ". Generated curve parameters" << status_msg(result == SUCCESS) << endl;
+    if (result == SUCCESS) {
+        json j = {
+            {"params", base64_encode((const unsigned char *) params, params_len)},
+        };
+        output = j;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool pureprivacy_gen_keys(json input, json &output)
+{
+    if (!pureprivacy_gen_params(output)) { return false; }
+    std::string params_from_input = output["params"]; //TODO: hack for now
+
+    std::string params_str = base64_decode(params_from_input);
+    //cout << "params_str: " << params_str << " len: " << params_str.length() << endl;
+    int params_len = params_str.length();
+    char *params = (char *) malloc(params_len);  //(char *) params_str.c_str();
+    memcpy(params, params_str.c_str(), params_len);
+
+    char pk[1000];
+    char sk[1000];
+    int pk_len, sk_len;
+    pureprivacy_result_t result = generate_keypair_helper(
+        params, params_len,
+        pk, sizeof(pk), &pk_len, 
+        sk, sizeof(sk), &sk_len);
+    cout << ". Generated keys" << status_msg(result == SUCCESS) << endl;
+
+    if (result == SUCCESS) {
+        json j = {
+            {"params", params_from_input},
+            {"pk", base64_encode((const unsigned char *) pk, pk_len)},
+            {"sk", base64_encode((const unsigned char *) sk, sk_len)}
+        };
+        output = j;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool pureprivacy_encrypt(json input, json &output)
+{
+    std::string params_str = base64_decode(input["params"]);
+    int params_len = params_str.length();
+    char *params = (char *) params_str.c_str();
+    
+    std::string pk_str = base64_decode(input["pk"]);
+    int pk_len = pk_str.length();
+    char *pk = (char *) pk_str.c_str();
+
+    char kek[16];
+    generate_random_key(kek, 16);
+
+    char ctxt[1000];
+    int ctxt_len;
+    pureprivacy_result_t result = encrypt_helper(
+        params, params_len,
+        pk, pk_len, 
+        kek, 16, 
+        ctxt, sizeof(ctxt), &ctxt_len);
+    cout << ". Encrypted plaintext at producer" << status_msg(result == SUCCESS) << endl;
+
+    if (result == SUCCESS) {
+        json j = {
+            {"ctxt", base64_encode((const unsigned char *) ctxt, ctxt_len)}
+        };
+        output = j;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+int main(int argc, char **argv)
+{
+    cxxopts::Options options("ppservice", "Pure Privacy Encryption Service");
+    options.add_options()
+        ("gen-params", "Generate Curve Parameters")
+        ("gen-keys", "Generate Public-Private Key Pair")
+        ("gen-re-key", "Generate Re-Encryption Key")
+        ("encrypt", "Encrypt")
+        ("re-encrypt", "ReEncrypt")
+        ("decrypt", "Decrypt")
+        ("i,input", "Input File name", cxxopts::value<std::string>())
+        ("o,output", "Output File name", cxxopts::value<std::string>())
+    ;
+    cxxopts::ParseResult args = options.parse(argc, argv);
+
+    if (args["gen-params"].as<bool>()) {
+        json o;
+        bool result = pureprivacy_gen_params(o);
+        if (result) {
+            std::string outfile = args["output"].as<std::string>();
+            std::ofstream out(outfile);
+            out << o;
+            cout << ". Saved output to file " << (args["output"].as<std::string>()) << endl;
+        }
+    } else if (args["gen-keys"].as<bool>()) {
+        std::string infile = args["input"].as<std::string>();
+        std::ifstream f(infile);
+        std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        json i = json::parse(json_str);
+        json o;
+        bool result = pureprivacy_gen_keys(i, o);
+        if (result) {
+            std::string outfile = args["output"].as<std::string>();
+            std::ofstream out(outfile);
+            out << o;
+            cout << ". Saved output to file " << (args["output"].as<std::string>()) << endl;
+        }
+    } else if (args["encrypt"].as<bool>()) {
+        std::string infile = args["input"].as<std::string>();
+        std::ifstream f(infile);
+        std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        json i = json::parse(json_str);
+        json o;
+        bool result = pureprivacy_encrypt(i, o);
+        if (result) {
+            std::string outfile = args["output"].as<std::string>();
+            std::ofstream out(outfile);
+            out << o;
+            cout << ". Saved output to file " << (args["output"].as<std::string>()) << endl;
+        }
+    }
 }
