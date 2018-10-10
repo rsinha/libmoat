@@ -5,6 +5,8 @@
 package nics.crypto.proxy.afgh;
 
 import java.util.Arrays;
+
+import com.sun.xml.internal.rngom.parse.host.Base;
 import nics.crypto.Tuple;
 import it.unisa.dia.gas.jpbc.*;
 import org.apache.commons.codec.binary.Hex;
@@ -25,6 +27,15 @@ public class ProxyMain {
         System.out.println(Hex.encodeHexString( x.toBytes() ));
     }
 
+    public static void print_byte_array(String name, byte[] x) {
+        System.out.printf("%s[%d]: ", name, x.length);
+        System.out.println(Hex.encodeHexString( x ));
+    }
+
+    public static Element base64_to_element(AFGHGlobalParameters global, String s) {
+        return AFGHProxyReEncryption.bytesToElement(Base64.decodeBase64(s.getBytes()), global.getG2());
+    }
+
     public static AFGHGlobalParameters generate_params() throws Exception {
         // 80 bits seg: r = 160, q = 512
         // 128 bits seg: r = 256, q = 1536
@@ -37,14 +48,15 @@ public class ProxyMain {
         return global;
     }
 
-    public static JsonObject generate_pubpriv_key(AFGHGlobalParameters global) throws Exception {
+    public static JsonObject generate_pubpriv_key(AFGHGlobalParameters global, String name) throws Exception {
         Element sk = AFGHProxyReEncryption.generateSecretKey(global);
-        Element pk = AFGHProxyReEncryption.generatePublicKey(sk, global);
+        byte[] pk = AFGHProxyReEncryption.generatePublicKey(sk.toBytes(), global);
+        System.out.printf("Within generate_pubpriv_key[%s]:\n", name);
+        print_byte_array("pk", pk);
+        print_element("sk", sk);
 
-        String encoded_sk = AFGHProxyReEncryption.elementToString(sk);
-        String encoded_pk = AFGHProxyReEncryption.elementToString(pk);
-        //String encoded_sk = new String(Base64.encodeBase64(sk.toBytes()));
-        //String encoded_pk = new String(Base64.encodeBase64(pk.toBytes()));
+        String encoded_sk = new String(Base64.encodeBase64(sk.toBytes()));
+        String encoded_pk = new String(Base64.encodeBase64(pk));
 
         JsonObject o = new JsonObject();
         o.addProperty("pk", encoded_pk);
@@ -53,26 +65,94 @@ public class ProxyMain {
     }
 
     public static JsonObject generate_delegate_key(AFGHGlobalParameters global, JsonObject i) throws Exception {
-        //String encoded_pk = new String(Base64.decodeBase64(i.get("partner_pk").getAsString()));
-        //String encoded_sk = new String(Base64.decodeBase64(i.get("producer_sk").getAsString()));
-        String encoded_pk = i.get("partner_pk").getAsString();
-        String encoded_sk = i.get("producer_sk").getAsString();
+        System.out.println("Within generate_delegate_key:");
 
-        Element pk = AFGHProxyReEncryption.stringToElement(encoded_pk, global.getG2());
-        Element sk = AFGHProxyReEncryption.stringToElement(encoded_sk, global.getG2());
+        byte[] pk = Base64.decodeBase64(i.get("partner_pk").getAsString().getBytes());
+        byte[] sk = Base64.decodeBase64(i.get("producer_sk").getAsString().getBytes());
 
-        Element rk = AFGHProxyReEncryption.generateReEncryptionKey(pk, sk);
+        print_byte_array("partner_pk", pk);
+        print_byte_array("producer_sk", sk);
 
-        String encoded_rk = AFGHProxyReEncryption.elementToString(rk);
+        byte[] rk = AFGHProxyReEncryption.generateReEncryptionKey(pk, sk, global);
+        print_byte_array("rk", rk);
+
+        String encoded_rk = new String(Base64.encodeBase64(rk));
         JsonObject o = new JsonObject();
         o.addProperty("rk", encoded_rk);
         return o;
     }
 
+    public static JsonObject encrypt_msg(AFGHGlobalParameters global, JsonObject i) throws Exception {
+        System.out.println("Within encrypt_msg:");
+
+        byte[] pk = Base64.decodeBase64(i.get("producer_pk").getAsString().getBytes());
+        print_byte_array("pk", pk);
+        byte[] msg = i.get("plaintext").getAsString().getBytes();
+        byte[] c = AFGHProxyReEncryption.secondLevelEncryption(msg, pk, global);
+        print_byte_array("c", c);
+
+        JsonObject o = new JsonObject();
+        o.addProperty("ciphertext", new String(Base64.encodeBase64(c)));
+        return o;
+    }
+
+    public static JsonObject reencrypt_ctxt(AFGHGlobalParameters global, JsonObject i) throws Exception {
+        System.out.println("Within reencrypt_ctxt");
+        byte[] rk = Base64.decodeBase64(i.get("rk").getAsString().getBytes());
+        byte[] c = Base64.decodeBase64(i.get("ciphertext").getAsString().getBytes());
+        print_byte_array("c", c);
+        print_byte_array("rk", rk);
+
+        byte[] c_new = AFGHProxyReEncryption.reEncryption(c, rk, global);
+        print_byte_array("c_new", c_new);
+
+        JsonObject o = new JsonObject();
+        o.addProperty("ciphertext", new String(Base64.encodeBase64(c_new)));
+        return o;
+    }
+
+    public static JsonObject decrypt_ctxt(AFGHGlobalParameters global, JsonObject i) throws Exception {
+        System.out.println("Within decrypt_ctxt");
+        byte[] sk = Base64.decodeBase64(i.get("sk").getAsString().getBytes());
+        byte[] c = Base64.decodeBase64(i.get("ciphertext").getAsString().getBytes());
+
+        byte[] m = AFGHProxyReEncryption.firstLevelDecryption(c, sk, global);
+        print_byte_array("msg", m);
+
+        JsonObject o = new JsonObject();
+        o.addProperty("plaintext", new String(m).trim());
+        return o;
+    }
 
     public static void main(String[] args) throws Exception {
         AFGHGlobalParameters params = generate_params();
+
+        JsonObject producer_json = generate_pubpriv_key(params, "producer");
+        JsonObject partner_json = generate_pubpriv_key(params, "partner");
+
+        JsonObject request_json = new JsonObject();
+        request_json.addProperty("producer_sk", producer_json.get("sk").getAsString());
+        request_json.addProperty("partner_pk", partner_json.get("pk").getAsString());
+        JsonObject delegate_json = generate_delegate_key(params, request_json);
+
+        request_json = new JsonObject();
+        request_json.addProperty("producer_pk", producer_json.get("pk").getAsString());
+        request_json.addProperty("plaintext", "0123456789012345678901234567890");
+        JsonObject producer_ciphertext = encrypt_msg(params, request_json);
+
+        request_json = new JsonObject();
+        request_json.addProperty("rk", delegate_json.get("rk").getAsString());
+        request_json.addProperty("ciphertext", producer_ciphertext.get("ciphertext").getAsString());
+        JsonObject consumer_ciphertext = reencrypt_ctxt(params, request_json);
+
+        request_json = new JsonObject();
+        request_json.addProperty("sk", partner_json.get("sk").getAsString());
+        request_json.addProperty("ciphertext", consumer_ciphertext.get("ciphertext").getAsString());
+        JsonObject result = decrypt_ctxt(params, request_json);
+
+        System.out.printf("Result: %s", result.get("plaintext").getAsString());
     }
+
 
     public static void test(String[] args) throws Exception {
 
@@ -270,5 +350,118 @@ public class ProxyMain {
         //System.out.println(medirTiempo());
 
     }
+    /*
+    public static JsonObject generate_pubpriv_key(AFGHGlobalParameters global, String name) throws Exception {
+        Element sk = AFGHProxyReEncryption.generateSecretKey(global);
+        Element pk = AFGHProxyReEncryption.generatePublicKey(sk, global);
+        System.out.printf("Within generate_pubpriv_key[%s]:\n", name);
+        print_element("pk", pk);
+        print_element("sk", sk);
 
+        //String encoded_sk = AFGHProxyReEncryption.elementToString(sk);
+        //String encoded_pk = AFGHProxyReEncryption.elementToString(pk);
+        //System.out.printf("generate_pubpriv_key: Got pk: %d\n", encoded_pk.getBytes().length);
+        String encoded_sk = new String(Base64.encodeBase64(sk.toBytes()));
+        String encoded_pk = new String(Base64.encodeBase64(pk.toBytes()));
+
+        JsonObject o = new JsonObject();
+        o.addProperty("pk", encoded_pk);
+        o.addProperty("sk", encoded_sk);
+        return o;
+    }
+
+    public static JsonObject generate_delegate_key(AFGHGlobalParameters global, JsonObject i) throws Exception {
+        //String encoded_pk = new String(Base64.decodeBase64(i.get("partner_pk").getAsString()));
+        //String encoded_sk = new String(Base64.decodeBase64(i.get("producer_sk").getAsString()));
+        //String encoded_pk = i.get("partner_pk").getAsString();
+        //System.out.printf("generate_delegate_key: Got pk: %d\n", encoded_pk.getBytes().length);
+        //String encoded_sk = i.get("producer_sk").getAsString();
+
+        //Element pk = AFGHProxyReEncryption.stringToElement(encoded_pk, global.getG2());
+        //Element sk = AFGHProxyReEncryption.stringToElement(encoded_sk, global.getG2());
+        //Element pk = AFGHProxyReEncryption.bytesToElement(Base64.decodeBase64(encoded_pk.getBytes()), global.getG2());
+        //Element sk = AFGHProxyReEncryption.bytesToElement(Base64.decodeBase64(encoded_sk.getBytes()), global.getG2());
+
+        Element pk = base64_to_element(global, i.get("partner_pk").getAsString());
+        Element sk = base64_to_element(global, i.get("producer_sk").getAsString());
+
+        System.out.println("Within generate_delegate_key:");
+        print_element("partner_pk", pk);
+        print_element("producer_sk", sk);
+
+        Element rk = AFGHProxyReEncryption.generateReEncryptionKey(pk, sk);
+        print_element("rk", rk);
+
+        String encoded_rk = new String(Base64.encodeBase64(rk.toBytes()));
+        JsonObject o = new JsonObject();
+        o.addProperty("rk", encoded_rk);
+        return o;
+    }
+
+    public static JsonObject encrypt_msg(AFGHGlobalParameters global, JsonObject i) throws Exception {
+        Element pk = base64_to_element(global, i.get("producer_pk").getAsString());
+        System.out.println("Within encrypt_msg:");
+        print_element("pk", pk);
+        ElementPowPreProcessing pk_a_ppp = pk.pow();
+
+        String msg = i.get("plaintext").getAsString();
+        Element m = AFGHProxyReEncryption.stringToElement(msg, global.getG2());
+
+        Tuple c = AFGHProxyReEncryption.secondLevelEncryption(m, pk_a_ppp, global);
+        Element c1 = c.get(1);
+        Element c2 = c.get(2);
+
+        String encoded_c1 = new String(Base64.encodeBase64(c1.toBytes()));
+        String encoded_c2 = new String(Base64.encodeBase64(c2.toBytes()));
+        //JsonArray ctxt_obj = new JsonArray();
+        //ctxt_obj.add(encoded_c1);
+        //ctxt_obj.add(encoded_c2);
+        JsonObject o = new JsonObject();
+        o.addProperty("ciphertext_1", encoded_c1);
+        o.addProperty("ciphertext_2", encoded_c2);
+        return o;
+    }
+
+    public static JsonObject reencrypt_ctxt(AFGHGlobalParameters global, JsonObject i) throws Exception {
+        //Element rk = base64_to_element(global, i.get("rk").getAsString());
+        String s = i.get("rk").getAsString();
+        Element rk = AFGHProxyReEncryption.bytesToElement(Base64.decodeBase64(s.getBytes()), global.getG1());
+        Element c1 = base64_to_element(global, i.get("ciphertext_1").getAsString());
+        Element c2 = base64_to_element(global, i.get("ciphertext_2").getAsString());
+        Tuple c_producer = new Tuple(c1, c2);
+
+        System.out.println("Within reencrypt_ctxt");
+        print_element("rk", rk);
+
+        //PairingPreProcessing e_ppp = global.getE().pairing(rk);
+
+        Tuple c_consumer = AFGHProxyReEncryption.reEncryption(c_producer, rk, global);
+
+        c1 = c_consumer.get(1);
+        c2 = c_consumer.get(2);
+
+        String encoded_c1 = new String(Base64.encodeBase64(c1.toBytes()));
+        String encoded_c2 = new String(Base64.encodeBase64(c2.toBytes()));
+        JsonObject o = new JsonObject();
+        o.addProperty("ciphertext_1", encoded_c1);
+        o.addProperty("ciphertext_2", encoded_c2);
+        return o;
+    }
+
+    public static JsonObject decrypt_ctxt(AFGHGlobalParameters global, JsonObject i) throws Exception {
+        Element sk = base64_to_element(global, i.get("sk").getAsString());
+        Element c1 = base64_to_element(global, i.get("ciphertext_1").getAsString());
+        Element c2 = base64_to_element(global, i.get("ciphertext_2").getAsString());
+        Tuple c_consumer = new Tuple(c1, c2);
+
+        Element sk_inverse = sk.invert();
+        Element m2 = AFGHProxyReEncryption.firstLevelDecryptionPreProcessing(c_consumer, sk_inverse, global);
+
+        String msg = new String(m2.toBytes()).trim();
+        System.out.printf("decrypt_ctxt: Got msg: %s\n", msg);
+        JsonObject o = new JsonObject();
+        o.addProperty("plaintext", msg);
+        return o;
+    }
+    */
 }

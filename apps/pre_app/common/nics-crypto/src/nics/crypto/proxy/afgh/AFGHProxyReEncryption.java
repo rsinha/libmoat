@@ -127,9 +127,8 @@ public class AFGHProxyReEncryption {
         Field G2 = global.getG2();
         Field G1 = global.getG1();
 
-        System.out.println(G2.getClass());
-
-        System.out.println("G2: " + G2.getLengthInBytes());
+        //System.out.println(G2.getClass());
+        //System.out.println("G2: " + G2.getLengthInBytes());
         // message = m \in G2
         Element m = bytesToElement(message, G2);
 //        System.out.println("M : " + Arrays.toString(m.toBytes()));
