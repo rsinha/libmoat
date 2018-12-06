@@ -233,5 +233,6 @@ int64_t chunk_storage_read(
     }
 
     free(aad);
-    return (trusted_offset_reached > offset) ? trusted_offset_reached - offset : 0;
+    return (trusted_offset_reached >= (offset + len)) ? len :
+            ((trusted_offset_reached > offset) ? trusted_offset_reached - offset : 0);
 }
