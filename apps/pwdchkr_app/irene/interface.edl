@@ -1,8 +1,6 @@
 enclave {
-
-  /* list enclave calls here */
   trusted {
-    public uint64_t enclave_test();
+    public uint64_t enclave_test([user_check] void *buf, size_t buf_size);
   };
 
   from "../../../../libmoat/api/libmoat.edl" import *;

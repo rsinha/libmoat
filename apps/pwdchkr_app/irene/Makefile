@@ -83,7 +83,7 @@ else
 	Host_Link_Flags += -lsgx_uae_service
 endif
 
-Host_Cpp_Objects := host/host_client.o host/secret.pb.o
+Host_Cpp_Objects := host/secret.pb.o host/host_client.o
 
 Host_Name := irene.out
 
