@@ -7,7 +7,7 @@
 
 #include "sgx_dh.h"
 #include "sgx_trts.h"
-#include "secret.pb-c.h"
+#include "attempt.pb-c.h"
 
 uint64_t enclave_test(uint8_t *buf, size_t size)
 {
@@ -16,14 +16,13 @@ uint64_t enclave_test(uint8_t *buf, size_t size)
 
     _moat_print_debug("enclave: buf: %p, size: %zu\n", buf, size);
 
-    LuciditeeGuessApp__Secret *secret;
-    secret = luciditee_guess_app__secret__unpack(NULL, size, buf);
-    assert(secret != NULL);
+    LuciditeeGuessApp__Attempt *attempt;
+    attempt = luciditee_guess_app__attempt__unpack(NULL, size, buf);
+    assert(attempt != NULL);
 
-    _moat_print_debug("parsing proto from enclave...got secret value %" 
-        PRIu64 ", with max guesses %" PRIu64 "\n", secret->password, secret->guesses);
+    _moat_print_debug("parsing proto from enclave...got attempt value %" PRIu64 "\n", attempt->guess);
 
-    luciditee_guess_app__secret__free_unpacked(secret, NULL);
+    luciditee_guess_app__attempt__free_unpacked(attempt, NULL);
 
     //first copy the proto buffer internally
     uint8_t *internal_buf = (uint8_t *) malloc(size);
@@ -37,7 +36,7 @@ uint64_t enclave_test(uint8_t *buf, size_t size)
     memset(&fs_encr_key, 0, sizeof(fs_encr_key)); //TODO: this is zeroed out now
 
     //open the file
-    int64_t fd = _moat_fs_open("irene_input", O_WRONLY | O_CREAT, &fs_encr_key);
+    int64_t fd = _moat_fs_open("sherlock_input", O_WRONLY | O_CREAT, &fs_encr_key);
     assert(fd != -1);
     int64_t api_result = _moat_fs_write(fd, buf, size);
     assert(api_result == size);

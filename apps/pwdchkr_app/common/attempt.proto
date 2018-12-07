@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+package luciditee_guess_app;
+
+message Attempt {
+  required uint64 guess = 1;
+}

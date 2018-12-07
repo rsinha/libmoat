@@ -1,0 +1,10 @@
+{
+  "kvs_outputs": {},
+  "kvs_inputs": {},
+  "fs_outputs": {
+    "sherlock_input": "sherlock_input_s3"
+  },
+  "fs_inputs": {},
+  "scc_self": "5556",
+  "scc_actors": {}
+}

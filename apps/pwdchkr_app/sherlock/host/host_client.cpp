@@ -9,7 +9,7 @@
 
 #include "sgx_urts.h"
 #include "interface_u.h"
-#include "secret.pb.h"
+#include "attempt.pb.h"
 
 #include <string>
 #include <fstream>
@@ -38,7 +38,7 @@ int enclave_computation(uint8_t *buf, size_t buf_size)
   }
  
   ret = enclave_test(global_eid, &pwerr, buf, buf_size);
-  //printf("pw_check+ took %ums\n", GetTickCount() - time);
+
   if (ret != SGX_SUCCESS)
   {
     printf("test failed: %#x\n", ret);
@@ -73,16 +73,15 @@ int main(int argc, char *argv[])
 
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-  luciditee_guess_app::Secret secret;
-  secret.set_password(8813);
-  secret.set_guesses(3);
+  luciditee_guess_app::Attempt attempt;
+  attempt.set_guess(3188);
 
-  size_t ptxt_buf_size = secret.ByteSize();
+  size_t ptxt_buf_size = attempt.ByteSize();
   std::cout << "byte encoding has size " << ptxt_buf_size << std::endl;
   unsigned char *ptxt_buf = (unsigned char *) malloc(ptxt_buf_size);
   if(!ptxt_buf) { std::cout << "unable to malloc" << std::endl; exit(1); }
   printf("host: buf: %p, size: %zu\n", ptxt_buf, ptxt_buf_size);
-  if (!secret.SerializeToArray(ptxt_buf, ptxt_buf_size)) {
+  if (!attempt.SerializeToArray(ptxt_buf, ptxt_buf_size)) {
       std::cerr << "Failed to write tx" << std::endl;
       return -1;
   }
