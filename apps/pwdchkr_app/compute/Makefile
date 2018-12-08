@@ -85,7 +85,7 @@ endif
 
 Host_Cpp_Objects := host/host_compute.o
 
-Host_Name := sherlock.out
+Host_Name := compute.out
 
 ######## Enclave Settings ########
 
