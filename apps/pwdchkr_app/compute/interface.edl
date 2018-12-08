@@ -1,0 +1,8 @@
+enclave {
+  trusted {
+    public uint64_t enclave_test();
+  };
+
+  from "../../../../libmoat/api/libmoat.edl" import *;
+
+};

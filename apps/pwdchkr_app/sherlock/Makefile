@@ -53,7 +53,7 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-Host_Cpp_Files := host/attempt.pb.cc host/host_client.cpp
+Host_Cpp_Files := host/attempt.pb.cc host/host_sherlock.cpp
 #Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include
 Host_Include_Paths := -Ihost -I$(SGX_SDK)/include
 
@@ -83,7 +83,7 @@ else
 	Host_Link_Flags += -lsgx_uae_service
 endif
 
-Host_Cpp_Objects := host/attempt.pb.o host/host_client.o
+Host_Cpp_Objects := host/attempt.pb.o host/host_sherlock.o
 
 Host_Name := sherlock.out
 
