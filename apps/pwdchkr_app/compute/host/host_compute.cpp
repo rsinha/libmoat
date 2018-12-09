@@ -14,12 +14,9 @@
 #include <fstream>
 #include <iostream>
 
-void init_barbican(const std::string &json_str);
+#include <cxxopts.hpp>
 
-/* Global EID shared by multiple threads */
-sgx_enclave_id_t global_eid = 0;
-
-int enclave_computation()
+int enclave_computation(bool init)
 {
   uint64_t pwerr;
 
@@ -28,6 +25,7 @@ int enclave_computation()
   sgx_launch_token_t token = { 0 };
 
   int token_updated = 0;
+  sgx_enclave_id_t global_eid = 0;
 
   ret = sgx_create_enclave("enclave.signed.so", SGX_DEBUG_FLAG, &token, &token_updated, &global_eid, NULL);
   if (ret != SGX_SUCCESS)
@@ -36,7 +34,7 @@ int enclave_computation()
     return 1;
   }
  
-  ret = enclave_test(global_eid, &pwerr);
+  ret = init ? enclave_init(global_eid, &pwerr) : enclave_transition(global_eid, &pwerr);
 
   if (ret != SGX_SUCCESS)
   {
@@ -61,15 +59,38 @@ int enclave_computation()
 
 int main(int argc, char *argv[])
 {
-  if (argc < 2) {
-    std::cout << "Insufficient arguments: must pass a json config" << std::endl;
+  try {
+    cxxopts::Options options("pwdchkr compute enclave", "Checks if Sherlock's guess equals Irene's password");
+
+    bool init = false;
+
+    options
+      .show_positional_help()
+      .add_options()
+        ("help", "Print help")
+        ("i,init", "Create initial state", cxxopts::value<bool>(init))
+        ("c,config", "Json configuration", cxxopts::value<std::string>())
+      ;
+
+    auto result = options.parse(argc, argv);
+
+    if (!result.count("c") || result.count("help")) {
+      std::cout << options.help({"", "Group"}) << std::endl;
+      exit(0);
+    }
+
+    std::string json_file = result["c"].as<std::string>();
+  
+    void init_barbican(const std::string &json_str);
+    std::ifstream f(json_file);
+    std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    init_barbican(json_str);
+
+    return enclave_computation(init);
+
+  } catch (const cxxopts::OptionException& e) {
+    std::cout << "error parsing options: " << e.what() << std::endl;
     exit(1);
   }
-
-  std::ifstream f(argv[1]);
-  std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-  init_barbican(json_str);
-
-  return enclave_computation();
 }
 

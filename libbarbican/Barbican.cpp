@@ -38,6 +38,8 @@ typedef struct _merkle_node {
     struct _merkle_node *parent;
 } merkle_node_t;
 
+typedef std::pair<std::string, std::string> strpair_t;
+
 /* Global Internal State */
 std::map<int64_t, untrusted_channel_t>  g_channels; //map session id to channel struct
 merkle_node_t                          *g_merkle_root;
@@ -47,8 +49,10 @@ BackendDBInterface                     *g_db_context;
 void                                   *g_prev_reply;
 std::map<std::string, std::string>      g_config_kvs_inputs;
 std::map<std::string, std::string>      g_config_kvs_outputs;
+std::map<std::string, strpair_t>        g_config_kvs_state;
 std::map<std::string, std::string>      g_config_fs_outputs;
 std::map<std::string, std::string>      g_config_fs_inputs;
+std::map<std::string, strpair_t>        g_config_fs_state;
 std::string                             g_config_scc_self;
 std::map<std::string, std::string>      g_config_scc_actors; //map remote entity name to ip address
 std::map<std::string, bool>             g_config_scc_roles; //map remote entity name to role (client / server)
@@ -85,7 +89,7 @@ extern "C" size_t start_session_ocall(const char *name, sgx_measurement_t *targe
     std::string self_addr = "tcp://*:" + g_config_scc_self;
     std::string remote_addr = iter->second;
 
-    std::cout << "within " << (*is_server ? "server" : "client") << std::endl;
+    std::cout << "barbican: within " << (*is_server ? "server" : "client") << std::endl;
 
     if (*is_server) {
         channel.zmq_ctx_outbound = zmq_ctx_new();
@@ -103,8 +107,8 @@ extern "C" size_t start_session_ocall(const char *name, sgx_measurement_t *targe
         assert(zmq_bind(channel.zmq_skt_outbound, self_addr.c_str()) == 0);
     }
 
-    std::cout << "self running at " << self_addr << std::endl;
-    std::cout << "Connected to " << name << " running on " << remote_addr << std::endl;
+    std::cout << "barbican: self running at " << self_addr << std::endl;
+    std::cout << "barbican: Connected to " << name << " running on " << remote_addr << std::endl;
 
     g_channels.insert(std::pair<int64_t, untrusted_channel_t>(session_id, channel));
     return 0;
@@ -121,7 +125,7 @@ extern "C" size_t recv_dh_msg1_ocall(sgx_measurement_t *target_enclave, sgx_dh_m
     std::map<int64_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
         zmq_recv(iter->second.zmq_skt_inbound, dh_msg1, sizeof(sgx_dh_msg1_t), 0);
-        std::cout << "Received dh_msg1...\n";
+        std::cout << "barbican: Received dh_msg1...\n";
         return 0;
     }
     return 1; //ERROR
@@ -133,10 +137,10 @@ extern "C" size_t send_dh_msg2_recv_dh_msg3_ocall(sgx_dh_msg2_t *dh_msg2, sgx_dh
     if (iter != g_channels.end()) {
         //send dh_msg2 to the remote (client)
         zmq_send(iter->second.zmq_skt_outbound, dh_msg2, sizeof(sgx_dh_msg2_t), 0);
-        std::cout << "Sent dh_msg2...\n";
+        std::cout << "barbican: Sent dh_msg2...\n";
         //recv dh_msg3 from the remote (client)
         zmq_recv(iter->second.zmq_skt_inbound, dh_msg3, sizeof(sgx_dh_msg3_t), 0);
-        std::cout << "Received dh_msg3...\n";
+        std::cout << "barbican: Received dh_msg3...\n";
         return 0;
     }
     return 1; //ERROR
@@ -150,10 +154,10 @@ extern "C" size_t send_dh_msg1_recv_dh_msg2_ocall(sgx_measurement_t *target_encl
     if (iter != g_channels.end()) {
         //send dh_msg1 to the remote (client)
          zmq_send(iter->second.zmq_skt_outbound, dh_msg1, sizeof(sgx_dh_msg1_t), 0);
-         std::cout << "Sent dh_msg1...\n";
+         std::cout << "barbican: Sent dh_msg1...\n";
          //recv dh_msg2 from the remote (client)
          zmq_recv(iter->second.zmq_skt_inbound, dh_msg2, sizeof(sgx_dh_msg2_t), 0);
-         std::cout << "Received dh_msg2...\n";
+         std::cout << "barbican: Received dh_msg2...\n";
          return 0;
     }
     return 1; //ERROR
@@ -165,7 +169,7 @@ extern "C" size_t send_dh_msg3_ocall(sgx_dh_msg3_t *dh_msg3, int64_t session_id)
     std::map<int64_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
         zmq_send(iter->second.zmq_skt_outbound, dh_msg3, sizeof(sgx_dh_msg3_t), 0);
-        std::cout << "Sent dh_msg3...\n";
+        std::cout << "barbican: Sent dh_msg3...\n";
         return 0;
     }
     return 1;
@@ -191,7 +195,7 @@ extern "C" size_t send_msg_ocall(void *buf, size_t len, int64_t session_id)
     std::map<int64_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
         zmq_send(iter->second.zmq_skt_outbound, (uint8_t *) buf, len, 0);
-        printf("Sent %zu bytes in session %zu\n", len, session_id);
+        printf("barbican: Sent %zu bytes in session %zu\n", len, session_id);
         return 0;
     }
     return -1;
@@ -202,7 +206,7 @@ extern "C" size_t recv_msg_ocall(void *buf, size_t len, int64_t session_id)
     std::map<int64_t, untrusted_channel_t>::iterator iter = g_channels.find(session_id);
     if (iter != g_channels.end()) {
         zmq_recv(iter->second.zmq_skt_inbound, buf, len, 0);
-        printf("Received %zu bytes in session %zu\n", len, session_id);
+        printf("barbican: Received %zu bytes in session %zu\n", len, session_id);
         return 0;
     }
     return -1;
@@ -213,11 +217,11 @@ extern "C" size_t fs_init_service_ocall()
     std::string command("");
     command = (command + "mkdir -p ") + STORAGE_FS_ROOT;
 
-    std::cout << "invoking " << command << std::endl;
+    std::cout << "barbican: invoking " << command << std::endl;
     const int dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
-        std::cout << "Error creating directory " << STORAGE_FS_ROOT << std::endl;
+        std::cout << "barbican: Error creating directory " << STORAGE_FS_ROOT << std::endl;
         exit(1);
     }
 
@@ -228,13 +232,13 @@ extern "C" size_t fs_create_ocall(int64_t fd, const char *name)
 {
     std::string path(name);
     path = STORAGE_FS_ROOT + path;
-    std::cout << "creating " << path << std::endl;
+    std::cout << "barbican: creating " << path << std::endl;
     std::string command = "mkdir -p " + path;
-    std::cout << "invoking " << command << std::endl;
+    std::cout << "barbican: invoking " << command << std::endl;
     const int dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
-        std::cout << "Error creating directory " << path << std::endl;
+        std::cout << "barbican: Error creating directory " << path << std::endl;
         exit(1);
     }
 
@@ -251,7 +255,7 @@ extern "C" size_t fs_destroy_ocall(int64_t fd, const char *name)
     if (iter == g_file_paths.end()) { return -1; }
 
     std::string command = "rm -rf " + iter->second;
-    std::cout << "invoking " << command << std::endl;
+    std::cout << "barbican: invoking " << command << std::endl;
 
     const int dir_err = system(command.c_str());
     if (-1 == dir_err)
@@ -273,7 +277,7 @@ extern "C" size_t fs_write_block_ocall(int64_t fd, size_t addr, void *buf, size_
     std::ofstream fout;
     fout.open(filename.c_str(), std::ios::binary | std::ios::out);
     fout.write((char *) buf, (std::streamsize) len);
-    printf("Wrote %zu bytes to %s\n", len, filename.c_str());
+    printf("barbican: Wrote %zu bytes to %s\n", len, filename.c_str());
 
     fout.close();
     return 0;
@@ -288,7 +292,7 @@ extern "C" size_t fs_read_block_ocall(int64_t fd, size_t addr, void *buf, size_t
     std::ifstream fin;
     fin.open(filename, std::ios::binary | std::ios::in);
     fin.read((char *) buf, (std::streamsize) len);
-    printf("Read %zu bytes from %s\n", len, filename.c_str());
+    printf("barbican: Read %zu bytes from %s\n", len, filename.c_str());
 
     fin.close();
     return 0;
@@ -301,12 +305,12 @@ extern "C" size_t fs_delete_block_ocall(int64_t fd, size_t addr)
     std::string filename = iter->second + "/" + std::to_string(addr);
 
     std::string command = "rm " + filename;
-    std::cout << "invoking " << command << std::endl;
+    std::cout << "barbican: invoking " << command << std::endl;
 
     const int dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
-        std::cout << "Error removing file " << filename << std::endl;
+        std::cout << "barbican: Error removing file " << filename << std::endl;
         exit(1);
     }
 
@@ -315,16 +319,21 @@ extern "C" size_t fs_delete_block_ocall(int64_t fd, size_t addr)
 
 extern "C" size_t fs_save_ocall(int64_t fd, const char *name, int64_t length)
 {
-    std::string file_name(name);
-    std::string file_path = STORAGE_FS_ROOT + file_name;
-    std::map<std::string, std::string>::iterator iter = g_config_fs_outputs.find(file_name);
-    if (iter == g_config_fs_outputs.end()) { return -1; }
-    std::string file_backup_path = STORAGE_FS_ROOT + iter->second;
-    std::cout << "saving " << file_path << " to " << file_backup_path << std::endl;
+    std::string file_path(name);
 
-    std::cout << "creating " << file_backup_path << std::endl;
+    std::map<std::string, std::string>::iterator iter_o = g_config_fs_outputs.find(file_path);
+    std::map<std::string, strpair_t>::iterator iter_s = g_config_fs_state.find(file_path);
+    if (iter_o == g_config_fs_outputs.end() && iter_s == g_config_fs_state.end()) { return -1; }
+
+    std::string file_backup_path = (iter_o != g_config_fs_outputs.end()) ? iter_o->second : (iter_s->second).second;
+
+    file_path = STORAGE_FS_ROOT + file_path;
+    file_backup_path = STORAGE_FS_ROOT + file_backup_path;
+
+    std::cout << "barbican: saving " << file_path << " to " << file_backup_path << std::endl;
+    std::cout << "barbican: creating " << file_backup_path << std::endl;
     std::string command = "mkdir -p " + file_backup_path;
-    std::cout << "invoking " << command << std::endl;
+    std::cout << "barbican: invoking " << command << std::endl;
     int dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
@@ -333,11 +342,12 @@ extern "C" size_t fs_save_ocall(int64_t fd, const char *name, int64_t length)
     }
 
     command = "cp " + file_path + "/* " + file_backup_path + "/";
-    std::cout << "invoking " << command << std::endl;
+    std::cout << "barbican: invoking " << command << std::endl;
     dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
-        std::cout << "Error copying files from " << file_path << " to " << file_backup_path << std::endl;
+        std::cout << "barbican: Error copying files from " << file_path 
+            << " to " << file_backup_path << std::endl;
         exit(1);
     }
 
@@ -345,7 +355,8 @@ extern "C" size_t fs_save_ocall(int64_t fd, const char *name, int64_t length)
     std::ofstream fout;
     fout.open(metadata_file_path.c_str(), std::ios::binary | std::ios::out);
     fout.write((char *) &length, (std::streamsize) sizeof(length));
-    std::cout << "Wrote " << std::to_string(sizeof(length)) << " bytes to " << metadata_file_path << std::endl;
+    std::cout << "barbican: Wrote " << std::to_string(sizeof(length)) << 
+        " bytes to " << metadata_file_path << std::endl;
     fout.close();
 
     return 0;
@@ -353,30 +364,35 @@ extern "C" size_t fs_save_ocall(int64_t fd, const char *name, int64_t length)
 
 extern "C" size_t fs_load_ocall(int64_t fd, const char *name, int64_t *length)
 {
-    std::string file_name(name);
-    std::map<std::string, std::string>::iterator iter = g_config_fs_inputs.find(file_name);
-    if (iter == g_config_fs_inputs.end()) { return -1; }
+    std::string file_path(name);
 
-    std::string file_path = STORAGE_FS_ROOT + file_name;
-    std::string file_backup_path = STORAGE_FS_ROOT + iter->second;
+    std::map<std::string, std::string>::iterator iter_i = g_config_fs_inputs.find(file_path);
+    std::map<std::string, strpair_t>::iterator iter_s = g_config_fs_state.find(file_path);
+    if (iter_i == g_config_fs_inputs.end() && iter_s == g_config_fs_state.end()) { return -1; }
 
-    std::cout << "loading " << file_path << " from " << file_backup_path << std::endl;
+    std::string file_backup_path = (iter_i != g_config_fs_inputs.end()) ? iter_i->second : (iter_s->second).second;
+
+    file_path = STORAGE_FS_ROOT + file_path;
+    file_backup_path = STORAGE_FS_ROOT + file_backup_path;
+
+    std::cout << "barbican: loading " << file_path << " from " << file_backup_path << std::endl;
 
     std::string command = "mkdir -p " + file_path;
-    std::cout << "invoking " << command << std::endl;
+    std::cout << "barbican: invoking " << command << std::endl;
     int dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
-        std::cout << "Error creating directory " << file_path << std::endl;
+        std::cout << "barbican: Error creating directory " << file_path << std::endl;
         exit(1);
     }
 
     command = "cp " + file_backup_path + "/* " + file_path + "/";
-    std::cout << "invoking " << command << std::endl;
+    std::cout << "barbican: invoking " << command << std::endl;
     dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
-        std::cout << "Error copying files from " << file_backup_path << " to " << file_path << std::endl;
+        std::cout << "barbican: Error copying files from " << 
+            file_backup_path << " to " << file_path << std::endl;
         exit(1);
     }
 
@@ -384,7 +400,8 @@ extern "C" size_t fs_load_ocall(int64_t fd, const char *name, int64_t *length)
     std::ifstream fin;
     fin.open(metadata_file_path, std::ios::binary | std::ios::in);
     fin.read((char *) length, (std::streamsize) sizeof(int64_t));
-    std::cout << "Read " << std::to_string(sizeof(int64_t)) << " bytes from " << metadata_file_path << std::endl;
+    std::cout << "barbican: Read " << std::to_string(sizeof(int64_t)) << 
+        " bytes from " << metadata_file_path << std::endl;
     fin.close();
 
     assert(g_file_paths.find(fd) == g_file_paths.end()); //fd shouldn't already exist
@@ -514,12 +531,14 @@ extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
 {
     std::string db_path(name);
 
-    std::map<std::string, std::string>::iterator iter = g_config_kvs_outputs.find(db_path);
-    if (iter == g_config_kvs_outputs.end()) { return -1; }
+    std::map<std::string, std::string>::iterator iter_o = g_config_kvs_outputs.find(db_path);
+    std::map<std::string, strpair_t>::iterator iter_s = g_config_kvs_state.find(db_path);
+    if (iter_o == g_config_kvs_outputs.end() && iter_s == g_config_kvs_state.end()) { return -1; }
 
-    std::cout << "saving " << db_path << " to " << iter->second << std::endl;
+    std::string db_backup_path = (iter_o != g_config_kvs_inputs.end()) ? iter_o->second : (iter_s->second).second;
+    std::cout << "barbican: saving " << db_path << " from " << db_backup_path << std::endl;
 
-    std::string db_backup_path = STORAGE_KVS_ROOT + iter->second;
+    db_backup_path = STORAGE_KVS_ROOT + db_backup_path;
     bool success = g_db_context->backend_db_save(fd, db_backup_path.c_str());
     return success ? 0 : -1;
 }
@@ -527,13 +546,16 @@ extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
 extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
 {
     std::string db_path(name);
-    std::map<std::string, std::string>::iterator iter = g_config_kvs_inputs.find(db_path);
-    if (iter == g_config_kvs_inputs.end()) { return -1; }
 
-    std::cout << "loading " << db_path << " from " << iter->second << std::endl;
+    std::map<std::string, std::string>::iterator iter_i = g_config_kvs_inputs.find(db_path);
+    std::map<std::string, strpair_t>::iterator iter_s = g_config_kvs_state.find(db_path);
+    if (iter_i == g_config_kvs_inputs.end() && iter_s == g_config_kvs_state.end()) { return -1; }
+
+    std::string db_backup_path = (iter_i != g_config_kvs_inputs.end()) ? iter_i->second : (iter_s->second).second;
+    std::cout << "barbican: loading " << db_path << " from " << db_backup_path << std::endl;
 
     db_path = STORAGE_KVS_ROOT + db_path;
-    std::string db_backup_path = STORAGE_KVS_ROOT + iter->second;
+    db_backup_path = STORAGE_KVS_ROOT + db_backup_path;
     bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());
     return success ? 0 : -1;
 }
@@ -584,35 +606,61 @@ extern "C" size_t free_ocall(void *untrusted_buf)
     return 0;
 }
 
+void register_fs_state(const std::string &name, 
+    const std::string &backup_path_prev,
+    const std::string &backup_path_next)
+{
+    g_config_fs_state.insert(std::pair<std::string, strpair_t>(name, 
+        strpair_t(backup_path_prev, backup_path_next)));
+    std::cout << "barbican: Noting that state file " << name <<
+         " has prev at " << backup_path_prev << 
+         " and next at " << backup_path_next << std::endl;
+}
+
 void register_fs_input(const std::string &name, const std::string &backup_path)
 {
     g_config_fs_inputs.insert(std::pair<std::string, std::string>(name, backup_path));
-    std::cout << "Noting that output file " << name << " is backed up at " << backup_path << std::endl;
+    std::cout << "barbican: Noting that input file " << name <<
+         " is backed up at " << backup_path << std::endl;
 }
 
 void register_fs_output(const std::string &name, const std::string &backup_path)
 {
     g_config_fs_outputs.insert(std::pair<std::string, std::string>(name, backup_path));
-    std::cout << "Noting that output file " << name << " is backed up at " << backup_path << std::endl;
+    std::cout << "barbican: Noting that output file " << name <<
+         " is backed up at " << backup_path << std::endl;
+}
+
+void register_kvs_state(const std::string &name, 
+    const std::string &backup_path_prev,
+    const std::string &backup_path_next)
+{
+    g_config_kvs_state.insert(std::pair<std::string, strpair_t>(name, 
+        strpair_t(backup_path_prev, backup_path_next)));
+    std::cout << "barbican: Noting that state db " << name <<
+         " has prev at " << backup_path_prev << 
+         " and next at " << backup_path_next << std::endl;
 }
 
 void register_kvs_input(const std::string &name, const std::string &backup_path)
 {
     g_config_kvs_inputs.insert(std::pair<std::string, std::string>(name, backup_path));
-    std::cout << "Noting that input db " << name << " is backed up at " << backup_path << std::endl;
+    std::cout << "barbican: Noting that input db " << name <<
+         " is backed up at " << backup_path << std::endl;
 }
 
 void register_kvs_output(const std::string &name, const std::string &backup_path)
 {
     g_config_kvs_outputs.insert(std::pair<std::string, std::string>(name, backup_path));
-    std::cout << "Noting that output db " << name << " is backed up at " << backup_path << std::endl;
+    std::cout << "barbican: Noting that output db " << name <<
+         " is backed up at " << backup_path << std::endl;
 }
 
 void register_scc_actor(const std::string &name, const std::string &ip_addr, bool role_is_server)
 {
     g_config_scc_actors.insert(std::pair<std::string, std::string>(name, ip_addr));
     g_config_scc_roles.insert(std::pair<std::string, bool>(name, role_is_server));
-    std::cout << "Noting that remote actor " << name << " can be reached at " << ip_addr << 
+    std::cout << "barbican: Noting that remote actor " << name << " can be reached at " << ip_addr << 
         ", we will act as " << (role_is_server ? "server" : "client") << std::endl;
 }
 
@@ -621,26 +669,42 @@ void init_barbican(const std::string &json_str)
     try {
         json j = json::parse(json_str);
 
+        json state = j["kvs_state"];
+        std::cout << "barbican: Reading state config for key-value stores ..." << std::endl;
+        for (json::iterator it = state.begin(); it != state.end(); ++it) {
+            json prev = it.value()["prev"];
+            json next = it.value()["next"];
+            register_kvs_state(it.key(), prev.get<std::string>(), next.get<std::string>());
+        }
+
         json inputs = j["kvs_inputs"];
-        std::cout << "Reading input config for key-value stores ..." << std::endl;
+        std::cout << "barbican: Reading input config for key-value stores ..." << std::endl;
         for (json::iterator it = inputs.begin(); it != inputs.end(); ++it) {
             register_kvs_input(it.key(), it.value().get<std::string>());
         }
 
         json outputs = j["kvs_outputs"];
-        std::cout << "Reading output config for key-value stores ..." << std::endl;
+        std::cout << "barbican: Reading output config for key-value stores ..." << std::endl;
         for (json::iterator it = outputs.begin(); it != outputs.end(); ++it) {
             register_kvs_output(it.key(), it.value().get<std::string>());
         }
 
+        state = j["fs_state"];
+        std::cout << "barbican: Reading state config for files ..." << std::endl;
+        for (json::iterator it = state.begin(); it != state.end(); ++it) {
+            json prev = it.value()["prev"];
+            json next = it.value()["next"];
+            register_fs_state(it.key(), prev.get<std::string>(), next.get<std::string>());
+        }
+
         inputs = j["fs_inputs"];
-        std::cout << "Reading input config for key-value stores ..." << std::endl;
+        std::cout << "barbican: Reading input config for files ..." << std::endl;
         for (json::iterator it = inputs.begin(); it != inputs.end(); ++it) {
             register_fs_input(it.key(), it.value().get<std::string>());
         }
 
         outputs = j["fs_outputs"];
-        std::cout << "Reading output config for files ..." << std::endl;
+        std::cout << "barbican: Reading output config for files ..." << std::endl;
         for (json::iterator it = outputs.begin(); it != outputs.end(); ++it) {
             register_fs_output(it.key(), it.value().get<std::string>());
         }
@@ -649,7 +713,7 @@ void init_barbican(const std::string &json_str)
         g_config_scc_self = self_addr.get<std::string>();
 
         json actors = j["scc_actors"];
-        std::cout << "Reading network config ..." << std::endl;
+        std::cout << "barbican: Reading network config ..." << std::endl;
         for (json::iterator it = actors.begin(); it != actors.end(); ++it) {
             json actor_info = actors[it.key()];
             json ip_addr = actor_info["url"];
@@ -658,7 +722,7 @@ void init_barbican(const std::string &json_str)
         }
 
     } catch (const std::exception& ex) {
-        std::cout << "Error parsing json config: " << ex.what() << std::endl;
+        std::cout << "barbican: Error parsing json config: " << ex.what() << std::endl;
         exit(1);
     }
 }

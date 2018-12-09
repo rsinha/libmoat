@@ -1,11 +1,18 @@
 {
   "kvs_outputs": {},
   "kvs_inputs": {},
+  "kvs_state": {},
   "fs_inputs": {
     "sherlock_input": "sherlock_input_s3",
     "irene_input": "irene_input_s3"
   },
-  "fs_outputs": {},
+  "fs_outputs": {
+    "pwdchkr_output" : "pwdchkr_output_s3"
+  },
+  "fs_state": {
+    "pwdchkr_state" : {
+      "prev": "pwdchkr_state_prev_s3", "next": "pwdchkr_state_next_s3"}
+  },
   "scc_self": "5556",
   "scc_actors": {}
 }

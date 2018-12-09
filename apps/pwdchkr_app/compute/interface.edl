@@ -1,6 +1,7 @@
 enclave {
   trusted {
-    public uint64_t enclave_test();
+    public uint64_t enclave_transition();
+    public uint64_t enclave_init();
   };
 
   from "../../../../libmoat/api/libmoat.edl" import *;
