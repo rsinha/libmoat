@@ -105,6 +105,9 @@ uint64_t enclave_transition()
         state->guesses = state->guesses - 1; //decrement guesses by 1
     }
 
+    _moat_print_debug("enclave result: %s\n", output);
+    _moat_print_debug("updated state->guesses = %" PRIu64 "\n", state->guesses);
+
     //serialize state to state_buf
     assert(state_buf_len == luciditee_guess_app__secret__get_packed_size(state));
     assert (luciditee_guess_app__secret__pack(state, state_buf) == state_buf_len);

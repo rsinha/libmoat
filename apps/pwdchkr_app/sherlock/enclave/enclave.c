@@ -26,7 +26,6 @@ uint64_t enclave_test(uint8_t *buf, size_t size)
 
     //first copy the proto buffer internally
     uint8_t *internal_buf = (uint8_t *) malloc(size);
-    _moat_print_debug("malloc \n");
     assert(internal_buf != NULL);
     memcpy(internal_buf, buf, size);
 

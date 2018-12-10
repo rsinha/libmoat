@@ -15,6 +15,8 @@
 #include <fstream>
 #include <iostream>
 
+#include <cxxopts.hpp>
+
 void init_barbican(const std::string &json_str);
 
 /* Global EID shared by multiple threads */
@@ -62,19 +64,34 @@ int enclave_computation(uint8_t *buf, size_t buf_size)
 
 int main(int argc, char *argv[])
 {
-  if (argc < 2) {
-    std::cout << "Insufficient arguments: must pass a json config" << std::endl;
-    exit(1);
+  cxxopts::Options options("pwdchkr compute enclave", "Checks if Sherlock's guess equals Irene's password");
+
+  options
+    .show_positional_help()
+    .add_options()
+      ("help", "Print help")
+      ("g,guess", "Guess Value", cxxopts::value<int>())
+      ("c,config", "Json configuration", cxxopts::value<std::string>())
+    ;
+
+  auto result = options.parse(argc, argv);
+
+  if (!result.count("g") || !result.count("c") || result.count("help")) {
+    std::cout << options.help({"", "Group"}) << std::endl;
+    exit(0);
   }
 
-  std::ifstream f(argv[1]);
+  std::string json_file = result["c"].as<std::string>();
+
+  void init_barbican(const std::string &json_str);
+  std::ifstream f(json_file);
   std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
   init_barbican(json_str);
 
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   luciditee_guess_app::Attempt attempt;
-  attempt.set_guess(3188);
+  attempt.set_guess((uint64_t) result["g"].as<int>());
 
   size_t ptxt_buf_size = attempt.ByteSize();
   std::cout << "byte encoding has size " << ptxt_buf_size << std::endl;
