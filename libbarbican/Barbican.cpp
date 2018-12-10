@@ -370,7 +370,7 @@ extern "C" size_t fs_load_ocall(int64_t fd, const char *name, int64_t *length)
     std::map<std::string, strpair_t>::iterator iter_s = g_config_fs_state.find(file_path);
     if (iter_i == g_config_fs_inputs.end() && iter_s == g_config_fs_state.end()) { return -1; }
 
-    std::string file_backup_path = (iter_i != g_config_fs_inputs.end()) ? iter_i->second : (iter_s->second).second;
+    std::string file_backup_path = (iter_i != g_config_fs_inputs.end()) ? iter_i->second : (iter_s->second).first;
 
     file_path = STORAGE_FS_ROOT + file_path;
     file_backup_path = STORAGE_FS_ROOT + file_backup_path;
@@ -551,7 +551,7 @@ extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
     std::map<std::string, strpair_t>::iterator iter_s = g_config_kvs_state.find(db_path);
     if (iter_i == g_config_kvs_inputs.end() && iter_s == g_config_kvs_state.end()) { return -1; }
 
-    std::string db_backup_path = (iter_i != g_config_kvs_inputs.end()) ? iter_i->second : (iter_s->second).second;
+    std::string db_backup_path = (iter_i != g_config_kvs_inputs.end()) ? iter_i->second : (iter_s->second).first;
     std::cout << "barbican: loading " << db_path << " from " << db_backup_path << std::endl;
 
     db_path = STORAGE_KVS_ROOT + db_path;
