@@ -59,7 +59,8 @@ int enclave_computation(const char *file_name, bool init)
 int main(int argc, char *argv[])
 {
   try {
-    cxxopts::Options options("pwdchkr compute enclave", "Checks if Sherlock's guess equals Irene's password");
+    cxxopts::Options options("pwdchkr compute enclave", 
+                             "Checks if Sherlock's guess equals Irene's password");
 
     bool init = false;
 
