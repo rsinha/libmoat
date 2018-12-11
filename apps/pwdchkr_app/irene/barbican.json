@@ -2,7 +2,7 @@
   "kvs_outputs": {},
   "kvs_inputs": {},
   "fs_outputs": {
-    "irene_input": "irene_input_s3"
+    "irene_input": "/tmp/s3/1/irene_input"
   },
   "fs_inputs": {},
   "scc_self": "5556",

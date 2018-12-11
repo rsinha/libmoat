@@ -94,10 +94,10 @@ int main(int argc, char *argv[])
   secret.set_guesses((uint64_t) result["n"].as<int>());
 
   size_t ptxt_buf_size = secret.ByteSize();
-  std::cout << "byte encoding has size " << ptxt_buf_size << std::endl;
+  //std::cout << "byte encoding has size " << ptxt_buf_size << std::endl;
   unsigned char *ptxt_buf = (unsigned char *) malloc(ptxt_buf_size);
   if(!ptxt_buf) { std::cout << "unable to malloc" << std::endl; exit(1); }
-  printf("host: buf: %p, size: %zu\n", ptxt_buf, ptxt_buf_size);
+  //printf("host: buf: %p, size: %zu\n", ptxt_buf, ptxt_buf_size);
   if (!secret.SerializeToArray(ptxt_buf, ptxt_buf_size)) {
       std::cerr << "Failed to write tx" << std::endl;
       return -1;

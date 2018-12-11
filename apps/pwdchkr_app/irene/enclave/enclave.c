@@ -14,7 +14,7 @@ uint64_t enclave_test(uint8_t *buf, size_t size)
     _moat_debug_module_init();
     _moat_fs_module_init();
 
-    _moat_print_debug("enclave: buf: %p, size: %zu\n", buf, size);
+    //_moat_print_debug("enclave: buf: %p, size: %zu\n", buf, size);
 
     LuciditeeGuessApp__Secret *secret;
     secret = luciditee_guess_app__secret__unpack(NULL, size, buf);
