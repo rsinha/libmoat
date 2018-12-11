@@ -5,7 +5,6 @@
 
 #include <unistd.h>
 #include <pwd.h>
-#define MAX_PATH FILENAME_MAX
 
 #include "sgx_urts.h"
 #include "interface_u.h"
@@ -14,13 +13,12 @@
 #include <string>
 #include <fstream>
 #include <iostream>
-
-void init_barbican(const std::string &json_str);
+#include <cxxopts.hpp>
 
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
 
-int enclave_computation(uint8_t *buf, size_t buf_size)
+int enclave_computation(const char* file_name, uint8_t *buf, size_t buf_size)
 {
   uint64_t pwerr;
 
@@ -30,7 +28,7 @@ int enclave_computation(uint8_t *buf, size_t buf_size)
 
   int token_updated = 0;
 
-  ret = sgx_create_enclave("enclave.signed.so", SGX_DEBUG_FLAG, &token, &token_updated, &global_eid, NULL);
+  ret = sgx_create_enclave(file_name, SGX_DEBUG_FLAG, &token, &token_updated, &global_eid, NULL);
   if (ret != SGX_SUCCESS)
   {
     printf("sgx_create_enclave failed: %#x\n", ret);
@@ -62,20 +60,38 @@ int enclave_computation(uint8_t *buf, size_t buf_size)
 
 int main(int argc, char *argv[])
 {
-  if (argc < 2) {
-    std::cout << "Insufficient arguments: must pass a json config" << std::endl;
-    exit(1);
+  cxxopts::Options options("pwdchkr irene enclave", "Creates Irene's input");
+
+  options
+    .show_positional_help()
+    .add_options()
+      ("help", "Print help")
+      ("p,password", "Password value", cxxopts::value<int>())
+      ("n,num_guesses", "Number of allowed guesses", cxxopts::value<int>())
+      ("c,config", "Json configuration", cxxopts::value<std::string>())
+      ("e,enclave", "Location of Enclave Binary", cxxopts::value<std::string>())
+    ;
+
+  auto result = options.parse(argc, argv);
+
+  if (!result.count("p") || !result.count("n") || !result.count("c") || result.count("help")) {
+    std::cout << options.help({"", "Group"}) << std::endl;
+    exit(0);
   }
 
-  std::ifstream f(argv[1]);
+  std::string json_file = result["c"].as<std::string>();
+  std::string enclave_file = result["e"].as<std::string>();
+
+  void init_barbican(const std::string &json_str);
+  std::ifstream f(json_file);
   std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
   init_barbican(json_str);
 
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   luciditee_guess_app::Secret secret;
-  secret.set_password(8813);
-  secret.set_guesses(3);
+  secret.set_password((uint64_t) result["p"].as<int>());
+  secret.set_guesses((uint64_t) result["n"].as<int>());
 
   size_t ptxt_buf_size = secret.ByteSize();
   std::cout << "byte encoding has size " << ptxt_buf_size << std::endl;
@@ -87,6 +103,6 @@ int main(int argc, char *argv[])
       return -1;
   }
 
-  return enclave_computation(ptxt_buf, ptxt_buf_size);
+  return enclave_computation(enclave_file.c_str(), ptxt_buf, ptxt_buf_size);
 }
 
