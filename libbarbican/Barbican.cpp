@@ -214,11 +214,20 @@ extern "C" size_t recv_msg_ocall(void *buf, size_t len, int64_t session_id)
 
 extern "C" size_t fs_init_service_ocall()
 {
-    std::string command("");
-    command = (command + "mkdir -p ") + STORAGE_FS_ROOT;
-
+    std::string command(""); 
+    command = command + "rm -rf " + STORAGE_FS_ROOT + "*";
     std::cout << "barbican: invoking " << command << std::endl;
-    const int dir_err = system(command.c_str());
+    int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "barbican: Error removing contents of directory " << STORAGE_FS_ROOT << std::endl;
+        exit(1);
+    }
+    
+    command = "";
+    command = command + "mkdir -p " + STORAGE_FS_ROOT;
+    std::cout << "barbican: invoking " << command << std::endl;
+    dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
         std::cout << "barbican: Error creating directory " << STORAGE_FS_ROOT << std::endl;
@@ -326,19 +335,22 @@ extern "C" size_t fs_save_ocall(int64_t fd, const char *name, int64_t length)
     if (iter_o == g_config_fs_outputs.end() && iter_s == g_config_fs_state.end()) { return -1; }
 
     std::string file_backup_path = (iter_o != g_config_fs_outputs.end()) ? iter_o->second : (iter_s->second).second;
-
     file_path = STORAGE_FS_ROOT + file_path;
-    file_backup_path = STORAGE_FS_ROOT + file_backup_path;
+    //file_backup_path = STORAGE_FS_ROOT + file_backup_path;
 
     std::cout << "barbican: saving " << file_path << " to " << file_backup_path << std::endl;
     std::cout << "barbican: creating " << file_backup_path << std::endl;
-    std::string command = "mkdir -p " + file_backup_path;
+    std::string command; command = "mkdir -p " + file_backup_path;
     std::cout << "barbican: invoking " << command << std::endl;
     int dir_err = system(command.c_str());
-    if (-1 == dir_err)
-    {
-        std::cout << "Error creating directory " << file_backup_path << std::endl;
-        exit(1);
+    if (-1 == dir_err) {
+        std::cout << "Error creating directory " << file_backup_path << std::endl; exit(1);
+    }
+    command = "rm -rf " + file_backup_path + "/*";
+    std::cout << "barbican: invoking " << command << std::endl;
+    dir_err = system(command.c_str());
+    if (-1 == dir_err) {
+        std::cout << "Error removing contents of directory " << file_backup_path << std::endl; exit(1);
     }
 
     command = "cp " + file_path + "/* " + file_backup_path + "/";
@@ -373,7 +385,7 @@ extern "C" size_t fs_load_ocall(int64_t fd, const char *name, int64_t *length)
     std::string file_backup_path = (iter_i != g_config_fs_inputs.end()) ? iter_i->second : (iter_s->second).first;
 
     file_path = STORAGE_FS_ROOT + file_path;
-    file_backup_path = STORAGE_FS_ROOT + file_backup_path;
+    //file_backup_path = STORAGE_FS_ROOT + file_backup_path;
 
     std::cout << "barbican: loading " << file_path << " from " << file_backup_path << std::endl;
 
@@ -497,10 +509,19 @@ extern "C" size_t kvs_init_service_ocall()
     g_prev_reply = NULL;
 
     std::string command("");
-    command = (command + "mkdir -p ") + STORAGE_KVS_ROOT;
-
+    command = command + "rm -rf " + STORAGE_KVS_ROOT + "*";
     std::cout << "invoking " << command << std::endl;
-    const int dir_err = system(command.c_str());
+    int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "Error removing contents of directory " << STORAGE_KVS_ROOT << std::endl;
+        exit(1);
+    }
+
+    command = "";
+    command = command + "mkdir -p " + STORAGE_KVS_ROOT;
+    std::cout << "invoking " << command << std::endl;
+    dir_err = system(command.c_str());
     if (-1 == dir_err)
     {
         std::cout << "Error creating directory " << STORAGE_KVS_ROOT << std::endl;
@@ -538,7 +559,7 @@ extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
     std::string db_backup_path = (iter_o != g_config_kvs_inputs.end()) ? iter_o->second : (iter_s->second).second;
     std::cout << "barbican: saving " << db_path << " from " << db_backup_path << std::endl;
 
-    db_backup_path = STORAGE_KVS_ROOT + db_backup_path;
+    //db_backup_path = STORAGE_KVS_ROOT + db_backup_path;
     bool success = g_db_context->backend_db_save(fd, db_backup_path.c_str());
     return success ? 0 : -1;
 }
@@ -555,7 +576,7 @@ extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
     std::cout << "barbican: loading " << db_path << " from " << db_backup_path << std::endl;
 
     db_path = STORAGE_KVS_ROOT + db_path;
-    db_backup_path = STORAGE_KVS_ROOT + db_backup_path;
+    //db_backup_path = STORAGE_KVS_ROOT + db_backup_path;
     bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());
     return success ? 0 : -1;
 }
