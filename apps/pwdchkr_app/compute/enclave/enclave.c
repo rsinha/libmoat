@@ -20,17 +20,31 @@ int64_t get_file_size(int64_t fd)
     return end;
 }
 
+void print_digest(const char *name, int64_t fd) {
+    sgx_sha256_hash_t hash;
+    int64_t result = _moat_fs_get_digest(fd, &hash);
+    if (result != 0) { return; }
+    _moat_print_debug("%s digest: 0x", name); 
+    for (size_t i = 0; i < sizeof(hash); i++) { 
+        _moat_print_debug("%02x", ((uint8_t *) hash)[i]); 
+    }
+    _moat_print_debug("\n");
+}
+
 uint64_t enclave_init()
 {
     _moat_debug_module_init();
     _moat_fs_module_init();
 
+    sgx_sha256_hash_t hash;
     sgx_aes_gcm_128bit_key_t irene_encr_key, state_encr_key;
     memset(&irene_encr_key, 0, sizeof(irene_encr_key));
     memset(&state_encr_key, 0, sizeof(state_encr_key));
 
     int64_t irene_fd = _moat_fs_open("irene_input", O_RDONLY, &irene_encr_key);
     assert(irene_fd != -1);
+
+    print_digest("irene_input", irene_fd);
 
     size_t irene_buf_len = (size_t) get_file_size(irene_fd);
     _moat_print_debug("Irene's input has size %" PRIu64 "\n", irene_buf_len);
@@ -47,11 +61,15 @@ uint64_t enclave_init()
     int64_t state_fd = _moat_fs_open("pwdchkr_state", O_RDWR | O_CREAT, &state_encr_key);
     assert(state_fd != -1);
 
+    //print_digest("prev state", state_fd);
+
     api_result = _moat_fs_write(state_fd, irene_buf, irene_buf_len);
     assert(api_result == irene_buf_len);
 
     api_result = _moat_fs_save(state_fd);
     assert(api_result == 0);
+
+    print_digest("init state", state_fd);
 
     return 0;
 }
@@ -61,14 +79,18 @@ uint64_t enclave_transition()
     _moat_debug_module_init();
     _moat_fs_module_init();
 
+    sgx_sha256_hash_t hash;
     sgx_aes_gcm_128bit_key_t state_encr_key, sherlock_encr_key;
     memset(&state_encr_key, 0, sizeof(state_encr_key));
     memset(&sherlock_encr_key, 0, sizeof(sherlock_encr_key));
 
     int64_t state_fd = _moat_fs_open("pwdchkr_state", O_RDWR, &state_encr_key);
     assert(state_fd != -1);
+    print_digest("prev state", state_fd);
+
     int64_t sherlock_fd = _moat_fs_open("sherlock_input", O_RDONLY, &sherlock_encr_key);
     assert(sherlock_fd != -1);
+    print_digest("sherlock_input", sherlock_fd);
 
     size_t state_buf_len = (size_t) get_file_size(state_fd);
     //_moat_print_debug("Irene's input has size %" PRIu64 "\n", state_buf_len);
@@ -116,6 +138,7 @@ uint64_t enclave_transition()
     assert(api_result == state_buf_len);
     api_result = _moat_fs_save(state_fd);
     assert(api_result == 0);
+    print_digest("next state", state_fd);
 
     sgx_aes_gcm_128bit_key_t output_encr_key;
     memset(&output_encr_key, 0, sizeof(output_encr_key));
@@ -125,6 +148,7 @@ uint64_t enclave_transition()
     assert(api_result == strlen(output) + 1);
     api_result = _moat_fs_save(output_fd);
     assert(api_result == 0);
+    print_digest("pwdchkr_output", output_fd);
 
     luciditee_guess_app__secret__free_unpacked(state, NULL);
     luciditee_guess_app__attempt__free_unpacked(attempt, NULL);
