@@ -32,14 +32,15 @@ typedef struct
 typedef struct _merkle_node {
     bool                    is_end_of_word; //is this leaf node
     sgx_sha256_hash_t       hash; //hash of block for leaves, hash of children otherwise
-    struct _merkle_node     *children[ALPHABET_SIZE]
+    struct _merkle_node     *children[ALPHABET_SIZE];
 } merkle_node_t;
 
 /***************************************************
  INTERNAL STATE
  ***************************************************/
 
-static merkle_node_t           *g_merkle_roots[MAX_FILE_COUNT]; //array of pointers to merkle roots
+static size_t          g_max_files;
+static merkle_node_t **g_merkle_roots; //array of pointers to merkle roots
 
 /***************************************************
  PRIVATE METHODS
@@ -92,12 +93,12 @@ void recompute_merkle_hashes(merkle_node_t *node) {
         }
         tmp += (sizeof(uint8_t) + sizeof(sgx_sha256_hash_t));
     }
-    sgx_status_t status = sgx_sha256_msg(buf, buf_len, &(node->hash));
-    assert(status = SGX_SUCCESS);
+    sgx_status_t status = sgx_sha256_msg(buf, sizeof(buf), &(node->hash));
+    assert(status == SGX_SUCCESS);
 }
 
 bool insert_merkle_node(merkle_node_t *root, 
-    uint8_t *key, size_t key_len, sgx_sha256_hash_t hash) {
+    uint8_t *key, size_t key_len, sgx_sha256_hash_t *hash) {
     merkle_node_t *crawl = root;
     
     for (size_t byte_idx = 0; byte_idx < key_len; byte_idx++) {
@@ -111,7 +112,7 @@ bool insert_merkle_node(merkle_node_t *root,
             crawl = crawl->children[index];
         }
     }
-    crawl->hash = hash;
+    memcpy(&(crawl->hash), hash, sizeof(sgx_sha256_hash_t));
     crawl->is_end_of_word = true; // mark last node as leaf
 
     recompute_merkle_hashes(root);
@@ -119,9 +120,9 @@ bool insert_merkle_node(merkle_node_t *root,
     return true;
 }
 
-bool modify_merkle_node(merkle_node_t *root, 
+bool get_merkle_leaf_hash(merkle_node_t *root, 
     uint8_t *key, size_t key_len,
-    sgx_sha256_hash_t hash)
+    sgx_sha256_hash_t *hash)
 {
     merkle_node_t *crawl = root;
     if (!crawl) { return false; }
@@ -136,42 +137,56 @@ bool modify_merkle_node(merkle_node_t *root,
     }
     
     if (crawl != NULL && crawl->is_end_of_word) {
-        crawl->hash = hash;
-        recompute_merkle_hashes(root);
+        memcpy(hash, &(crawl->hash), sizeof(sgx_sha256_hash_t));
         return true;
     } else {
         return false;
     }
 }
 
-
+void create_root_if_null(int64_t fd) {
+    if (g_merkle_roots[fd] == NULL) {
+        merkle_node_t *node = alloc_merkle_node();
+        assert(node != NULL); //check that malloc suceeded
+        g_merkle_roots[fd] = node;
+    }
+}
 
 /***************************************************
  PUBLIC API
  ***************************************************/
 
-void auth_enc_storage_module_init()
+void block_storage_module_init(size_t max_files)
 {
     sgx_status_t status;
     size_t retstatus;
 
+    status = fs_init_service_ocall(&retstatus);
+    assert(status == SGX_SUCCESS && retstatus == 0);
+
+    g_max_files = max_files;
+
     //set the array of merkle pointers to null
-    for (int i = 0; i < MAX_FILE_COUNT; i++) {
+    g_merkle_roots = (merkle_node_t **) malloc(sizeof(merkle_node_t *) * max_files);
+    assert(g_merkle_roots != NULL);
+
+    for (int i = 0; i < max_files; i++) {
         g_merkle_roots[i] = NULL;
     }
 }
 
-void create_root_if_null(int64_t fd) {
-    if (g_merkle_roots[fd] == NULL) {
-        merkle_node_t *node = (merkle_node_t *) malloc(sizeof(merkle_node_t));
-        assert(node != NULL); //check that malloc suceeded
-        node->parent = NULL;
-        node->addr = (size_t) (-1);
-        g_merkle_roots[fd] = node;
-    }
+size_t block_storage_get_digest(int64_t fd, sgx_sha256_hash_t *hash) {
+    if(((size_t) fd) >= g_max_files) { return -1; }
+    if(g_merkle_roots[fd] == NULL) { return -1; }
+    memcpy(hash, &(g_merkle_roots[fd]->hash), sizeof(sgx_sha256_hash_t));
+    return 0;
 }
 
-void auth_enc_storage_load(int64_t fd, size_t num_blocks) {
+size_t block_storage_load(int64_t fd, size_t num_blocks) {
+    sgx_status_t status;
+    size_t retstatus;
+
+    if(((size_t) fd) >= g_max_files) { return -1; }
     create_root_if_null(fd);
     merkle_node_t *root = g_merkle_roots[fd];
 
@@ -182,7 +197,6 @@ void auth_enc_storage_load(int64_t fd, size_t num_blocks) {
         SGX_AESGCM_MAC_SIZE + 
         sizeof(block_data_t)
         ];
-    sgx_sha256_hash_t hash;
 
     for (size_t i = 0; i < num_blocks; i++) {
         status = fs_read_block_ocall(&retstatus, fd, i, ciphertext, sizeof(ciphertext));
@@ -190,19 +204,26 @@ void auth_enc_storage_load(int64_t fd, size_t num_blocks) {
         
         assert(((fs_ciphertext_header_t *) ciphertext)->type == APPLICATION_DATA);
         assert(((fs_ciphertext_header_t *) ciphertext)->length == sizeof(block_data_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE);
-        assert(((fs_ciphertext_header_t *) ciphertext)->addr == addr);
+        assert(((fs_ciphertext_header_t *) ciphertext)->addr == i);
 
+        sgx_sha256_hash_t hash;
         sgx_status_t status = sgx_sha256_msg(ciphertext, sizeof(ciphertext), &hash);
-        assert(status = SGX_SUCCESS);
-        insert_merkle_node(root, &addr, sizeof(size_t), hash);
+        assert(status == SGX_SUCCESS);
+        insert_merkle_node(root, (uint8_t *) &i, sizeof(size_t), &hash);
     }
+
+    return 0;
 }
 
 //NOTE: addr ranges from 1 to g_num_blocks
-size_t auth_enc_storage_read(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data)
+size_t block_storage_read(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data)
 {
     sgx_status_t status;
     size_t retstatus;
+
+    assert(((size_t) fd) < g_max_files);
+    assert(g_merkle_roots[fd] != NULL);
+    merkle_node_t *root = g_merkle_roots[fd];
 
     //allocate memory for ciphertext
     uint8_t ciphertext[
@@ -223,6 +244,12 @@ size_t auth_enc_storage_read(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_d
     
     //preventing rollback attacks
     //integrity_check_freshness(addr, ciphertext, sizeof(ciphertext));
+    sgx_sha256_hash_t hash_computed, hash_stored;
+    status = sgx_sha256_msg(ciphertext, sizeof(ciphertext), &hash_computed);
+    assert(status == SGX_SUCCESS);
+    bool success = get_merkle_leaf_hash(root, (uint8_t *) &addr, sizeof(size_t), &hash_stored);
+    assert(success);
+    assert(memcmp(&hash_computed, &hash_stored, sizeof(sgx_sha256_hash_t)) == 0);
     
     /* ciphertext: header || IV || MAC || encrypted */
     status = sgx_rijndael128GCM_decrypt((const sgx_aes_gcm_128bit_key_t *) &(ctx->key), //key
@@ -241,10 +268,14 @@ size_t auth_enc_storage_read(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_d
 
 //NOTE: addr ranges from 1 to g_num_blocks
 //performs authenticated encryption of data, and writes it as a file
-size_t auth_enc_storage_write(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data)
+size_t block_storage_write(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data)
 {
     sgx_status_t status;
     size_t retstatus;
+
+    assert(((size_t) fd) < g_max_files);
+    create_root_if_null(fd);
+    merkle_node_t *root = g_merkle_roots[fd];
 
     /* error checking */
     //if (addr >= g_num_blocks) { return -1; }
@@ -254,8 +285,12 @@ size_t auth_enc_storage_write(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_
     if (iv_counter > ((uint32_t) -2)) { return -1; }
 
     //allocate memory for ciphertext
-    uint8_t ciphertext[sizeof(fs_ciphertext_header_t) + SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t)];
-    assert (ciphertext != NULL);
+    uint8_t ciphertext[
+        sizeof(fs_ciphertext_header_t) + 
+        SGX_AESGCM_IV_SIZE + 
+        SGX_AESGCM_MAC_SIZE + 
+        sizeof(block_data_t)
+        ];
     
     ((fs_ciphertext_header_t *) ciphertext)->type = APPLICATION_DATA;
     ((fs_ciphertext_header_t *) ciphertext)->length = SGX_AESGCM_IV_SIZE + SGX_AESGCM_MAC_SIZE + sizeof(block_data_t);
@@ -280,8 +315,12 @@ size_t auth_enc_storage_write(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_
     assert(status == SGX_SUCCESS);
     
     //saving SHA-256 hash for future freshness checks
-    //integrity_record_freshness(addr, ciphertext, sizeof(ciphertext));
-    
+    sgx_sha256_hash_t hash;
+    status = sgx_sha256_msg(ciphertext, sizeof(ciphertext), &hash);
+    assert(status == SGX_SUCCESS);
+    bool success = insert_merkle_node(root, (uint8_t *) &addr, sizeof(size_t), &hash);
+    assert(success);
+
     //so we don't reuse IVs
     ctx->counter = ctx->counter + 1;
     

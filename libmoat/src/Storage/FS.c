@@ -173,7 +173,7 @@ bool is_file_temporary(fs_file_t *file_md)
 void _moat_fs_module_init()
 {
     g_files = list_create();
-    block_storage_module_init();
+    block_storage_module_init(MAX_FILE_COUNT);
 }
 
 /*
@@ -231,6 +231,9 @@ int64_t _moat_fs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
                 list_insert_value(file_md->blocks, block);
                 len_completed += BLOCK_SIZE;
             }
+            
+            size_t result = block_storage_load(file_md->file_descriptor, file_md->num_blocks);
+            assert(result == 0);
         }
 
         list_insert_value(g_files, file_md);
@@ -448,6 +451,12 @@ int64_t _moat_fs_save(int64_t fd)
 
     return 0;
 }
+
+int64_t _moat_fs_get_digest(int64_t fd, sgx_sha256_hash_t *hash)
+{
+    size_t result = block_storage_get_digest(fd, hash);
+    return result == 0 ? 0 : -1;
+} 
 
 int64_t _moat_fs_close(int64_t fd)
 {
