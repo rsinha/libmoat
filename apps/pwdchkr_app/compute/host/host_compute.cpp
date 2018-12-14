@@ -2,20 +2,32 @@
 #include <string.h>
 #include <assert.h>
 #include <inttypes.h>
-
 #include <unistd.h>
 #include <pwd.h>
-
-#include "sgx_urts.h"
-#include "interface_u.h"
-
 #include <string>
 #include <fstream>
 #include <iostream>
 
+#include "sgx_urts.h"
+#include "interface_u.h"
+
 #include <cxxopts.hpp>
 
-int enclave_computation(const char *file_name, bool init)
+void read_all_bytes_in_file(const char *filename, uint8_t **buf, size_t *len)
+{
+    std::ifstream ifs(filename, std::ios::binary | std::ios::ate);
+    std::ifstream::pos_type pos = ifs.tellg();
+
+    *len = pos;
+    *buf = (uint8_t *) malloc(*len);
+    assert(*buf != NULL);
+
+    ifs.seekg(0, std::ios::beg);
+    ifs.read((char *) *buf, (std::streamsize) *len);
+    ifs.close();
+}
+
+int enclave_computation(const char *spec_file, const char *enc_file, bool init)
 {
   uint64_t pwerr;
 
@@ -26,14 +38,17 @@ int enclave_computation(const char *file_name, bool init)
   int token_updated = 0;
   sgx_enclave_id_t global_eid = 0;
 
-  ret = sgx_create_enclave(file_name, SGX_DEBUG_FLAG, &token, &token_updated, &global_eid, NULL);
+  uint8_t *spec_buf; size_t spec_buf_len;
+  read_all_bytes_in_file(spec_file, &spec_buf, &spec_buf_len);
+
+  ret = sgx_create_enclave(enc_file, SGX_DEBUG_FLAG, &token, &token_updated, &global_eid, NULL);
   if (ret != SGX_SUCCESS)
   {
     printf("sgx_create_enclave failed: %#x\n", ret);
     return 1;
   }
  
-  ret = init ? enclave_init(global_eid, &pwerr) : enclave_transition(global_eid, &pwerr);
+  ret = invoke_enclave_computation(global_eid, &pwerr, spec_buf, spec_buf_len, init);
 
   if (ret != SGX_SUCCESS)
   {
@@ -70,25 +85,30 @@ int main(int argc, char *argv[])
         ("help", "Print help")
         ("i,init", "Create initial state", cxxopts::value<bool>(init))
         ("c,config", "Json configuration", cxxopts::value<std::string>())
-        ("e,enclave", "Location of Enclave Binary", cxxopts::value<std::string>())
+        ("e,enclave", "Enclave binary", cxxopts::value<std::string>())
+        ("s,spec", "Computation's specification", cxxopts::value<std::string>())
       ;
 
     auto result = options.parse(argc, argv);
 
-    if (!result.count("e") || !result.count("c") || result.count("help")) {
+    if (!result.count("s") || 
+        !result.count("e") || 
+        !result.count("c") || 
+        result.count("help")) {
       std::cout << options.help({"", "Group"}) << std::endl;
       exit(0);
     }
 
     std::string json_file = result["c"].as<std::string>();
     std::string enclave_file = result["e"].as<std::string>();
+    std::string spec_file = result["s"].as<std::string>();
   
     void init_barbican(const std::string &json_str);
     std::ifstream f(json_file);
     std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     init_barbican(json_str);
 
-    return enclave_computation(enclave_file.c_str(), init);
+    return enclave_computation(spec_file.c_str(), enclave_file.c_str(), init);
 
   } catch (const cxxopts::OptionException& e) {
     std::cout << "error parsing options: " << e.what() << std::endl;

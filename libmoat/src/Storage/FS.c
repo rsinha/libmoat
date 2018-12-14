@@ -182,10 +182,10 @@ void _moat_fs_module_init()
 int64_t _moat_fs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 {
     fs_file_t *file_md = find_file_by_name(name);
-    assert(key != NULL);
 
     if (file_md == NULL) //else file already exists by that name
     {
+        assert(key != NULL);
         if (strlen(name) >= MAX_FILE_NAME_LEN) { return -1; }
         int64_t fd = generate_unique_file_descriptor();
         if (fd == -1) { return -1; } //we didn't get an available fd
@@ -276,6 +276,22 @@ int64_t _moat_fs_lseek(int64_t fd, int64_t offset, int base)
     }
 
     return file_md->offset;
+}
+
+/* returns the file size, without any side effects */
+int64_t _moat_fs_file_size(int64_t fd)
+{
+    int64_t current_offset = _moat_fs_tell(fd);
+
+    int64_t result = _moat_fs_lseek(fd, 0, SEEK_END);
+    assert(result != -1);
+
+    int64_t size = _moat_fs_tell(fd);
+
+    result = _moat_fs_lseek(fd, current_offset, SEEK_SET);
+    assert(result != -1);
+
+    return size;
 }
 
 /* returns the current value of the position indicator of file

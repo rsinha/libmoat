@@ -7,20 +7,13 @@
 
 #include "sgx_dh.h"
 #include "sgx_trts.h"
+
+#include "computation.pb-c.h"
 #include "attempt.pb-c.h"
 #include "secret.pb-c.h"
 
-int64_t get_file_size(int64_t fd)
+void print_digest(const char *name, int64_t fd)
 {
-    int64_t result = _moat_fs_lseek(fd, 0, SEEK_END);
-    assert(result != -1);
-    int64_t end = _moat_fs_tell(fd);
-    result = _moat_fs_lseek(fd, 0, SEEK_SET);
-    assert(result != -1);
-    return end;
-}
-
-void print_digest(const char *name, int64_t fd) {
     sgx_sha256_hash_t hash;
     int64_t result = _moat_fs_get_digest(fd, &hash);
     if (result != 0) { return; }
@@ -31,23 +24,82 @@ void print_digest(const char *name, int64_t fd) {
     _moat_print_debug("\n");
 }
 
-uint64_t enclave_init()
+void record_computation(uint8_t *spec_buf, size_t spec_buf_len)
+{   
+    LuciditeeGuessApp__Computation *spec;
+    spec = luciditee_guess_app__computation__unpack(NULL, spec_buf_len, spec_buf);
+    assert(spec != NULL);
+
+    //print id
+    _moat_print_debug("----------------------------\n");
+    _moat_print_debug("record computation:\n");
+    _moat_print_debug("spec has id: %" PRIu64 "\n", spec->id);
+    //print inputs
+    for (size_t i = 0; i < spec->n_inputs; i++) {
+        LuciditeeGuessApp__Computation__InputDescription *input = spec->inputs[i];
+        int64_t fd = _moat_fs_open(input->input_name, 0, NULL);
+        print_digest(input->input_name, fd);
+    }
+    //print outputs
+    for (size_t i = 0; i < spec->n_outputs; i++) {
+        LuciditeeGuessApp__Computation__OutputDescription *output = spec->outputs[i];
+        //_moat_print_debug("spec has output: %s\n", output->output_name);
+        int64_t fd = _moat_fs_open(output->output_name, 0, NULL);
+        print_digest(output->output_name, fd);
+    }
+    //print state
+    for (size_t i = 0; i < spec->n_statevars; i++) {
+        LuciditeeGuessApp__Computation__StateDescription *statevar = spec->statevars[i];
+        //_moat_print_debug("spec has state var: %s\n", statevar->state_name);
+        int64_t fd = _moat_fs_open(statevar->state_name, 0, NULL);
+        print_digest(statevar->state_name, fd);
+    }
+    _moat_print_debug("----------------------------\n");
+
+    luciditee_guess_app__computation__free_unpacked(spec, NULL);
+}
+
+void open_files(uint8_t *spec_buf, size_t spec_buf_len, bool init)
+{   
+    LuciditeeGuessApp__Computation *spec;
+    spec = luciditee_guess_app__computation__unpack(NULL, spec_buf_len, spec_buf);
+    assert(spec != NULL);
+
+    //open inputs
+    sgx_aes_gcm_128bit_key_t encr_key;
+
+    for (size_t i = 0; i < spec->n_inputs; i++) {
+        LuciditeeGuessApp__Computation__InputDescription *input = spec->inputs[i];
+        memset(&encr_key, 0, sizeof(encr_key));
+        int64_t fd = _moat_fs_open(input->input_name, O_RDONLY, &encr_key);
+        assert(fd != -1);
+    }
+    //print outputs
+    for (size_t i = 0; i < spec->n_outputs; i++) {
+        LuciditeeGuessApp__Computation__OutputDescription *output = spec->outputs[i];
+        memset(&encr_key, 0, sizeof(encr_key));
+        int64_t fd = _moat_fs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
+        assert(fd != -1);
+    }
+    //print state
+    for (size_t i = 0; i < spec->n_statevars; i++) {
+        LuciditeeGuessApp__Computation__StateDescription *statevar = spec->statevars[i];
+        memset(&encr_key, 0, sizeof(encr_key));
+        int64_t fd = _moat_fs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
+        print_digest(statevar->state_name, fd);
+    }
+
+    luciditee_guess_app__computation__free_unpacked(spec, NULL);
+}
+
+uint64_t f_init()
 {
-    _moat_debug_module_init();
-    _moat_fs_module_init();
+    int64_t sherlock_fd = _moat_fs_open("sherlock_input", 0, NULL);
+    int64_t irene_fd = _moat_fs_open("irene_input", 0, NULL);
+    int64_t state_fd = _moat_fs_open("pwdchkr_state", 0, NULL);
+    int64_t output_fd = _moat_fs_open("pwdchkr_output", 0, NULL);
 
-    sgx_sha256_hash_t hash;
-    sgx_aes_gcm_128bit_key_t irene_encr_key, state_encr_key;
-    memset(&irene_encr_key, 0, sizeof(irene_encr_key));
-    memset(&state_encr_key, 0, sizeof(state_encr_key));
-
-    int64_t irene_fd = _moat_fs_open("irene_input", O_RDONLY, &irene_encr_key);
-    assert(irene_fd != -1);
-
-    print_digest("irene_input", irene_fd);
-
-    size_t irene_buf_len = (size_t) get_file_size(irene_fd);
-    _moat_print_debug("Irene's input has size %" PRIu64 "\n", irene_buf_len);
+    size_t irene_buf_len = (size_t) _moat_fs_file_size(irene_fd);
     uint8_t *irene_buf = (uint8_t *) malloc(irene_buf_len);
     int64_t api_result = _moat_fs_read(irene_fd, irene_buf, irene_buf_len);
     assert(api_result == irene_buf_len);
@@ -58,44 +110,29 @@ uint64_t enclave_init()
     _moat_print_debug("parsing proto from enclave...got secret value %" 
         PRIu64 ", with max guesses %" PRIu64 "\n", secret->password, secret->guesses);
 
-    int64_t state_fd = _moat_fs_open("pwdchkr_state", O_RDWR | O_CREAT, &state_encr_key);
-    assert(state_fd != -1);
-
-    //print_digest("prev state", state_fd);
-
     api_result = _moat_fs_write(state_fd, irene_buf, irene_buf_len);
     assert(api_result == irene_buf_len);
-
     api_result = _moat_fs_save(state_fd);
     assert(api_result == 0);
 
-    print_digest("init state", state_fd);
+    const char *output = "initialized";
+    api_result = _moat_fs_write(output_fd, (void *) output, strlen(output) + 1);
+    assert(api_result == strlen(output) + 1);
+    api_result = _moat_fs_save(output_fd);
+    assert(api_result == 0);
 
     return 0;
 }
 
-uint64_t enclave_transition()
+uint64_t f_next()
 {
-    _moat_debug_module_init();
-    _moat_fs_module_init();
+    int64_t sherlock_fd = _moat_fs_open("sherlock_input", 0, NULL);
+    int64_t irene_fd = _moat_fs_open("irene_input", 0, NULL);
+    int64_t state_fd = _moat_fs_open("pwdchkr_state", 0, NULL);
+    int64_t output_fd = _moat_fs_open("pwdchkr_output", 0, NULL);
 
-    sgx_sha256_hash_t hash;
-    sgx_aes_gcm_128bit_key_t state_encr_key, sherlock_encr_key;
-    memset(&state_encr_key, 0, sizeof(state_encr_key));
-    memset(&sherlock_encr_key, 0, sizeof(sherlock_encr_key));
-
-    int64_t state_fd = _moat_fs_open("pwdchkr_state", O_RDWR, &state_encr_key);
-    assert(state_fd != -1);
-    print_digest("prev state", state_fd);
-
-    int64_t sherlock_fd = _moat_fs_open("sherlock_input", O_RDONLY, &sherlock_encr_key);
-    assert(sherlock_fd != -1);
-    print_digest("sherlock_input", sherlock_fd);
-
-    size_t state_buf_len = (size_t) get_file_size(state_fd);
-    //_moat_print_debug("Irene's input has size %" PRIu64 "\n", state_buf_len);
-    size_t sherlock_buf_len = (size_t) get_file_size(sherlock_fd);
-    //_moat_print_debug("Sherlock's input has size %" PRIu64 "\n", sherlock_buf_len);
+    size_t state_buf_len = (size_t) _moat_fs_file_size(state_fd);
+    size_t sherlock_buf_len = (size_t) _moat_fs_file_size(sherlock_fd);
 
     uint8_t *state_buf = (uint8_t *) malloc(state_buf_len); assert(state_buf != NULL);
     uint8_t *sherlock_buf = (uint8_t *) malloc(sherlock_buf_len); assert(sherlock_buf != NULL);
@@ -138,17 +175,11 @@ uint64_t enclave_transition()
     assert(api_result == state_buf_len);
     api_result = _moat_fs_save(state_fd);
     assert(api_result == 0);
-    print_digest("next state", state_fd);
 
-    sgx_aes_gcm_128bit_key_t output_encr_key;
-    memset(&output_encr_key, 0, sizeof(output_encr_key));
-    int64_t output_fd = _moat_fs_open("pwdchkr_output", O_RDWR | O_CREAT, &output_encr_key);
-    assert(output_fd != -1);
     api_result = _moat_fs_write(output_fd, output, strlen(output) + 1);
     assert(api_result == strlen(output) + 1);
     api_result = _moat_fs_save(output_fd);
     assert(api_result == 0);
-    print_digest("pwdchkr_output", output_fd);
 
     luciditee_guess_app__secret__free_unpacked(state, NULL);
     luciditee_guess_app__attempt__free_unpacked(attempt, NULL);
@@ -156,3 +187,24 @@ uint64_t enclave_transition()
     return 0;
 }
 
+uint64_t f(bool init)
+{
+    return init ? f_init() : f_next();
+}
+
+/* TODO: eventually init arg will go away in lieu of a ledger */
+uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool init)
+{
+    /* initialize libmoat */
+    _moat_debug_module_init();
+    _moat_fs_module_init();
+
+    /* open all the input, output, and state structures */
+    open_files(spec_buf, spec_buf_len, init);
+
+    /* use the ledger to decide whether we are creating initial state, and let f know that */
+    uint64_t result = f(init);
+
+    /* generate the on-ledger record */
+    record_computation(spec_buf, spec_buf_len);
+}
