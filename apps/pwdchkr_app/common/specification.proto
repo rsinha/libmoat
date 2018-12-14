@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package luciditee_guess_app;
 
-message Computation {
+message Specification {
   required uint64 id = 1;
 
   message InputDescription {

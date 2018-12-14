@@ -8,7 +8,7 @@
 #include "sgx_dh.h"
 #include "sgx_trts.h"
 
-#include "computation.pb-c.h"
+#include "specification.pb-c.h"
 
 
 uint64_t f(bool); /* user-defined function */
@@ -28,8 +28,8 @@ void print_digest(const char *name, int64_t fd)
 
 void record_computation(uint8_t *spec_buf, size_t spec_buf_len)
 {   
-    LuciditeeGuessApp__Computation *spec;
-    spec = luciditee_guess_app__computation__unpack(NULL, spec_buf_len, spec_buf);
+    LuciditeeGuessApp__Specification *spec;
+    spec = luciditee_guess_app__specification__unpack(NULL, spec_buf_len, spec_buf);
     assert(spec != NULL);
 
     //print id
@@ -38,60 +38,60 @@ void record_computation(uint8_t *spec_buf, size_t spec_buf_len)
     _moat_print_debug("spec has id: %" PRIu64 "\n", spec->id);
     //print inputs
     for (size_t i = 0; i < spec->n_inputs; i++) {
-        LuciditeeGuessApp__Computation__InputDescription *input = spec->inputs[i];
+        LuciditeeGuessApp__Specification__InputDescription *input = spec->inputs[i];
         int64_t fd = _moat_fs_open(input->input_name, 0, NULL);
         print_digest(input->input_name, fd);
     }
     //print outputs
     for (size_t i = 0; i < spec->n_outputs; i++) {
-        LuciditeeGuessApp__Computation__OutputDescription *output = spec->outputs[i];
+        LuciditeeGuessApp__Specification__OutputDescription *output = spec->outputs[i];
         //_moat_print_debug("spec has output: %s\n", output->output_name);
         int64_t fd = _moat_fs_open(output->output_name, 0, NULL);
         print_digest(output->output_name, fd);
     }
     //print state
     for (size_t i = 0; i < spec->n_statevars; i++) {
-        LuciditeeGuessApp__Computation__StateDescription *statevar = spec->statevars[i];
+        LuciditeeGuessApp__Specification__StateDescription *statevar = spec->statevars[i];
         //_moat_print_debug("spec has state var: %s\n", statevar->state_name);
         int64_t fd = _moat_fs_open(statevar->state_name, 0, NULL);
         print_digest(statevar->state_name, fd);
     }
     _moat_print_debug("----------------------------\n");
 
-    luciditee_guess_app__computation__free_unpacked(spec, NULL);
+    luciditee_guess_app__specification__free_unpacked(spec, NULL);
 }
 
 void open_files(uint8_t *spec_buf, size_t spec_buf_len, bool init)
 {   
-    LuciditeeGuessApp__Computation *spec;
-    spec = luciditee_guess_app__computation__unpack(NULL, spec_buf_len, spec_buf);
+    LuciditeeGuessApp__Specification *spec;
+    spec = luciditee_guess_app__specification__unpack(NULL, spec_buf_len, spec_buf);
     assert(spec != NULL);
 
     //open inputs
     sgx_aes_gcm_128bit_key_t encr_key;
 
     for (size_t i = 0; i < spec->n_inputs; i++) {
-        LuciditeeGuessApp__Computation__InputDescription *input = spec->inputs[i];
+        LuciditeeGuessApp__Specification__InputDescription *input = spec->inputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
         int64_t fd = _moat_fs_open(input->input_name, O_RDONLY, &encr_key);
         assert(fd != -1);
     }
     //print outputs
     for (size_t i = 0; i < spec->n_outputs; i++) {
-        LuciditeeGuessApp__Computation__OutputDescription *output = spec->outputs[i];
+        LuciditeeGuessApp__Specification__OutputDescription *output = spec->outputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
         int64_t fd = _moat_fs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
         assert(fd != -1);
     }
     //print state
     for (size_t i = 0; i < spec->n_statevars; i++) {
-        LuciditeeGuessApp__Computation__StateDescription *statevar = spec->statevars[i];
+        LuciditeeGuessApp__Specification__StateDescription *statevar = spec->statevars[i];
         memset(&encr_key, 0, sizeof(encr_key));
         int64_t fd = _moat_fs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
         print_digest(statevar->state_name, fd);
     }
 
-    luciditee_guess_app__computation__free_unpacked(spec, NULL);
+    luciditee_guess_app__specification__free_unpacked(spec, NULL);
 }
 
 /* TODO: eventually init arg will go away in lieu of a ledger */
