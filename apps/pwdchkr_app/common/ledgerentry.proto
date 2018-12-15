@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package luciditee_guess_app;
+import "specification.proto";
+import "record.proto";
+
+message LedgerEntry {
+  enum EntryType {
+    CREATE = 0;
+    RECORD = 1;
+  }
+  required EntryType type = 1;
+  oneof entry {
+    Specification spec = 2;
+    Record record = 3;
+  }
+}
