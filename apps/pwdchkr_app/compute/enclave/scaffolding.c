@@ -12,6 +12,17 @@
 #include "specification.pb-c.h"
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+sgx_status_t SGX_CDECL ledger_post_ocall(size_t* retval, void* buf, size_t len);
+sgx_status_t SGX_CDECL ledger_get_ocall(size_t* retval, void **untrusted_buf, size_t *untrusted_buf_len);
+
+#ifdef __cplusplus
+}
+#endif
+
 uint64_t f(bool); /* user-defined function */
 
 
@@ -179,12 +190,24 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
     /* open all the input, output, and state structures */
     open_files(spec_buf, spec_buf_len, init);
 
+    if (init == false) {
+        uint8_t *untrusted_buf; size_t untrusted_buf_len;
+        size_t retstatus;
+        sgx_status_t status = ledger_get_ocall(&retstatus, (void **) &untrusted_buf, &untrusted_buf_len);
+        assert(status == SGX_SUCCESS && retstatus == 0);
+        //check policy
+    }
+
     /* use the ledger to decide whether we are creating initial state, and let f know that */
     uint64_t result = f(init);
 
     /* generate the on-ledger record */
     uint8_t *record_buf; size_t record_buf_len;
     generate_computation_record(spec_buf, spec_buf_len, &record_buf, &record_buf_len);
+
+    size_t retstatus;
+    sgx_status_t status = ledger_post_ocall(&retstatus, record_buf, record_buf_len);
+    assert(status == SGX_SUCCESS && retstatus == 0);
 
     return result;
 }

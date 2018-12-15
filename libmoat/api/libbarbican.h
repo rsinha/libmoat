@@ -53,6 +53,9 @@ sgx_status_t SGX_CDECL kvs_save_ocall(size_t *retval, int64_t fd, const char *na
 sgx_status_t SGX_CDECL malloc_ocall(size_t* retval, size_t num_bytes, void **untrusted_buf);
 sgx_status_t SGX_CDECL free_ocall(size_t* retval, void *untrusted_buf);
 
+sgx_status_t SGX_CDECL ledger_post_ocall(size_t* retval, void* buf, size_t len);
+sgx_status_t SGX_CDECL ledger_get_ocall(size_t* retval, void **untrusted_buf, size_t *untrusted_buf_len);
+
 sgx_status_t SGX_CDECL print_debug_on_host_ocall(size_t* retval, const char* str);
 
 #ifdef __cplusplus

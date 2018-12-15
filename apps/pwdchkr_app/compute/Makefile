@@ -252,7 +252,7 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 clean:
 	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
 	@rm -f host/interface_u.* host/*.pb.* enclave/interface_t.* host/*.o enclave/*.o 
-	@rm -f enclave/attempt.* enclave/secret.* enclave/specification.*
+	@rm -f enclave/attempt.* enclave/secret.* enclave/specification.* enclave/record.*
 	@rm -f $(Trust_Lib) $(Untrust_Lib)
 	@$(MAKE) -C $(Trust_Lib_Path) clean
 	@$(MAKE) -C $(Untrust_Lib_Path) clean

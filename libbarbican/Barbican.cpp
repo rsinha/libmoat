@@ -627,6 +627,33 @@ extern "C" size_t free_ocall(void *untrusted_buf)
     return 0;
 }
 
+extern "C" size_t ledger_post_ocall(void *buf, size_t len)
+{
+    std::ofstream fout;
+    fout.open("luciditee.ledger", std::ios::binary | std::ios::out);
+    fout.write((char *) buf, (std::streamsize) len);
+    std::cout << "Wrote " << len << " bytes to the ledger" << std::endl;
+    fout.close();
+    return 0;
+}
+
+extern "C" size_t ledger_get_ocall(void **untrusted_buf, size_t *untrusted_buf_len)
+{
+    std::ifstream ifs("luciditee.ledger", std::ios::binary | std::ios::ate);
+    std::ifstream::pos_type pos = ifs.tellg();
+
+    *untrusted_buf_len = pos;
+    *untrusted_buf = malloc(*untrusted_buf_len);
+    assert(*untrusted_buf != NULL);
+
+    ifs.seekg(0, std::ios::beg);
+    ifs.read((char *) *untrusted_buf, (std::streamsize) *untrusted_buf_len);
+    ifs.close();
+
+    return 0;
+}
+
+
 void register_fs_state(const std::string &name, 
     const std::string &backup_path_prev,
     const std::string &backup_path_next)

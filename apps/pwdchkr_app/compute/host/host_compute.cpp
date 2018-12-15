@@ -70,7 +70,6 @@ int enclave_computation(const char *spec_file, const char *enc_file, bool init)
   return 0;
 }
 
-
 int main(int argc, char *argv[])
 {
   try {
