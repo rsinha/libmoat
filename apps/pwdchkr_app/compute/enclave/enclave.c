@@ -12,7 +12,6 @@
 #include "secret.pb-c.h"
 
 bool phi(bool init) {
-    _moat_print_debug("within phi\n");
     if (init) { return true; }
 
     int64_t state_fd = _moat_fs_open("pwdchkr_state", 0, NULL);

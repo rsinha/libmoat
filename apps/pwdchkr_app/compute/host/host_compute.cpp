@@ -41,6 +41,12 @@ int enclave_computation(const char *spec_file, const char *enc_file, bool init)
   uint8_t *spec_buf; size_t spec_buf_len;
   read_all_bytes_in_file(spec_file, &spec_buf, &spec_buf_len);
 
+  uint8_t *ledger_rec_buf = NULL; size_t ledger_rec_buf_len = 0;
+  if (!init) {
+    //uint8_t *ledger_rec_buf; size_t ledger_rec_buf_len;
+    read_all_bytes_in_file("luciditee.ledger", &ledger_rec_buf, &ledger_rec_buf_len);
+  }
+
   ret = sgx_create_enclave(enc_file, SGX_DEBUG_FLAG, &token, &token_updated, &global_eid, NULL);
   if (ret != SGX_SUCCESS)
   {
@@ -48,7 +54,10 @@ int enclave_computation(const char *spec_file, const char *enc_file, bool init)
     return 1;
   }
  
-  ret = invoke_enclave_computation(global_eid, &pwerr, spec_buf, spec_buf_len, init);
+  ret = invoke_enclave_computation(global_eid, &pwerr, 
+    spec_buf, spec_buf_len, 
+    ledger_rec_buf, ledger_rec_buf_len, 
+    init);
 
   if (ret != SGX_SUCCESS)
   {

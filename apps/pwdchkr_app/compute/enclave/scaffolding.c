@@ -204,7 +204,11 @@ void open_files(uint8_t *spec_buf, size_t spec_buf_len, bool init)
 }
 
 /* TODO: eventually init arg will go away in lieu of a ledger */
-uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool init)
+uint64_t invoke_enclave_computation(uint8_t *spec_buf, 
+    size_t spec_buf_len, 
+    uint8_t * ledger_rec_buf, 
+    size_t ledger_rec_buf_len, 
+    bool init)
 {
     /* initialize libmoat */
     _moat_debug_module_init();
@@ -214,20 +218,20 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
     open_files(spec_buf, spec_buf_len, init);
 
     size_t retstatus;
-    uint8_t *untrusted_buf = NULL; size_t untrusted_buf_len = 0;
-    uint8_t *prev_record_buf = NULL;
-    if (init == false) {
-        sgx_status_t status = ledger_get_ocall(&retstatus, (void **) &untrusted_buf, &untrusted_buf_len);
-        assert(status == SGX_SUCCESS && retstatus == 0);
-        prev_record_buf = (uint8_t *) malloc(untrusted_buf_len);
-        assert(prev_record_buf != NULL);
-        memcpy(prev_record_buf, untrusted_buf, untrusted_buf_len);
-    }
+    // uint8_t *untrusted_buf = NULL; size_t untrusted_buf_len = 0;
+    // uint8_t *prev_record_buf = NULL;
+    // if (init == false) {
+    //     sgx_status_t status = ledger_get_ocall(&retstatus, (void **) &untrusted_buf, &untrusted_buf_len);
+    //     assert(status == SGX_SUCCESS && retstatus == 0);
+    //     prev_record_buf = (uint8_t *) malloc(untrusted_buf_len);
+    //     assert(prev_record_buf != NULL);
+    //     memcpy(prev_record_buf, untrusted_buf, untrusted_buf_len);
+    // }
 
     /* invoke policy checker */
     bool compliant;
     if (!init) {
-        compliant = state_policy(prev_record_buf, untrusted_buf_len);
+        compliant = state_policy(ledger_rec_buf, ledger_rec_buf_len);
         if (! compliant) {
             _moat_print_debug("state_policy check failed");
             return -1;
@@ -235,12 +239,10 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
     }
 
     compliant = phi(init);
-    _moat_print_debug("finished compliance\n");
     if (!compliant) {
         _moat_print_debug("user defined policy check failed\n");
         return -1;
     }
-    _moat_print_debug("about to invoke f\n");
     /* use the ledger to decide whether we are creating initial state, and let f know that */
     uint64_t result = f(init);
 

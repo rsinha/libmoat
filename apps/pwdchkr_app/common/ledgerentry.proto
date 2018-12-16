@@ -5,13 +5,14 @@ import "specification.proto";
 import "record.proto";
 
 message LedgerEntry {
+  required uint64 height = 1;
   enum EntryType {
     CREATE = 0;
     RECORD = 1;
   }
-  required EntryType type = 1;
+  required EntryType type = 2;
   oneof entry {
-    Specification spec = 2;
-    Record record = 3;
+    Specification spec = 3;
+    Record record = 4;
   }
 }
