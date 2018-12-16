@@ -54,10 +54,7 @@ int enclave_computation(const char *spec_file, const char *enc_file, bool init)
     return 1;
   }
  
-  ret = invoke_enclave_computation(global_eid, &pwerr, 
-    spec_buf, spec_buf_len, 
-    ledger_rec_buf, ledger_rec_buf_len, 
-    init);
+  ret = invoke_enclave_computation(global_eid, &pwerr, spec_buf, spec_buf_len, init);
 
   if (ret != SGX_SUCCESS)
   {

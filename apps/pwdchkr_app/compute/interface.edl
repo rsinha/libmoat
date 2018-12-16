@@ -2,7 +2,7 @@ enclave {
   include "stdbool.h"
 
   trusted {
-    public uint64_t invoke_enclave_computation([in, size=spec_buf_len] void *spec_buf, size_t spec_buf_len, [in, size=rec_buf_len] void *rec_buf, size_t rec_buf_len, bool init);
+    public uint64_t invoke_enclave_computation([in, size=spec_buf_len] void *spec_buf, size_t spec_buf_len, bool init);
   };
 
   from "../../../../libmoat/api/libmoat.edl" import *;
