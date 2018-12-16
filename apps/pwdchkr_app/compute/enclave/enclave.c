@@ -11,6 +11,30 @@
 #include "attempt.pb-c.h"
 #include "secret.pb-c.h"
 
+bool phi(bool init) {
+    _moat_print_debug("within phi\n");
+    if (init) { return true; }
+
+    int64_t state_fd = _moat_fs_open("pwdchkr_state", 0, NULL);
+    size_t state_buf_len = (size_t) _moat_fs_file_size(state_fd);
+
+    uint8_t *state_buf = (uint8_t *) malloc(state_buf_len); 
+    assert(state_buf != NULL);
+
+    int64_t api_result = _moat_fs_read(state_fd, state_buf, state_buf_len);
+    assert(api_result == state_buf_len);
+    
+    LuciditeeGuessApp__Secret *state;
+    state = luciditee_guess_app__secret__unpack(NULL, state_buf_len, state_buf);
+    assert(state != NULL);
+    _moat_print_debug("parsing state within enclave...got secret password %" 
+        PRIu64 ", with remaining guesses %" PRIu64 "\n", state->password, state->guesses);
+
+    if (state->guesses == 0) { return false; }
+
+    return true;
+}
+
 uint64_t f_init()
 {
     int64_t sherlock_fd = _moat_fs_open("sherlock_input", 0, NULL);

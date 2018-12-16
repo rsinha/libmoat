@@ -24,6 +24,7 @@ sgx_status_t SGX_CDECL ledger_get_ocall(size_t* retval, void **untrusted_buf, si
 #endif
 
 uint64_t f(bool); /* user-defined function */
+bool phi(bool init);
 
 
 void print_digest(const char *name, int64_t fd)
@@ -74,6 +75,28 @@ void print_record_computation(uint8_t *spec_buf, size_t spec_buf_len)
     luciditee_guess_app__specification__free_unpacked(spec, NULL);
 }
 */
+
+bool state_policy(uint8_t *buf, size_t buf_len)
+{
+    LuciditeeGuessApp__Record *record;
+    record = luciditee_guess_app__record__unpack(NULL, buf_len, buf);
+    assert(record != NULL);
+
+    for (size_t i = 0; i < record->n_statevars; i++) {
+        LuciditeeGuessApp__Record__NamedDigest *nd = record->statevars[i];
+        assert(nd->digest.len == sizeof(sgx_sha256_hash_t));
+        int64_t fd = _moat_fs_open(nd->name, 0, NULL);
+        uint8_t *ledger_hash = nd->digest.data;
+        sgx_sha256_hash_t my_hash;
+        assert(_moat_fs_get_digest(fd, &my_hash) == 0);
+        if (memcmp(ledger_hash, &my_hash, sizeof(sgx_sha256_hash_t)) != 0) {
+            return false; //hash mismatches
+        }
+    }
+
+    luciditee_guess_app__record__free_unpacked(record, NULL);
+    return true;
+}
 
 void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t **record_buf, size_t *record_buf_len)
 {
@@ -190,14 +213,34 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
     /* open all the input, output, and state structures */
     open_files(spec_buf, spec_buf_len, init);
 
+    size_t retstatus;
+    uint8_t *untrusted_buf = NULL; size_t untrusted_buf_len = 0;
+    uint8_t *prev_record_buf = NULL;
     if (init == false) {
-        uint8_t *untrusted_buf; size_t untrusted_buf_len;
-        size_t retstatus;
         sgx_status_t status = ledger_get_ocall(&retstatus, (void **) &untrusted_buf, &untrusted_buf_len);
         assert(status == SGX_SUCCESS && retstatus == 0);
-        //check policy
+        prev_record_buf = (uint8_t *) malloc(untrusted_buf_len);
+        assert(prev_record_buf != NULL);
+        memcpy(prev_record_buf, untrusted_buf, untrusted_buf_len);
     }
 
+    /* invoke policy checker */
+    bool compliant;
+    if (!init) {
+        compliant = state_policy(prev_record_buf, untrusted_buf_len);
+        if (! compliant) {
+            _moat_print_debug("state_policy check failed");
+            return -1;
+        }
+    }
+
+    compliant = phi(init);
+    _moat_print_debug("finished compliance\n");
+    if (!compliant) {
+        _moat_print_debug("user defined policy check failed\n");
+        return -1;
+    }
+    _moat_print_debug("about to invoke f\n");
     /* use the ledger to decide whether we are creating initial state, and let f know that */
     uint64_t result = f(init);
 
@@ -205,7 +248,6 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
     uint8_t *record_buf; size_t record_buf_len;
     generate_computation_record(spec_buf, spec_buf_len, &record_buf, &record_buf_len);
 
-    size_t retstatus;
     sgx_status_t status = ledger_post_ocall(&retstatus, record_buf, record_buf_len);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
