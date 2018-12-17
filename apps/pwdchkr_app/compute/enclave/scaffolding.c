@@ -39,51 +39,14 @@ void print_digest(const char *name, int64_t fd)
     _moat_print_debug("\n");
 }
 
-/*
-void print_record_computation(uint8_t *spec_buf, size_t spec_buf_len)
-{   
-    LuciditeeGuessApp__Specification *spec;
-    spec = luciditee_guess_app__specification__unpack(NULL, spec_buf_len, spec_buf);
-    assert(spec != NULL);
-
-    //print id
-    _moat_print_debug("----------------------------\n");
-    _moat_print_debug("record computation:\n");
-    _moat_print_debug("spec has id: %" PRIu64 "\n", spec->id);
-    //print inputs
-    for (size_t i = 0; i < spec->n_inputs; i++) {
-        LuciditeeGuessApp__Specification__InputDescription *input = spec->inputs[i];
-        int64_t fd = _moat_fs_open(input->input_name, 0, NULL);
-        print_digest(input->input_name, fd);
-    }
-    //print outputs
-    for (size_t i = 0; i < spec->n_outputs; i++) {
-        LuciditeeGuessApp__Specification__OutputDescription *output = spec->outputs[i];
-        //_moat_print_debug("spec has output: %s\n", output->output_name);
-        int64_t fd = _moat_fs_open(output->output_name, 0, NULL);
-        print_digest(output->output_name, fd);
-    }
-    //print state
-    for (size_t i = 0; i < spec->n_statevars; i++) {
-        LuciditeeGuessApp__Specification__StateDescription *statevar = spec->statevars[i];
-        //_moat_print_debug("spec has state var: %s\n", statevar->state_name);
-        int64_t fd = _moat_fs_open(statevar->state_name, 0, NULL);
-        print_digest(statevar->state_name, fd);
-    }
-    _moat_print_debug("----------------------------\n");
-
-    luciditee_guess_app__specification__free_unpacked(spec, NULL);
-}
-*/
-
 bool state_policy(uint8_t *buf, size_t buf_len)
 {
-    LuciditeeGuessApp__Record *record;
-    record = luciditee_guess_app__record__unpack(NULL, buf_len, buf);
+    Luciditee__Record *record;
+    record = luciditee__record__unpack(NULL, buf_len, buf);
     assert(record != NULL);
 
     for (size_t i = 0; i < record->n_statevars; i++) {
-        LuciditeeGuessApp__Record__NamedDigest *nd = record->statevars[i];
+        Luciditee__Record__NamedDigest *nd = record->statevars[i];
         assert(nd->digest.len == sizeof(sgx_sha256_hash_t));
         int64_t fd = _moat_fs_open(nd->name, 0, NULL);
         uint8_t *ledger_hash = nd->digest.data;
@@ -94,32 +57,32 @@ bool state_policy(uint8_t *buf, size_t buf_len)
         }
     }
 
-    luciditee_guess_app__record__free_unpacked(record, NULL);
+    luciditee__record__free_unpacked(record, NULL);
     return true;
 }
 
 void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t **record_buf, size_t *record_buf_len)
 {
-    LuciditeeGuessApp__Specification *spec;
-    spec = luciditee_guess_app__specification__unpack(NULL, spec_buf_len, spec_buf);
+    Luciditee__Specification *spec;
+    spec = luciditee__specification__unpack(NULL, spec_buf_len, spec_buf);
     assert(spec != NULL);
 
     _moat_print_debug("----------------------------\n");
     _moat_print_debug("record computation:\n");
     _moat_print_debug("computation id: %" PRIu64 "\n", spec->id);
 
-    LuciditeeGuessApp__Record record;
-    luciditee_guess_app__record__init(&record);
+    Luciditee__Record record;
+    luciditee__record__init(&record);
     record.id = spec->id;
     record.t = 0;
     
     record.n_inputs = spec->n_inputs;
-    record.inputs = (LuciditeeGuessApp__Record__NamedDigest **) malloc(sizeof(void *) * record.n_inputs);
+    record.inputs = (Luciditee__Record__NamedDigest **) malloc(sizeof(void *) * record.n_inputs);
     for (size_t i = 0; i < spec->n_inputs; i++) {
-        LuciditeeGuessApp__Specification__InputDescription *input = spec->inputs[i];
-        LuciditeeGuessApp__Record__NamedDigest *nd = (LuciditeeGuessApp__Record__NamedDigest *) 
-            malloc(sizeof(LuciditeeGuessApp__Record__NamedDigest)); assert(nd != NULL);
-        luciditee_guess_app__record__named_digest__init(nd);
+        Luciditee__Specification__InputDescription *input = spec->inputs[i];
+        Luciditee__Record__NamedDigest *nd = (Luciditee__Record__NamedDigest *) 
+            malloc(sizeof(Luciditee__Record__NamedDigest)); assert(nd != NULL);
+        luciditee__record__named_digest__init(nd);
         nd->name = input->input_name;
         nd->digest.len = sizeof(sgx_sha256_hash_t);
         nd->digest.data = malloc(sizeof(sgx_sha256_hash_t)); assert(nd->digest.data != NULL);
@@ -130,12 +93,12 @@ void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t
     }
 
     record.n_outputs = spec->n_outputs;
-    record.outputs = (LuciditeeGuessApp__Record__NamedDigest **) malloc(sizeof(void *) * record.n_outputs);
+    record.outputs = (Luciditee__Record__NamedDigest **) malloc(sizeof(void *) * record.n_outputs);
     for (size_t i = 0; i < spec->n_outputs; i++) {
-        LuciditeeGuessApp__Specification__OutputDescription *output = spec->outputs[i];
-        LuciditeeGuessApp__Record__NamedDigest *nd = (LuciditeeGuessApp__Record__NamedDigest *) 
-            malloc(sizeof(LuciditeeGuessApp__Record__NamedDigest)); assert(nd != NULL);
-        luciditee_guess_app__record__named_digest__init(nd);
+        Luciditee__Specification__OutputDescription *output = spec->outputs[i];
+        Luciditee__Record__NamedDigest *nd = (Luciditee__Record__NamedDigest *) 
+            malloc(sizeof(Luciditee__Record__NamedDigest)); assert(nd != NULL);
+        luciditee__record__named_digest__init(nd);
         nd->name = output->output_name;
         nd->digest.len = sizeof(sgx_sha256_hash_t);
         nd->digest.data = malloc(sizeof(sgx_sha256_hash_t)); assert(nd->digest.data != NULL);
@@ -146,12 +109,12 @@ void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t
     }
 
     record.n_statevars = spec->n_statevars;
-    record.statevars = (LuciditeeGuessApp__Record__NamedDigest **) malloc(sizeof(void *) * record.n_statevars);
+    record.statevars = (Luciditee__Record__NamedDigest **) malloc(sizeof(void *) * record.n_statevars);
     for (size_t i = 0; i < spec->n_statevars; i++) {
-        LuciditeeGuessApp__Specification__StateDescription *statevar = spec->statevars[i];
-        LuciditeeGuessApp__Record__NamedDigest *nd = (LuciditeeGuessApp__Record__NamedDigest *) 
-            malloc(sizeof(LuciditeeGuessApp__Record__NamedDigest)); assert(nd != NULL);
-        luciditee_guess_app__record__named_digest__init(nd);
+        Luciditee__Specification__StateDescription *statevar = spec->statevars[i];
+        Luciditee__Record__NamedDigest *nd = (Luciditee__Record__NamedDigest *) 
+            malloc(sizeof(Luciditee__Record__NamedDigest)); assert(nd != NULL);
+        luciditee__record__named_digest__init(nd);
         nd->name = statevar->state_name;
         nd->digest.len = sizeof(sgx_sha256_hash_t);
         nd->digest.data = malloc(sizeof(sgx_sha256_hash_t)); assert(nd->digest.data != NULL);
@@ -161,46 +124,46 @@ void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t
         record.statevars[i] = nd;
     }
 
-    *record_buf_len = luciditee_guess_app__record__get_packed_size(&record);
+    *record_buf_len = luciditee__record__get_packed_size(&record);
     *record_buf = (uint8_t *) malloc(*record_buf_len); assert(*record_buf != NULL);
-    assert (luciditee_guess_app__record__pack(&record, *record_buf) == *record_buf_len);
+    assert (luciditee__record__pack(&record, *record_buf) == *record_buf_len);
 
     _moat_print_debug("----------------------------\n");
 
-    luciditee_guess_app__specification__free_unpacked(spec, NULL);
+    luciditee__specification__free_unpacked(spec, NULL);
 }
 
 void open_files(uint8_t *spec_buf, size_t spec_buf_len, bool init)
 {   
-    LuciditeeGuessApp__Specification *spec;
-    spec = luciditee_guess_app__specification__unpack(NULL, spec_buf_len, spec_buf);
+    Luciditee__Specification *spec;
+    spec = luciditee__specification__unpack(NULL, spec_buf_len, spec_buf);
     assert(spec != NULL);
 
     //open inputs
     sgx_aes_gcm_128bit_key_t encr_key;
 
     for (size_t i = 0; i < spec->n_inputs; i++) {
-        LuciditeeGuessApp__Specification__InputDescription *input = spec->inputs[i];
+        Luciditee__Specification__InputDescription *input = spec->inputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
         int64_t fd = _moat_fs_open(input->input_name, O_RDONLY, &encr_key);
         assert(fd != -1);
     }
     //print outputs
     for (size_t i = 0; i < spec->n_outputs; i++) {
-        LuciditeeGuessApp__Specification__OutputDescription *output = spec->outputs[i];
+        Luciditee__Specification__OutputDescription *output = spec->outputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
         int64_t fd = _moat_fs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
         assert(fd != -1);
     }
     //print state
     for (size_t i = 0; i < spec->n_statevars; i++) {
-        LuciditeeGuessApp__Specification__StateDescription *statevar = spec->statevars[i];
+        Luciditee__Specification__StateDescription *statevar = spec->statevars[i];
         memset(&encr_key, 0, sizeof(encr_key));
         int64_t fd = _moat_fs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
         print_digest(statevar->state_name, fd);
     }
 
-    luciditee_guess_app__specification__free_unpacked(spec, NULL);
+    luciditee__specification__free_unpacked(spec, NULL);
 }
 
 /* TODO: eventually init arg will go away in lieu of a ledger */

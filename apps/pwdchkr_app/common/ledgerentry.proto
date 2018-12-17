@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package luciditee_guess_app;
+package luciditee;
 import "specification.proto";
 import "record.proto";
 

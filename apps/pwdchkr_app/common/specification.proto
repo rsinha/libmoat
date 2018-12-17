@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package luciditee_guess_app;
+package luciditee;
 
 message Specification {
   required uint64 id = 1;
