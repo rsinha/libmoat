@@ -637,7 +637,7 @@ extern "C" size_t ledger_post_ocall(void *buf, size_t len)
     return 0;
 }
 
-extern "C" size_t ledger_get_ocall(void **untrusted_buf, size_t *untrusted_buf_len)
+extern "C" size_t ledger_get_content_ocall(void **untrusted_buf, size_t *untrusted_buf_len)
 {
     std::ifstream ifs("luciditee.ledger", std::ios::binary | std::ios::ate);
     std::ifstream::pos_type pos = ifs.tellg();
@@ -653,6 +653,11 @@ extern "C" size_t ledger_get_ocall(void **untrusted_buf, size_t *untrusted_buf_l
     return 0;
 }
 
+extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
+{
+    *height = 1;
+    return 0;
+}
 
 void register_fs_state(const std::string &name, 
     const std::string &backup_path_prev,

@@ -68,6 +68,14 @@ int64_t LIBMOAT_API _moat_kvs_close(int64_t fd);
 int64_t LIBMOAT_API _moat_kvs_save(int64_t fd);
 
 /***************************************************
+        APPEND-ONLY LEDGER INTERFACE
+ ***************************************************/
+
+bool LIBMOAT_API _moat_l_post(void *buf, size_t len);
+bool LIBMOAT_API _moat_l_get_content(uint64_t height, void **untrusted_buf, size_t *untrusted_buf_len);
+uint64_t LIBMOAT_API _moat_l_get_current_counter();
+
+/***************************************************
         KEY MANAGEMENT INTERFACE
  ***************************************************/
 

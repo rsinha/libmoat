@@ -184,16 +184,10 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
     /* open all the input, output, and state structures */
     open_files(spec, init);
 
-    size_t retstatus;
-    uint8_t *untrusted_buf = NULL; size_t untrusted_buf_len = 0;
     uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
     if (init == false) {
-        sgx_status_t status = ledger_get_ocall(&retstatus, (void **) &untrusted_buf, &untrusted_buf_len);
-        assert(status == SGX_SUCCESS && retstatus == 0);
-        ledger_entry_buf_len = untrusted_buf_len;
-        ledger_entry_buf = (uint8_t *) malloc(ledger_entry_buf_len);
-        assert(ledger_entry_buf != NULL);
-        memcpy(ledger_entry_buf, untrusted_buf, ledger_entry_buf_len);
+        bool result = _moat_l_get_content(0, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
+        assert(result);
     }
 
     /* invoke policy checker */
@@ -218,8 +212,7 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
     uint8_t *record_buf; size_t record_buf_len;
     generate_computation_record(spec, &record_buf, &record_buf_len);
 
-    sgx_status_t status = ledger_post_ocall(&retstatus, record_buf, record_buf_len);
-    assert(status == SGX_SUCCESS && retstatus == 0);
+    assert(_moat_l_post(record_buf, record_buf_len));
 
     return result;
 }
