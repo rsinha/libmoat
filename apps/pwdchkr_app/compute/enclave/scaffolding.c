@@ -65,12 +65,8 @@ bool state_policy(uint8_t *entry_buf, size_t entry_buf_len)
     return true;
 }
 
-void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t **entry_buf, size_t *entry_buf_len)
+void generate_computation_record(const Luciditee__Specification *spec, uint8_t **entry_buf, size_t *entry_buf_len)
 {
-    Luciditee__Specification *spec;
-    spec = luciditee__specification__unpack(NULL, spec_buf_len, spec_buf);
-    assert(spec != NULL);
-
     _moat_print_debug("----------------------------\n");
     _moat_print_debug("record computation:\n");
     _moat_print_debug("computation id: %" PRIu64 "\n", spec->id);
@@ -138,16 +134,10 @@ void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t
     *entry_buf_len = luciditee__ledger_entry__get_packed_size(&ledger_entry);
     *entry_buf = (uint8_t *) malloc(*entry_buf_len); assert(*entry_buf != NULL);
     assert (luciditee__ledger_entry__pack(&ledger_entry, *entry_buf) == *entry_buf_len);
-
-    luciditee__specification__free_unpacked(spec, NULL);
 }
 
-void open_files(uint8_t *spec_buf, size_t spec_buf_len, bool init)
-{   
-    Luciditee__Specification *spec;
-    spec = luciditee__specification__unpack(NULL, spec_buf_len, spec_buf);
-    assert(spec != NULL);
-
+void open_files(const Luciditee__Specification *spec, bool init)
+{
     //open inputs
     sgx_aes_gcm_128bit_key_t encr_key;
 
@@ -171,19 +161,28 @@ void open_files(uint8_t *spec_buf, size_t spec_buf_len, bool init)
         int64_t fd = _moat_fs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
         print_digest(statevar->state_name, fd);
     }
-
-    luciditee__specification__free_unpacked(spec, NULL);
 }
 
-/* TODO: eventually init arg will go away in lieu of a ledger */
+Luciditee__LedgerEntry *parse_buf_as_entry(uint8_t *spec_buf, size_t spec_buf_len)
+{
+    Luciditee__LedgerEntry *entry;
+    entry = luciditee__ledger_entry__unpack(NULL, spec_buf_len, spec_buf);
+    assert(entry->type == LUCIDITEE__LEDGER_ENTRY__ENTRY_TYPE__CREATE);
+    assert(entry->entry_case == LUCIDITEE__LEDGER_ENTRY__ENTRY_SPEC);
+    return entry;
+}
+
 uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool init)
 {
     /* initialize libmoat */
     _moat_debug_module_init();
     _moat_fs_module_init();
 
+    Luciditee__LedgerEntry *entry = parse_buf_as_entry(spec_buf, spec_buf_len);
+    Luciditee__Specification *spec = entry->spec;
+
     /* open all the input, output, and state structures */
-    open_files(spec_buf, spec_buf_len, init);
+    open_files(spec, init);
 
     size_t retstatus;
     uint8_t *untrusted_buf = NULL; size_t untrusted_buf_len = 0;
@@ -217,7 +216,7 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
 
     /* generate the on-ledger record */
     uint8_t *record_buf; size_t record_buf_len;
-    generate_computation_record(spec_buf, spec_buf_len, &record_buf, &record_buf_len);
+    generate_computation_record(spec, &record_buf, &record_buf_len);
 
     sgx_status_t status = ledger_post_ocall(&retstatus, record_buf, record_buf_len);
     assert(status == SGX_SUCCESS && retstatus == 0);
