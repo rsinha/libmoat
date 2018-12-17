@@ -10,7 +10,7 @@
 
 #include "record.pb-c.h"
 #include "specification.pb-c.h"
-
+#include "ledgerentry.pb-c.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,11 +39,15 @@ void print_digest(const char *name, int64_t fd)
     _moat_print_debug("\n");
 }
 
-bool state_policy(uint8_t *buf, size_t buf_len)
+bool state_policy(uint8_t *entry_buf, size_t entry_buf_len)
 {
-    Luciditee__Record *record;
-    record = luciditee__record__unpack(NULL, buf_len, buf);
-    assert(record != NULL);
+    Luciditee__LedgerEntry *ledger_entry;
+    ledger_entry = luciditee__ledger_entry__unpack(NULL, entry_buf_len, entry_buf);
+    assert(ledger_entry != NULL);
+    assert(ledger_entry->type == LUCIDITEE__LEDGER_ENTRY__ENTRY_TYPE__RECORD);
+    assert(ledger_entry->entry_case == LUCIDITEE__LEDGER_ENTRY__ENTRY_RECORD);
+
+    Luciditee__Record *record = ledger_entry->record;
 
     for (size_t i = 0; i < record->n_statevars; i++) {
         Luciditee__Record__NamedDigest *nd = record->statevars[i];
@@ -57,11 +61,11 @@ bool state_policy(uint8_t *buf, size_t buf_len)
         }
     }
 
-    luciditee__record__free_unpacked(record, NULL);
+    luciditee__ledger_entry__free_unpacked(ledger_entry, NULL);
     return true;
 }
 
-void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t **record_buf, size_t *record_buf_len)
+void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t **entry_buf, size_t *entry_buf_len)
 {
     Luciditee__Specification *spec;
     spec = luciditee__specification__unpack(NULL, spec_buf_len, spec_buf);
@@ -124,11 +128,16 @@ void generate_computation_record(uint8_t *spec_buf, size_t spec_buf_len, uint8_t
         record.statevars[i] = nd;
     }
 
-    *record_buf_len = luciditee__record__get_packed_size(&record);
-    *record_buf = (uint8_t *) malloc(*record_buf_len); assert(*record_buf != NULL);
-    assert (luciditee__record__pack(&record, *record_buf) == *record_buf_len);
-
     _moat_print_debug("----------------------------\n");
+
+    Luciditee__LedgerEntry ledger_entry;
+    luciditee__ledger_entry__init(&ledger_entry);
+    ledger_entry.type = LUCIDITEE__LEDGER_ENTRY__ENTRY_TYPE__RECORD;
+    ledger_entry.entry_case = LUCIDITEE__LEDGER_ENTRY__ENTRY_RECORD;
+    ledger_entry.record = &record;
+    *entry_buf_len = luciditee__ledger_entry__get_packed_size(&ledger_entry);
+    *entry_buf = (uint8_t *) malloc(*entry_buf_len); assert(*entry_buf != NULL);
+    assert (luciditee__ledger_entry__pack(&ledger_entry, *entry_buf) == *entry_buf_len);
 
     luciditee__specification__free_unpacked(spec, NULL);
 }
@@ -178,20 +187,20 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
 
     size_t retstatus;
     uint8_t *untrusted_buf = NULL; size_t untrusted_buf_len = 0;
-    uint8_t *ledger_rec_buf = NULL; size_t ledger_rec_buf_len = 0;
+    uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
     if (init == false) {
         sgx_status_t status = ledger_get_ocall(&retstatus, (void **) &untrusted_buf, &untrusted_buf_len);
         assert(status == SGX_SUCCESS && retstatus == 0);
-        ledger_rec_buf_len = untrusted_buf_len;
-        ledger_rec_buf = (uint8_t *) malloc(ledger_rec_buf_len);
-        assert(ledger_rec_buf != NULL);
-        memcpy(ledger_rec_buf, untrusted_buf, ledger_rec_buf_len);
+        ledger_entry_buf_len = untrusted_buf_len;
+        ledger_entry_buf = (uint8_t *) malloc(ledger_entry_buf_len);
+        assert(ledger_entry_buf != NULL);
+        memcpy(ledger_entry_buf, untrusted_buf, ledger_entry_buf_len);
     }
 
     /* invoke policy checker */
     bool compliant;
     if (!init) {
-        compliant = state_policy(ledger_rec_buf, ledger_rec_buf_len);
+        compliant = state_policy(ledger_entry_buf, ledger_entry_buf_len);
         if (! compliant) {
             _moat_print_debug("state_policy check failed");
             return -1;
