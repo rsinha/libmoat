@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package barbican;
+
+message Ledger {
+  message Block {
+    required uint64 height = 1;
+    required bytes content = 2;
+  }
+  repeated Block blocks = 1;
+}

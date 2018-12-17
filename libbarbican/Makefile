@@ -22,15 +22,15 @@ PTHREAD_LIB_NAME := libpthread.a
 ######## Library Settings ########
 
 Lib_Name := libbarbican.a
-Lib_Cpp_Files := Barbican.cpp RocksDBInterface.cpp
+Lib_Cpp_Files := Ledger.pb.cc Barbican.cpp RocksDBInterface.cpp
 
 ######## App Settings ########
 
 Lib_Include_Paths :=  -I$(SGX_SDK)/include -I$(HIREDIS_INC_PATH)
-
-Lib_C_Flags := -fPIC -Wno-attributes $(Lib_Include_Paths)
+Protobuf_C_Flags := -D_THREAD_SAFE -I/usr/local/include
+Lib_C_Flags := $(Protobuf_C_Flags) -fPIC -Wno-attributes $(Lib_Include_Paths)
 Lib_Cpp_Flags := $(Lib_C_Flags) -std=c++11
-Lib_Cpp_Objects := $(Lib_Cpp_Files:.cpp=.o)
+Lib_Cpp_Objects := Ledger.pb.o Barbican.o RocksDBInterface.o
 
 ######## Enclave Settings ########
 
@@ -47,6 +47,14 @@ $(Lib_Name): $(Lib_Cpp_Objects) $(Lib_C_Objects)
 	ranlib $@
 
 ######## App Objects ########
+
+Ledger.pb.cc: Ledger.proto
+	@echo "GEN  =>  $@"
+	@protoc --cpp_out=. Ledger.proto
+
+Ledger.pb.o: Ledger.pb.cc
+	@echo "CXX   <=  $<"
+	@$(CXX) $(Lib_Cpp_Flags) -c $< -o $@
 
 %.o: %.cpp
 	@echo "CXX  <=  $<"

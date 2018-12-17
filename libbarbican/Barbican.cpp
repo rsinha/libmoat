@@ -15,6 +15,8 @@
 #include <cstdlib>
 #include "json.hpp"
 
+#include "Ledger.pb.h"
+
 using json = nlohmann::json;
 
 /* Internal Definitions */
@@ -629,33 +631,87 @@ extern "C" size_t free_ocall(void *untrusted_buf)
 
 extern "C" size_t ledger_post_ocall(void *buf, size_t len)
 {
-    std::ofstream fout;
-    fout.open("luciditee.ledger", std::ios::binary | std::ios::out);
-    fout.write((char *) buf, (std::streamsize) len);
-    std::cout << "Wrote " << len << " bytes to the ledger" << std::endl;
-    fout.close();
+    // std::ofstream fout;
+    // fout.open("luciditee.ledger", std::ios::binary | std::ios::out);
+    // fout.write((char *) buf, (std::streamsize) len);
+    // std::cout << "Wrote " << len << " bytes to the ledger" << std::endl;
+    // fout.close();
+
+    barbican::Ledger ledger;
+    std::fstream input("luciditee.ledger", std::ios::binary | std::ios::in);
+    if (!input) {
+      std::cout << "luciditee.ledger" << ": File not found.  Creating a new file." << std::endl;
+    } else if (!ledger.ParseFromIstream(&input)) {
+      std::cerr << "Failed to parse luciditee ledger." << std::endl;
+      return -1;
+    }
+
+    barbican::Ledger_Block *block = ledger.add_blocks();
+    std::string content((const char *) buf, len);
+    block->set_content(content);
+    block->set_height(ledger.blocks_size());
+
+    // Write the new address book back to disk.
+    std::fstream output("luciditee.ledger", std::ios::out | std::ios::trunc | std::ios::binary);
+    if (!ledger.SerializeToOstream(&output)) {
+      std::cerr << "Failed to write luciditee ledger." << std::endl;
+      return -1;
+    }
+
     return 0;
 }
 
-extern "C" size_t ledger_get_content_ocall(void **untrusted_buf, size_t *untrusted_buf_len)
+extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    std::ifstream ifs("luciditee.ledger", std::ios::binary | std::ios::ate);
-    std::ifstream::pos_type pos = ifs.tellg();
+    barbican::Ledger ledger;
+    std::fstream input("luciditee.ledger", std::ios::binary | std::ios::in);
+    if (!input) {
+      std::cout << "luciditee.ledger" << ": File not found.  Creating a new file." << std::endl;
+      return -1;
+    } else if (!ledger.ParseFromIstream(&input)) {
+      std::cout << "Failed to parse luciditee ledger." << std::endl;
+      return -1;
+    }
+    if (height >= ledger.blocks_size()) { return -1; } //requesting unavailable block
+    std::cout << "ledger has height " << ledger.blocks_size() << std::endl;
 
-    *untrusted_buf_len = pos;
+    barbican::Ledger_Block block = ledger.blocks(ledger.blocks_size() - 1);
+    uint64_t block_height = block.height();
+    std::string block_content = block.content();
+
+    *untrusted_buf_len = block_content.size();
     *untrusted_buf = malloc(*untrusted_buf_len);
     assert(*untrusted_buf != NULL);
+    memcpy(*untrusted_buf, block_content.c_str(), *untrusted_buf_len);
 
-    ifs.seekg(0, std::ios::beg);
-    ifs.read((char *) *untrusted_buf, (std::streamsize) *untrusted_buf_len);
-    ifs.close();
-
+    input.close();
     return 0;
+
+    // std::ifstream ifs("luciditee.ledger", std::ios::binary | std::ios::ate);
+    // std::ifstream::pos_type pos = ifs.tellg();
+
+    // *untrusted_buf_len = pos;
+    // *untrusted_buf = malloc(*untrusted_buf_len);
+    // assert(*untrusted_buf != NULL);
+
+    // ifs.seekg(0, std::ios::beg);
+    // ifs.read((char *) *untrusted_buf, (std::streamsize) *untrusted_buf_len);
+    // ifs.close();
+
 }
 
 extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
 {
-    *height = 1;
+    barbican::Ledger ledger;
+    std::fstream input("luciditee.ledger", std::ios::binary | std::ios::in);
+    if (!input) {
+      std::cout << "luciditee.ledger" << ": File not found.  Creating a new file." << std::endl;
+    } else if (!ledger.ParseFromIstream(&input)) {
+      std::cerr << "Failed to parse luciditee ledger." << std::endl;
+      return -1;
+    }
+
+    *height = ledger.blocks_size();
     return 0;
 }
 
@@ -719,6 +775,8 @@ void register_scc_actor(const std::string &name, const std::string &ip_addr, boo
 
 void init_barbican(const std::string &json_str)
 {
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
+
     try {
         json j = json::parse(json_str);
 

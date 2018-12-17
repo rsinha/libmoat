@@ -54,7 +54,7 @@ sgx_status_t SGX_CDECL malloc_ocall(size_t* retval, size_t num_bytes, void **unt
 sgx_status_t SGX_CDECL free_ocall(size_t* retval, void *untrusted_buf);
 
 sgx_status_t SGX_CDECL ledger_post_ocall(size_t* retval, void* buf, size_t len);
-sgx_status_t SGX_CDECL ledger_get_content_ocall(size_t* retval, void **untrusted_buf, size_t *untrusted_buf_len);
+sgx_status_t SGX_CDECL ledger_get_content_ocall(size_t* retval, uint64_t height, void **untrusted_buf, size_t *untrusted_buf_len);
 sgx_status_t SGX_CDECL ledger_get_current_counter_ocall(size_t* retval, uint64_t *height);
 
 sgx_status_t SGX_CDECL print_debug_on_host_ocall(size_t* retval, const char* str);

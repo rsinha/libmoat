@@ -27,14 +27,13 @@ bool _moat_l_get_content(uint64_t height, void **buf, size_t *len)
 {
     void *untrusted_buf; size_t untrusted_buf_len;
     size_t retstatus;
-    sgx_status_t status = ledger_get_content_ocall(&retstatus, &untrusted_buf, &untrusted_buf_len);
+    sgx_status_t status = ledger_get_content_ocall(&retstatus, height, &untrusted_buf, &untrusted_buf_len);
     assert(status == SGX_SUCCESS && retstatus == 0);
 
     *len = untrusted_buf_len;
     *buf = malloc(*len);
     assert(*buf != NULL);
     memcpy(*buf, untrusted_buf, *len);
-
     //verify_L TODO
     return true;
 }
