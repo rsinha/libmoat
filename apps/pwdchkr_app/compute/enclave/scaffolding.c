@@ -39,16 +39,8 @@ void print_digest(const char *name, int64_t fd)
     _moat_print_debug("\n");
 }
 
-bool state_policy(uint8_t *entry_buf, size_t entry_buf_len)
+bool state_policy(Luciditee__Record *record)
 {
-    Luciditee__LedgerEntry *ledger_entry;
-    ledger_entry = luciditee__ledger_entry__unpack(NULL, entry_buf_len, entry_buf);
-    assert(ledger_entry != NULL);
-    assert(ledger_entry->type == LUCIDITEE__LEDGER_ENTRY__ENTRY_TYPE__RECORD);
-    assert(ledger_entry->entry_case == LUCIDITEE__LEDGER_ENTRY__ENTRY_RECORD);
-
-    Luciditee__Record *record = ledger_entry->record;
-
     for (size_t i = 0; i < record->n_statevars; i++) {
         Luciditee__Record__NamedDigest *nd = record->statevars[i];
         assert(nd->digest.len == sizeof(sgx_sha256_hash_t));
@@ -61,7 +53,6 @@ bool state_policy(uint8_t *entry_buf, size_t entry_buf_len)
         }
     }
 
-    luciditee__ledger_entry__free_unpacked(ledger_entry, NULL);
     return true;
 }
 
@@ -144,6 +135,7 @@ void open_files(const Luciditee__Specification *spec, bool init)
     for (size_t i = 0; i < spec->n_inputs; i++) {
         Luciditee__Specification__InputDescription *input = spec->inputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
+        _moat_print_debug("attempting to open %s\n", input->input_name);
         int64_t fd = _moat_fs_open(input->input_name, O_RDONLY, &encr_key);
         assert(fd != -1);
     }
@@ -151,6 +143,7 @@ void open_files(const Luciditee__Specification *spec, bool init)
     for (size_t i = 0; i < spec->n_outputs; i++) {
         Luciditee__Specification__OutputDescription *output = spec->outputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
+        _moat_print_debug("attempting to open %s\n", output->output_name);
         int64_t fd = _moat_fs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
         assert(fd != -1);
     }
@@ -158,44 +151,108 @@ void open_files(const Luciditee__Specification *spec, bool init)
     for (size_t i = 0; i < spec->n_statevars; i++) {
         Luciditee__Specification__StateDescription *statevar = spec->statevars[i];
         memset(&encr_key, 0, sizeof(encr_key));
+        _moat_print_debug("attempting to open %s\n", statevar->state_name);
         int64_t fd = _moat_fs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
         print_digest(statevar->state_name, fd);
     }
 }
 
-Luciditee__LedgerEntry *parse_buf_as_entry(uint8_t *spec_buf, size_t spec_buf_len)
+Luciditee__LedgerEntry *parse_buf_as_ledger_entry(uint8_t *buf, size_t buf_len)
 {
     Luciditee__LedgerEntry *entry;
-    entry = luciditee__ledger_entry__unpack(NULL, spec_buf_len, spec_buf);
-    assert(entry->type == LUCIDITEE__LEDGER_ENTRY__ENTRY_TYPE__CREATE);
-    assert(entry->entry_case == LUCIDITEE__LEDGER_ENTRY__ENTRY_SPEC);
+    entry = luciditee__ledger_entry__unpack(NULL, buf_len, buf);
     return entry;
 }
 
-uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool init)
+void free_buf_of_ledger_entry_buf(Luciditee__LedgerEntry *entry)
+{
+    luciditee__ledger_entry__free_unpacked(entry, NULL);
+}
+
+bool is_entry_a_spec(Luciditee__LedgerEntry *entry)
+{
+    return entry->type == LUCIDITEE__LEDGER_ENTRY__ENTRY_TYPE__CREATE &&
+            entry->entry_case == LUCIDITEE__LEDGER_ENTRY__ENTRY_SPEC;
+}
+
+bool is_entry_a_record(Luciditee__LedgerEntry *entry)
+{
+    return entry->type == LUCIDITEE__LEDGER_ENTRY__ENTRY_TYPE__RECORD &&
+            entry->entry_case == LUCIDITEE__LEDGER_ENTRY__ENTRY_RECORD;
+}
+
+bool is_entry_of_spec_id(Luciditee__LedgerEntry *entry, uint64_t spec_id)
+{
+    if (is_entry_a_spec(entry)) {
+        Luciditee__Specification *spec = entry->spec;
+        return spec->id == spec_id;
+    } else if (is_entry_a_record(entry)) {
+        Luciditee__Record *record = entry->record;
+        return record->id == spec_id;
+    }
+    return false;
+}
+
+uint64_t invoke_enclave_computation(uint64_t spec_id)
 {
     /* initialize libmoat */
     _moat_debug_module_init();
     _moat_fs_module_init();
 
-    Luciditee__LedgerEntry *entry = parse_buf_as_entry(spec_buf, spec_buf_len);
-    Luciditee__Specification *spec = entry->spec;
+    bool found_spec = false, found_record = false;
+    Luciditee__LedgerEntry *latest_record_entry;
+    Luciditee__LedgerEntry *spec_entry;
+    
+    uint64_t height = _moat_l_get_current_counter();
+    for (uint64_t t = 0; t < height; t++) {
+        uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
+        bool result = _moat_l_get_content(t, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
+        assert(result);
+
+        Luciditee__LedgerEntry *entry = parse_buf_as_ledger_entry(ledger_entry_buf, ledger_entry_buf_len);
+
+        if (is_entry_a_spec(entry) && is_entry_of_spec_id(entry, spec_id)) 
+        {
+            assert(found_spec == false); //sanity check
+            spec_entry = entry;
+            _moat_print_debug("found specification at ledger height %" PRIu64 "\n", t);
+            found_spec = true;
+        } 
+        else if (is_entry_a_record(entry) && is_entry_of_spec_id(entry, spec_id)) 
+        {
+            if (found_record) //is this not the first record entry for this spec_id
+            {
+                free_buf_of_ledger_entry_buf(latest_record_entry);
+            }
+            latest_record_entry = entry;
+            _moat_print_debug("found record at ledger height %" PRIu64 "\n", t);
+            found_record = true;
+        } 
+        else 
+        {
+            free_buf_of_ledger_entry_buf(entry);
+        }
+
+        free(ledger_entry_buf);
+    }
+
+    if (!found_spec) {
+        _moat_print_debug("unable to find specification with id %" PRIu64 "\n", spec_id);
+        return -1;
+    }
+
+    bool init = !found_record;
+    if (init) { _moat_print_debug("treating this as initial step\n"); }
 
     /* open all the input, output, and state structures */
-    open_files(spec, init);
-
-    uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
-    if (init == false) {
-        bool result = _moat_l_get_content(0, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
-        assert(result);
-    }
+    open_files(spec_entry->spec, init);
 
     /* invoke policy checker */
     bool compliant;
     if (!init) {
-        compliant = state_policy(ledger_entry_buf, ledger_entry_buf_len);
+        compliant = state_policy(latest_record_entry->record);
         if (! compliant) {
-            _moat_print_debug("state_policy check failed");
+            _moat_print_debug("state_policy check failed\n");
             return -1;
         }
     }
@@ -210,7 +267,7 @@ uint64_t invoke_enclave_computation(uint8_t *spec_buf, size_t spec_buf_len, bool
 
     /* generate the on-ledger record */
     uint8_t *record_buf; size_t record_buf_len;
-    generate_computation_record(spec, &record_buf, &record_buf_len);
+    generate_computation_record(spec_entry->spec, &record_buf, &record_buf_len);
 
     assert(_moat_l_post(record_buf, record_buf_len));
 

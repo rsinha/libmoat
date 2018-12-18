@@ -9,6 +9,7 @@
 
 #include "ledgerentry.pb.h"
 #include "specification.pb.h"
+#include "Ledger.pb.h"
 
 using namespace std;
 
@@ -30,11 +31,32 @@ int main(int argc, char *argv[])
   luciditee::Specification_StateDescription *state = spec->add_statevars();
   state->set_state_name("pwdchkr_state");
 
-  // Write the new address book back to disk.
-  fstream output("pwdchkr.spec", ios::out | ios::trunc | ios::binary);
-  if (!ledger_entry.SerializeToOstream(&output)) {
+  std::string content;
+  if (!ledger_entry.SerializeToString(&content)) {
     cerr << "Failed to write policy." << endl;
     return -1;
   }
+
+
+  barbican::Ledger ledger;
+  std::fstream input("luciditee.ledger", std::ios::binary | std::ios::in);
+  if (!input) {
+    std::cout << "luciditee.ledger" << ": File not found.  Creating a new file." << std::endl;
+  } else if (!ledger.ParseFromIstream(&input)) {
+    std::cerr << "Failed to parse luciditee ledger." << std::endl;
+    return -1;
+  }
+
+  barbican::Ledger_Block *block = ledger.add_blocks();
+  block->set_content(content);
+  block->set_height(ledger.blocks_size());
+
+  // Write the new address book back to disk.
+  std::fstream output("luciditee.ledger", std::ios::out | std::ios::trunc | std::ios::binary);
+  if (!ledger.SerializeToOstream(&output)) {
+    std::cerr << "Failed to write luciditee ledger." << std::endl;
+    return -1;
+  }
+
 }
 

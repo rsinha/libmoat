@@ -675,7 +675,7 @@ extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf
     if (height >= ledger.blocks_size()) { return -1; } //requesting unavailable block
     std::cout << "ledger has height " << ledger.blocks_size() << std::endl;
 
-    barbican::Ledger_Block block = ledger.blocks(ledger.blocks_size() - 1);
+    barbican::Ledger_Block block = ledger.blocks(height);
     uint64_t block_height = block.height();
     std::string block_content = block.content();
 
