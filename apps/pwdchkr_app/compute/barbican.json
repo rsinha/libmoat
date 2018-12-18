@@ -1,4 +1,5 @@
 {
+  "ledger" : "/tmp/luciditee.ledger",
   "kvs_outputs": {},
   "kvs_inputs": {},
   "kvs_state": {},

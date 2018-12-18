@@ -55,6 +55,7 @@ std::map<std::string, strpair_t>        g_config_kvs_state;
 std::map<std::string, std::string>      g_config_fs_outputs;
 std::map<std::string, std::string>      g_config_fs_inputs;
 std::map<std::string, strpair_t>        g_config_fs_state;
+std::string                             g_config_ledger;
 std::string                             g_config_scc_self;
 std::map<std::string, std::string>      g_config_scc_actors; //map remote entity name to ip address
 std::map<std::string, bool>             g_config_scc_roles; //map remote entity name to role (client / server)
@@ -631,18 +632,12 @@ extern "C" size_t free_ocall(void *untrusted_buf)
 
 extern "C" size_t ledger_post_ocall(void *buf, size_t len)
 {
-    // std::ofstream fout;
-    // fout.open("luciditee.ledger", std::ios::binary | std::ios::out);
-    // fout.write((char *) buf, (std::streamsize) len);
-    // std::cout << "Wrote " << len << " bytes to the ledger" << std::endl;
-    // fout.close();
-
     barbican::Ledger ledger;
-    std::fstream input("luciditee.ledger", std::ios::binary | std::ios::in);
+    std::fstream input(g_config_ledger, std::ios::binary | std::ios::in);
     if (!input) {
-      std::cout << "luciditee.ledger" << ": File not found.  Creating a new file." << std::endl;
+      std::cout << g_config_ledger << ": File not found.  Creating a new file." << std::endl;
     } else if (!ledger.ParseFromIstream(&input)) {
-      std::cerr << "Failed to parse luciditee ledger." << std::endl;
+      std::cerr << "Failed to parse " << g_config_ledger << std::endl;
       return -1;
     }
 
@@ -652,9 +647,9 @@ extern "C" size_t ledger_post_ocall(void *buf, size_t len)
     block->set_height(ledger.blocks_size());
 
     // Write the new address book back to disk.
-    std::fstream output("luciditee.ledger", std::ios::out | std::ios::trunc | std::ios::binary);
+    std::fstream output(g_config_ledger, std::ios::out | std::ios::trunc | std::ios::binary);
     if (!ledger.SerializeToOstream(&output)) {
-      std::cerr << "Failed to write luciditee ledger." << std::endl;
+      std::cerr << "Failed to write " << g_config_ledger << std::endl;
       return -1;
     }
 
@@ -664,12 +659,12 @@ extern "C" size_t ledger_post_ocall(void *buf, size_t len)
 extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf, size_t *untrusted_buf_len)
 {
     barbican::Ledger ledger;
-    std::fstream input("luciditee.ledger", std::ios::binary | std::ios::in);
+    std::fstream input(g_config_ledger, std::ios::binary | std::ios::in);
     if (!input) {
-      std::cout << "luciditee.ledger" << ": File not found.  Creating a new file." << std::endl;
+      std::cout << g_config_ledger << ": File not found.  Creating a new file." << std::endl;
       return -1;
     } else if (!ledger.ParseFromIstream(&input)) {
-      std::cout << "Failed to parse luciditee ledger." << std::endl;
+      std::cout << "Failed to parse " << g_config_ledger << std::endl;
       return -1;
     }
     if (height >= ledger.blocks_size()) { return -1; } //requesting unavailable block
@@ -686,28 +681,16 @@ extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf
 
     input.close();
     return 0;
-
-    // std::ifstream ifs("luciditee.ledger", std::ios::binary | std::ios::ate);
-    // std::ifstream::pos_type pos = ifs.tellg();
-
-    // *untrusted_buf_len = pos;
-    // *untrusted_buf = malloc(*untrusted_buf_len);
-    // assert(*untrusted_buf != NULL);
-
-    // ifs.seekg(0, std::ios::beg);
-    // ifs.read((char *) *untrusted_buf, (std::streamsize) *untrusted_buf_len);
-    // ifs.close();
-
 }
 
 extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
 {
     barbican::Ledger ledger;
-    std::fstream input("luciditee.ledger", std::ios::binary | std::ios::in);
+    std::fstream input(g_config_ledger, std::ios::binary | std::ios::in);
     if (!input) {
-      std::cout << "luciditee.ledger" << ": File not found.  Creating a new file." << std::endl;
+      std::cout << g_config_ledger << ": File not found.  Creating a new file." << std::endl;
     } else if (!ledger.ParseFromIstream(&input)) {
-      std::cerr << "Failed to parse luciditee ledger." << std::endl;
+      std::cerr << "Failed to parse " << g_config_ledger << std::endl;
       return -1;
     }
 
@@ -779,6 +762,9 @@ void init_barbican(const std::string &json_str)
 
     try {
         json j = json::parse(json_str);
+
+        json ledger = j["ledger"];
+        g_config_ledger = ledger.get<std::string>();
 
         json state = j["kvs_state"];
         std::cout << "barbican: Reading state config for key-value stores ..." << std::endl;

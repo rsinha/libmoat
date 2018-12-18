@@ -1,10 +1,13 @@
 {
+  "ledger" : "/tmp/luciditee.ledger",
   "kvs_outputs": {},
   "kvs_inputs": {},
+  "kvs_state": {},
   "fs_outputs": {
     "irene_input": "/tmp/s3/1/irene_input"
   },
   "fs_inputs": {},
+  "fs_state": {},
   "scc_self": "5556",
   "scc_actors": {}
 }

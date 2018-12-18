@@ -11,6 +11,8 @@
 #include "specification.pb.h"
 #include "Ledger.pb.h"
 
+#define LEDGER "/tmp/luciditee.ledger"
+
 using namespace std;
 
 int main(int argc, char *argv[])
@@ -39,11 +41,11 @@ int main(int argc, char *argv[])
 
 
   barbican::Ledger ledger;
-  std::fstream input("luciditee.ledger", std::ios::binary | std::ios::in);
+  std::fstream input(LEDGER, std::ios::binary | std::ios::in);
   if (!input) {
-    std::cout << "luciditee.ledger" << ": File not found.  Creating a new file." << std::endl;
+    std::cout << LEDGER << ": File not found.  Creating a new file." << std::endl;
   } else if (!ledger.ParseFromIstream(&input)) {
-    std::cerr << "Failed to parse luciditee ledger." << std::endl;
+    std::cerr << "Failed to parse " << LEDGER << std::endl;
     return -1;
   }
 
@@ -52,9 +54,9 @@ int main(int argc, char *argv[])
   block->set_height(ledger.blocks_size());
 
   // Write the new address book back to disk.
-  std::fstream output("luciditee.ledger", std::ios::out | std::ios::trunc | std::ios::binary);
+  std::fstream output(LEDGER, std::ios::out | std::ios::trunc | std::ios::binary);
   if (!ledger.SerializeToOstream(&output)) {
-    std::cerr << "Failed to write luciditee ledger." << std::endl;
+    std::cerr << "Failed to write " << LEDGER<< std::endl;
     return -1;
   }
 
