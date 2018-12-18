@@ -204,6 +204,8 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     Luciditee__LedgerEntry *spec_entry;
     
     uint64_t height = _moat_l_get_current_counter();
+    _moat_print_debug("luciditee's ledger has height %" PRIu64 "\n", height);
+
     for (uint64_t t = 0; t < height; t++) {
         uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
         bool result = _moat_l_get_content(t, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
