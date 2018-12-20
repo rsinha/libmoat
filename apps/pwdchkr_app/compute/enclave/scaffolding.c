@@ -158,7 +158,7 @@ void open_files(const Luciditee__Specification *spec, bool init)
     for (size_t i = 0; i < spec->n_inputs; i++) {
         Luciditee__Specification__InputDescription *input = spec->inputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
-        _moat_print_debug("attempting to open %s\n", input->input_name);
+        //_moat_print_debug("attempting to open %s\n", input->input_name);
         int64_t fd = _moat_fs_open(input->input_name, O_RDONLY, &encr_key);
         assert(fd != -1);
     }
@@ -166,7 +166,7 @@ void open_files(const Luciditee__Specification *spec, bool init)
     for (size_t i = 0; i < spec->n_outputs; i++) {
         Luciditee__Specification__OutputDescription *output = spec->outputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
-        _moat_print_debug("attempting to open %s\n", output->output_name);
+        //_moat_print_debug("attempting to open %s\n", output->output_name);
         int64_t fd = _moat_fs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
         assert(fd != -1);
     }
@@ -174,9 +174,10 @@ void open_files(const Luciditee__Specification *spec, bool init)
     for (size_t i = 0; i < spec->n_statevars; i++) {
         Luciditee__Specification__StateDescription *statevar = spec->statevars[i];
         memset(&encr_key, 0, sizeof(encr_key));
-        _moat_print_debug("attempting to open %s\n", statevar->state_name);
+        //_moat_print_debug("attempting to open %s\n", statevar->state_name);
         int64_t fd = _moat_fs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
-        print_digest(statevar->state_name, fd);
+        assert(fd != -1);
+        //print_digest(statevar->state_name, fd);
     }
 }
 
@@ -227,7 +228,7 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     Luciditee__LedgerEntry *spec_entry;
     
     uint64_t height = _moat_l_get_current_counter();
-    _moat_print_debug("luciditee's ledger has height %" PRIu64 "\n", height);
+    //_moat_print_debug("luciditee's ledger has height %" PRIu64 "\n", height);
 
     for (uint64_t t = 0; t < height; t++) {
         uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
@@ -250,7 +251,7 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
                 free_buf_of_ledger_entry_buf(latest_record_entry);
             }
             latest_record_entry = entry;
-            _moat_print_debug("found record at ledger height %" PRIu64 "\n", t);
+            //_moat_print_debug("found record at ledger height %" PRIu64 "\n", t);
             found_record = true;
         } 
         else 

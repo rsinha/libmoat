@@ -218,9 +218,9 @@ int64_t _moat_fs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
         file_md->blocks = list_create();
 
         if (!o_creat(oflag)) {
-            _moat_print_debug(
-                "Loaded a file of length %" PRId64 ", with %" PRId64 " blocks\n",
-                file_md->length, file_md->num_blocks);
+            //_moat_print_debug(
+            //    "Loaded a file of length %" PRId64 ", with %" PRId64 " blocks\n",
+            //    file_md->length, file_md->num_blocks);
 
             int64_t len_completed = 0;
             for (int64_t i = 0; i < file_md->num_blocks; i++) {
