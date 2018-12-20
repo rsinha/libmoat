@@ -9,6 +9,7 @@
 #include "sgx_trts.h"
 
 #include "record.pb-c.h"
+#include "delivery.pb-c.h"
 #include "specification.pb-c.h"
 #include "ledgerentry.pb-c.h"
 
@@ -56,7 +57,29 @@ bool state_policy(Luciditee__Record *record)
     return true;
 }
 
-void generate_computation_record(const Luciditee__Specification *spec, uint8_t **entry_buf, size_t *entry_buf_len)
+void generate_delivery_entry(const Luciditee__Specification *spec, uint64_t height, uint8_t **entry_buf, size_t *entry_buf_len)
+{
+    Luciditee__Delivery delivery;
+    luciditee__delivery__init(&delivery);
+    delivery.id = spec->id;
+    delivery.t = height;
+
+    sgx_aes_gcm_128bit_key_t output_key; memset(&output_key, 0, sizeof(output_key));
+    delivery.encrypted_key.len = sizeof(sgx_aes_gcm_128bit_key_t);
+    delivery.encrypted_key.data = (uint8_t *) &output_key;
+
+    Luciditee__LedgerEntry ledger_entry;
+    luciditee__ledger_entry__init(&ledger_entry);
+    ledger_entry.type = LUCIDITEE__LEDGER_ENTRY__ENTRY_TYPE__DELIVER;
+    ledger_entry.entry_case = LUCIDITEE__LEDGER_ENTRY__ENTRY_DELIVERY;
+    ledger_entry.delivery =  &delivery;
+    *entry_buf_len = luciditee__ledger_entry__get_packed_size(&ledger_entry);
+    *entry_buf = (uint8_t *) malloc(*entry_buf_len);
+    assert(*entry_buf != NULL);
+    assert (luciditee__ledger_entry__pack(&ledger_entry, *entry_buf) == *entry_buf_len);
+}
+
+void generate_computation_record(const Luciditee__Specification *spec, uint64_t height, uint8_t **entry_buf, size_t *entry_buf_len)
 {
     _moat_print_debug("----------------------------\n");
     _moat_print_debug("record computation:\n");
@@ -65,7 +88,7 @@ void generate_computation_record(const Luciditee__Specification *spec, uint8_t *
     Luciditee__Record record;
     luciditee__record__init(&record);
     record.id = spec->id;
-    record.t = 0;
+    record.t = height;
     
     record.n_inputs = spec->n_inputs;
     record.inputs = (Luciditee__Record__NamedDigest **) malloc(sizeof(void *) * record.n_inputs);
@@ -267,11 +290,17 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     /* use the ledger to decide whether we are creating initial state, and let f know that */
     uint64_t result = f(init);
 
-    /* generate the on-ledger record */
+    /* generate the on-ledger record entry */
     uint8_t *record_buf; size_t record_buf_len;
-    generate_computation_record(spec_entry->spec, &record_buf, &record_buf_len);
-
+    generate_computation_record(spec_entry->spec, height, &record_buf, &record_buf_len);
+    /* post record on the ledger; libmoat also invokes verify_L for us */
     assert(_moat_l_post(record_buf, record_buf_len));
+
+    /* generate the on-ledger delivery entry */
+    uint8_t *delivery_buf; size_t delivery_buf_len;
+    generate_delivery_entry(spec_entry->spec, height, &delivery_buf, &delivery_buf_len);
+    /* post encrypted key on the ledger; libmoat also invokes verify_L for us */
+    assert(_moat_l_post(delivery_buf, delivery_buf_len));
 
     return result;
 }

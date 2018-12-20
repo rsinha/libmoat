@@ -3,15 +3,18 @@ syntax = "proto2";
 package luciditee;
 import "specification.proto";
 import "record.proto";
+import "delivery.proto";
 
 message LedgerEntry {
   enum EntryType {
     CREATE = 0;
     RECORD = 1;
+    DELIVER = 2;
   }
   required EntryType type = 1;
   oneof entry {
     Specification spec = 2;
     Record record = 3;
+    Delivery delivery = 4;
   }
 }

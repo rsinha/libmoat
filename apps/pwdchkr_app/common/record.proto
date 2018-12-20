@@ -13,4 +13,5 @@ message Record {
   repeated NamedDigest inputs = 3;
   repeated NamedDigest outputs = 4;
   repeated NamedDigest statevars = 5;
+  optional bytes signatures = 6;
 }

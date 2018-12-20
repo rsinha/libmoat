@@ -98,7 +98,7 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Proto_C_Files := enclave/attempt.pb-c.c enclave/secret.pb-c.c enclave/specification.pb-c.c enclave/record.pb-c.c enclave/ledgerentry.pb-c.c
+Proto_C_Files := enclave/attempt.pb-c.c enclave/secret.pb-c.c enclave/specification.pb-c.c enclave/record.pb-c.c enclave/delivery.pb-c.c enclave/ledgerentry.pb-c.c
 Enclave_C_Files := enclave/protobuf-c.c $(Proto_C_Files) enclave/scaffolding.c enclave/enclave.c
 Protobuf_Include_Paths := -I/usr/local/include
 #Enclave_Include_Paths := $(Protobuf_Include_Paths) -I../common -Ienclave -I$(Trust_Lib_Path)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
@@ -123,7 +123,7 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 	-Wl,--defsym,__ImageBase=0 \
 	-Wl,--version-script=enclave/enclave.lds
 
-Proto_C_Objects := enclave/attempt.pb-c.o enclave/secret.pb-c.o enclave/specification.pb-c.o enclave/record.pb-c.o enclave/ledgerentry.pb-c.o
+Proto_C_Objects := enclave/attempt.pb-c.o enclave/secret.pb-c.o enclave/specification.pb-c.o enclave/record.pb-c.o enclave/delivery.pb-c.o enclave/ledgerentry.pb-c.o
 Enclave_C_Objects := enclave/protobuf-c.o $(Proto_C_Objects) enclave/scaffolding.o enclave/enclave.o
 
 Enclave_Name := enclave.so
@@ -214,6 +214,10 @@ $(Host_Name): host/interface_u.o $(Host_Cpp_Objects) $(Untrust_Lib)
 enclave/ledgerentry.pb-c.c: ../common/ledgerentry.proto
 	@echo "GEN  =>  $@"
 	@protoc --proto_path=../common --c_out=enclave ledgerentry.proto
+
+enclave/delivery.pb-c.c: ../common/delivery.proto
+	@echo "GEN  =>  $@"
+	@protoc --proto_path=../common --c_out=enclave delivery.proto
 
 enclave/record.pb-c.c: ../common/record.proto
 	@echo "GEN  =>  $@"
