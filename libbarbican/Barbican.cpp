@@ -400,6 +400,12 @@ extern "C" size_t fs_load_ocall(int64_t fd, const char *name, int64_t *length)
         std::cout << "barbican: Error creating directory " << file_path << std::endl;
         exit(1);
     }
+    command = "rm -rf " + file_path + "/*";
+    std::cout << "barbican: invoking " << command << std::endl;
+    dir_err = system(command.c_str());
+    if (-1 == dir_err) {
+        std::cout << "Error removing contents of directory " << file_path << std::endl; exit(1);
+    }
 
     command = "cp " + file_backup_path + "/* " + file_path + "/";
     std::cout << "barbican: invoking " << command << std::endl;
@@ -602,6 +608,22 @@ extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
 
     db_path = STORAGE_KVS_ROOT + db_path;
     //db_backup_path = STORAGE_KVS_ROOT + db_backup_path;
+
+    std::string command = "mkdir -p " + db_path;
+    std::cout << "barbican: invoking " << command << std::endl;
+    int dir_err = system(command.c_str());
+    if (-1 == dir_err)
+    {
+        std::cout << "barbican: Error creating directory " << db_path << std::endl;
+        exit(1);
+    }
+    command = "rm -rf " + db_path + "/*";
+    std::cout << "barbican: invoking " << command << std::endl;
+    dir_err = system(command.c_str());
+    if (-1 == dir_err) {
+        std::cout << "Error removing contents of directory " << db_path << std::endl; exit(1);
+    }
+
     bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());
     return success ? 0 : -1;
 }
