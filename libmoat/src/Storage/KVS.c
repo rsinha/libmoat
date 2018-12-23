@@ -112,7 +112,7 @@ kvs_db_t *find_db_by_name(char *name)
 int64_t kvs_write_helper(int64_t fd, void *k, uint64_t k_len, void *buf, uint64_t buf_len, uint64_t value_version)
 {   
     kvs_db_t *db_md = find_db_by_descriptor(fd);
-    _moat_print_debug("writing to %s\n", db_md->db_name);
+    //_moat_print_debug("writing to %s\n", db_md->db_name);
     if (db_md == NULL) { return -1; } //this needs an error code
 
     //error-checking
