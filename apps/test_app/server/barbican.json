@@ -1,8 +1,8 @@
 {
-  "kvs_outputs": {
-  },
-  "kvs_inputs": {
-  },
+  "ledger" : "/tmp/luciditee.ledger",
+  "kvs_outputs": {},
+  "kvs_inputs": {},
+  "kvs_state": {},
   "scc_self": "5555",
   "scc_actors": {
     "remote_client": { 

@@ -1,16 +1,19 @@
 {
+  "ledger" : "/tmp/luciditee.ledger",
   "kvs_outputs": {
     "test_app_db": "out_test_app_db"
   },
   "kvs_inputs": {
     "test_app_db2": "out_test_app_db"
   },
+  "kvs_state": {},
   "fs_outputs": {
     "persistent_file": "forever_stored"
   },
   "fs_inputs": {
     "loaded_file": "forever_stored"
   },
+  "fs_state": {},
   "scc_self": "5556",
   "scc_actors": {
     "remote_server": { 
