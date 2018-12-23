@@ -539,9 +539,11 @@ extern "C" size_t kvs_create_ocall(int64_t fd, const char *name)
     std::string db_path(name);
     db_path = STORAGE_KVS_ROOT + db_path;
 
-    std::cout << "creating " << db_path << std::endl;
-
     bool success = g_db_context->backend_db_create(fd, db_path.c_str());
+    if (success) {
+        std::cout << "barbican: created db " << fd << " at " << db_path << std::endl;
+    }
+
     return success ? 0 : -1;
 }
 
@@ -559,11 +561,31 @@ extern "C" size_t kvs_save_ocall(int64_t fd, const char *name)
     std::map<std::string, strpair_t>::iterator iter_s = g_config_kvs_state.find(db_path);
     if (iter_o == g_config_kvs_outputs.end() && iter_s == g_config_kvs_state.end()) { return -1; }
 
-    std::string db_backup_path = (iter_o != g_config_kvs_inputs.end()) ? iter_o->second : (iter_s->second).second;
-    std::cout << "barbican: saving " << db_path << " from " << db_backup_path << std::endl;
+    std::string db_backup_path = (iter_o != g_config_kvs_outputs.end()) ? iter_o->second : (iter_s->second).second;
+    std::cout << "barbican: saving " << db_path << " to " << db_backup_path << std::endl;
 
     //db_backup_path = STORAGE_KVS_ROOT + db_backup_path;
+
+    std::cout << "barbican: creating " << db_backup_path << std::endl;
+    std::string command; command = "mkdir -p " + db_backup_path;
+    std::cout << "barbican: invoking " << command << std::endl;
+    int dir_err = system(command.c_str());
+    if (-1 == dir_err) {
+        std::cout << "Error creating directory " << db_backup_path << std::endl; 
+        exit(1);
+    }
+    command = "rm -rf " + db_backup_path + "/*";
+    std::cout << "barbican: invoking " << command << std::endl;
+    dir_err = system(command.c_str());
+    if (-1 == dir_err) {
+        std::cout << "Error removing contents of directory " << db_backup_path << std::endl; exit(1);
+    }
+
     bool success = g_db_context->backend_db_save(fd, db_backup_path.c_str());
+    if (success) {
+        std::cout << "barbican: saved db " << fd << " at " << db_backup_path << std::endl;
+    }
+
     return success ? 0 : -1;
 }
 
@@ -587,6 +609,10 @@ extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
 extern "C" size_t kvs_set_ocall(int64_t fd, void *k, size_t k_len, void *buf, size_t buf_len)
 {
     bool success = g_db_context->backend_db_put(fd, (uint8_t *) k, k_len, (uint8_t *) buf, buf_len);
+    if (success) {
+        std::cout << "barbican: wrote " << buf_len << " bytes to db " << fd << std::endl;
+    }
+
     return success ? 0 : -1;
 }
 

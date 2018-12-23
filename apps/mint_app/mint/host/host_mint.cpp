@@ -87,9 +87,8 @@ int main(int argc, char *argv[])
   uint64_t gmr, category;
   while(in.read_row(gmr, category)) 
   {
-    std::cout << "gmr: " << gmr << ", ";
-    std::cout << "category: " << category << std::endl;
-
+    //std::cout << "gmr: " << gmr << ", ";
+    //std::cout << "category: " << category << std::endl;
     ret = enclave_add_data(global_eid, &pwerr, &gmr, sizeof(gmr), &category, sizeof(category));
     if (ret != SGX_SUCCESS) { goto error; }
   }

@@ -26,7 +26,7 @@ uint64_t enclave_init()
 
 uint64_t enclave_finish()
 {
-    int64_t api_result = _moat_fs_save(fd);
+    int64_t api_result = _moat_kvs_save(fd);
     assert(api_result == 0);
 
     return 0;
