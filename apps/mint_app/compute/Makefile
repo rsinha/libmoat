@@ -53,7 +53,7 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-Host_Cpp_Files := host/attempt.pb.cc host/host_sherlock.cpp
+Host_Cpp_Files := host/host_compute.cpp
 #Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include
 Host_Include_Paths := -Ihost -I$(SGX_SDK)/include
 
@@ -83,9 +83,9 @@ else
 	Host_Link_Flags += -lsgx_uae_service
 endif
 
-Host_Cpp_Objects := host/attempt.pb.o host/host_sherlock.o
+Host_Cpp_Objects := host/host_compute.o
 
-Host_Name := sherlock.out
+Host_Name := compute.out
 
 ######## Enclave Settings ########
 
@@ -98,7 +98,8 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Enclave_C_Files := enclave/protobuf-c.c enclave/attempt.pb-c.c enclave/enclave.c
+Proto_C_Files := enclave/attempt.pb-c.c enclave/secret.pb-c.c enclave/specification.pb-c.c enclave/record.pb-c.c enclave/delivery.pb-c.c enclave/ledgerentry.pb-c.c
+Enclave_C_Files := enclave/protobuf-c.c $(Proto_C_Files) enclave/scaffolding.c enclave/enclave.c
 Protobuf_Include_Paths := -I/usr/local/include
 #Enclave_Include_Paths := $(Protobuf_Include_Paths) -I../common -Ienclave -I$(Trust_Lib_Path)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
 Enclave_Include_Paths := $(Protobuf_Include_Paths) -Ienclave -I$(Trust_Lib_Path)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
@@ -122,7 +123,8 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 	-Wl,--defsym,__ImageBase=0 \
 	-Wl,--version-script=enclave/enclave.lds
 
-Enclave_C_Objects := enclave/protobuf-c.o enclave/attempt.pb-c.o enclave/enclave.o
+Proto_C_Objects := enclave/attempt.pb-c.o enclave/secret.pb-c.o enclave/specification.pb-c.o enclave/record.pb-c.o enclave/delivery.pb-c.o enclave/ledgerentry.pb-c.o
+Enclave_C_Objects := enclave/protobuf-c.o $(Proto_C_Objects) enclave/scaffolding.o enclave/enclave.o
 
 Enclave_Name := enclave.so
 Signed_Enclave_Name := enclave.signed.so
@@ -190,17 +192,9 @@ $(Trust_Lib):
 
 ######## App Objects ########
 
-host/attempt.pb.cc: ../common/attempt.proto
-	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --cpp_out=host attempt.proto
-
 host/interface_u.c: $(SGX_EDGER8R) interface.edl
 	@echo "GEN  =>  $@"
 	@cd host && $(SGX_EDGER8R) --untrusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
-
-host/attempt.pb.o: host/attempt.pb.cc
-	@echo "CXX   <=  $<"
-	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 host/interface_u.o: host/interface_u.c
 	@echo "CXX   <=  $<"
@@ -217,9 +211,29 @@ $(Host_Name): host/interface_u.o $(Host_Cpp_Objects) $(Untrust_Lib)
 
 ######## Enclave Objects ########
 
+enclave/ledgerentry.pb-c.c: ../common/ledgerentry.proto
+	@echo "GEN  =>  $@"
+	@protoc --proto_path=../common --c_out=enclave ledgerentry.proto
+
+enclave/delivery.pb-c.c: ../common/delivery.proto
+	@echo "GEN  =>  $@"
+	@protoc --proto_path=../common --c_out=enclave delivery.proto
+
+enclave/record.pb-c.c: ../common/record.proto
+	@echo "GEN  =>  $@"
+	@protoc --proto_path=../common --c_out=enclave record.proto
+
+enclave/specification.pb-c.c: ../common/specification.proto
+	@echo "GEN  =>  $@"
+	@protoc --proto_path=../common --c_out=enclave specification.proto
+
 enclave/attempt.pb-c.c: ../common/attempt.proto
 	@echo "GEN  =>  $@"
 	@protoc --proto_path=../common --c_out=enclave attempt.proto
+
+enclave/secret.pb-c.c: ../common/secret.proto
+	@echo "GEN  =>  $@"
+	@protoc --proto_path=../common --c_out=enclave secret.proto
 
 enclave/interface_t.c: $(SGX_EDGER8R) interface.edl
 	@echo "GEN  =>  $@"
@@ -245,7 +259,8 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 
 clean:
 	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
-	@rm -f host/interface_u.* host/*.pb.* enclave/interface_t.* host/*.o enclave/*.o enclave/attempt.* host/attempt.*
+	@rm -f host/interface_u.* host/*.pb.* enclave/interface_t.* host/*.o enclave/*.o 
+	@rm -f enclave/attempt.* enclave/secret.* enclave/specification.* enclave/record.* enclave/ledgerentry.*
 	@rm -f $(Trust_Lib) $(Untrust_Lib)
 	@$(MAKE) -C $(Trust_Lib_Path) clean
 	@$(MAKE) -C $(Untrust_Lib_Path) clean

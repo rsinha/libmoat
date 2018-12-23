@@ -1,9 +1,8 @@
 enclave {
-  include "common.h"
-
-  /* list enclave calls here */
   trusted {
-    public uint64_t enclave_test();
+    public uint64_t enclave_init();
+    public uint64_t enclave_add_data([user_check] void *key_buf, size_t key_buf_size, [user_check] void *val_buf, size_t val_buf_size);
+    public uint64_t enclave_finish();
   };
 
   from "../../../../libmoat/api/libmoat.edl" import *;

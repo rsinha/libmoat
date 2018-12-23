@@ -1,17 +1,10 @@
 ######## SGX SDK Settings ########
 
+MAKE := make
 SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
-HIREDIS_INC_PATH := /usr/local/include/hiredis
-HIREDIS_LIB_PATH := /usr/local/lib
-LIBUNTRUSTED := ../../../libuntrusted
-LIBMOAT := ../../../libmoat
-LIBMOAT_NETWORK := $(LIBMOAT)/src/Network
-LIBMOAT_UTILS := $(LIBMOAT)/src/Utils
-LIBMOAT_LOG := $(LIBMOAT)/src/Log
-LIBMOAT_STORAGE := $(LIBMOAT)/src/Storage
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -45,20 +38,12 @@ endif
 
 ######## Library Settings ########
 
+Untrust_Lib_Path := ../../../libbarbican
+Untrust_Lib_Name := libbarbican.a
+Untrust_Lib := $(Untrust_Lib_Path)/$(Untrust_Lib_Name)
+Trust_Lib_Path := ../../../libmoat
 Trust_Lib_Name := libmoat.a
-TrustLib_C_Files := $(wildcard ../../../libmoat/src/Network/*.c) \
-                    $(wildcard ../../../libmoat/src/Network/RecordChannel/*.c) \
-                    $(wildcard ../../../libmoat/src/Storage/*.c) \
-                    $(wildcard ../../../libmoat/src/Storage/BlockStorage/*.c) \
-                    $(wildcard ../../../libmoat/src/Storage/ChunkyStorage/*.c) \
-                    $(wildcard ../../../libmoat/src/Log/*.c) \
-                    $(wildcard ../../../libmoat/src/Utils/*.c)
-TrustLib_Cpp_Files :=
-TrustLib_C_Objects := $(TrustLib_C_Files:.c=.o)
-TrustLib_Cpp_Objects := $(TrustLib_Cpp_Files:.cpp=.o)
-TrustLib_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/epid -I./Include
-TrustLib_Compile_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fPIC -fstack-protector $(TrustLib_Include_Paths)
-TrustLib_Compile_Cxx_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -nostdinc++ -Wno-unused-parameter -Wno-missing-field-initializers -fPIC -fstack-protector $(TrustLib_Include_Paths)
+Trust_Lib := $(Trust_Lib_Path)/$(Trust_Lib_Name)
 
 ######## App Settings ########
 
@@ -68,10 +53,12 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-Host_Cpp_Files := host/host_mint.cpp $(LIBUNTRUSTED)/libmoat_untrusted.cpp
-Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include  -I$(HIREDIS_INC_PATH)
+Host_Cpp_Files := host/secret.pb.cc host/host_mint.cpp
+#Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include
+Host_Include_Paths := -Ihost -I$(SGX_SDK)/include
 
-Host_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
+Protobuf_C_Flags := -D_THREAD_SAFE -I/usr/local/include
+Host_C_Flags := $(Protobuf_C_Flags) $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Host_Include_Paths)
 
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.
@@ -86,7 +73,9 @@ else
 endif
 
 Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
-Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -lzmq -lczmq -L$(HIREDIS_LIB_PATH) -lhiredis
+Protobuf_Link_Flags := -L/usr/local/lib -l:libprotobuf.a -D_THREAD_SAFE
+RocksDB_Link_Flags := -lrocksdb -lpq -lz -lbz2 -llz4 -lzstd -lsnappy -l:libjemalloc.a -ldl
+Host_Link_Flags := -std=c++11 $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) $(Protobuf_Link_Flags) -L/usr/local/lib -lzmq -lczmq -lhiredis $(RocksDB_Link_Flags) -lpthread
 
 ifneq ($(SGX_MODE), HW)
 	Host_Link_Flags += -lsgx_uae_service_sim
@@ -94,7 +83,7 @@ else
 	Host_Link_Flags += -lsgx_uae_service
 endif
 
-Host_Cpp_Objects := $(Host_Cpp_Files:.cpp=.o)
+Host_Cpp_Objects := host/host_mint.o
 
 Host_Name := mint.out
 
@@ -109,8 +98,10 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Enclave_C_Files := enclave/enclave.c
-Enclave_Include_Paths := -I../common -Ienclave -I$(LIBMOAT)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+Enclave_C_Files := enclave/protobuf-c.c enclave/enclave.c
+Protobuf_Include_Paths := -I/usr/local/include
+#Enclave_Include_Paths := $(Protobuf_Include_Paths) -I../common -Ienclave -I$(Trust_Lib_Path)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
+Enclave_Include_Paths := $(Protobuf_Include_Paths) -Ienclave -I$(Trust_Lib_Path)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -std=gnu99 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc -fvisibility=hidden -fPIC $(Enclave_Include_Paths)
 Enclave_Cpp_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -nostdinc++ -fvisibility=hidden -fPIC $(Enclave_Include_Paths)
@@ -122,15 +113,16 @@ Enclave_Cpp_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -Wno-unused-parameter -Wno-
 #       Use `--start-group' and `--end-group' to link these libraries.
 # Do NOT move the libraries linked with `--start-group' and `--end-group' within `--whole-archive' and `--no-whole-archive' options.
 # Otherwise, you may get some undesirable errors.
+Protobuf_Enc_Link_Flags := -L/usr/local/lib -lprotobuf-c -D_THREAD_SAFE
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -L. -lmoat -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -L$(Trust_Lib_Path) -l:$(Trust_Lib_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 \
 	-Wl,--version-script=enclave/enclave.lds
 
-Enclave_C_Objects := $(Enclave_C_Files:.c=.o)
+Enclave_C_Objects := enclave/protobuf-c.o enclave/enclave.o
 
 Enclave_Name := enclave.so
 Signed_Enclave_Name := enclave.signed.so
@@ -158,7 +150,7 @@ endif
 .PHONY: all run
 
 ifeq ($(Build_Mode), HW_RELEASE)
-all: $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name)
+all: $(Host_Name) $(Signed_Enclave_Name)
 	@echo "The project has been built in release hardware mode."
 	@echo "Please sign the $(Enclave_Name) first with your signing key before you run the $(Host_Name) to launch and access the enclave."
 	@echo "To sign the enclave use the command:"
@@ -166,7 +158,7 @@ all: $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name)
 	@echo "You can also sign the enclave using an external signing tool."
 	@echo "To build the project in simulation mode set SGX_MODE=SIM. To build the project in prerelease mode set SGX_PRERELEASE=1 and SGX_MODE=HW."
 else
-all: $(Trust_Lib_Name) $(Host_Name) $(Signed_Enclave_Name)
+all: $(Host_Name) $(Signed_Enclave_Name)
 ifeq ($(Build_Mode), HW_DEBUG)
 	@echo "The project has been built in debug hardware mode."
 else ifeq ($(Build_Mode), SIM_DEBUG)
@@ -188,64 +180,36 @@ endif
 
 ######## Library Objects ########
 
-$(LIBMOAT_LOG)/%.o: $(LIBMOAT_LOG)/%.c
-	@echo "CC   <= $<"
-	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
+$(Untrust_Lib): 
+	@echo "MAKE   =>  $@"
+	@$(MAKE) -C $(Untrust_Lib_Path)
 
-$(LIBMOAT_UTILS)/%.o: $(LIBMOAT_UTILS)/%.c
-	@echo "CC   <= $<"
-	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
-
-$(LIBMOAT_STORAGE)/BlockStorage/%.o: $(LIBMOAT_STORAGE)/BlockStorage/%.c
-	@echo "CC   <= $<"
-	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
-
-$(LIBMOAT_STORAGE)/ChunkyStorage/%.o: $(LIBMOAT_STORAGE)/ChunkyStorage/%.c
-	@echo "CC   <= $<"
-	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
-
-$(LIBMOAT_STORAGE)/%.o: $(LIBMOAT_STORAGE)/%.c
-	@echo "CC   <= $<"
-	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
-
-$(LIBMOAT_NETWORK)/%.o: $(LIBMOAT_NETWORK)/%.c
-	@echo "CC   <= $<"
-	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
-
-$(LIBMOAT_NETWORK)/RecordChannel/%.o: $(LIBMOAT_NETWORK)/RecordChannel/%.c
-	@echo "CC   <= $<"
-	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
-
-$(Trust_Lib_Name): $(TrustLib_Cpp_Objects) $(TrustLib_C_Objects)
-	@echo "AR   =>  $@"
-	@$(AR) rcs $@ $^
+$(Trust_Lib): 
+	@echo "MAKE   =>  $@"
+	@$(MAKE) -C $(Trust_Lib_Path)
 
 ######## App Objects ########
-
-$(LIBUNTRUSTED)/%.o: $(LIBUNTRUSTED)/%.cpp
-	@echo "CXX  <=  $<"
-	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 host/interface_u.c: $(SGX_EDGER8R) interface.edl
 	@echo "GEN  =>  $@"
 	@cd host && $(SGX_EDGER8R) --untrusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 
 host/interface_u.o: host/interface_u.c
-	@echo "CC   <=  $<"
-	@$(CC) $(Host_C_Flags) -c $< -o $@
+	@echo "CXX   <=  $<"
+	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 host/%.o: host/%.cpp
 	@echo "CXX  <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
-$(Host_Name): host/interface_u.o $(Host_Cpp_Objects)
+$(Host_Name): host/interface_u.o $(Host_Cpp_Objects) $(Untrust_Lib)
 	@echo "LINK =>  $@"
-	@$(CXX) $^ -o $@ $(Host_Link_Flags)
+	@$(CXX) -o $@ $^ $(Host_Link_Flags)
 
 
 ######## Enclave Objects ########
 
-enclave/interface_t.c: $(SGX_EDGER8R) interface.edl $(LIBMOAT)/api/libmoat.edl
+enclave/interface_t.c: $(SGX_EDGER8R) interface.edl
 	@echo "GEN  =>  $@"
 	@cd enclave && $(SGX_EDGER8R) --trusted ../interface.edl --search-path ../enclave --search-path $(SGX_SDK)/include
 
@@ -253,11 +217,11 @@ enclave/interface_t.o: enclave/interface_t.c
 	@echo "CC   <=  $<"
 	@$(CC) $(Enclave_C_Flags) -c $< -o $@
 
-enclave/%.o: enclave/%.c enclave/interface_t.h
+enclave/%.o: enclave/%.c
 	@echo "CC   <=  $<"
 	@$(CC) $(Enclave_C_Flags) -c $< -o $@
 
-$(Enclave_Name): enclave/interface_t.o $(Enclave_C_Objects) $(Trust_Lib_Name)
+$(Enclave_Name): $(Trust_Lib) $(Enclave_C_Objects) enclave/interface_t.o
 	@echo "LINK =>  $@"
 	@$(CXX) enclave/interface_t.o $(Enclave_C_Objects) -o $@ $(Enclave_Link_Flags)
 
@@ -268,6 +232,8 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(Trust_Lib_Name) $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
-	@rm -f host/interface_u.* enclave/interface_t.* host/*.o enclave/*.o
-	@rm -f $(LIBMOAT)/src/*.o $(LIBUNTRUSTED)/*.o $(LIBMOAT_LOCALATTESTATION)/*.o $(LIBMOAT_UTILS)/*.o $(LIBMOAT_STORAGE)/*.o $(LIBMOAT_STORAGE)/BlockStorage/*.o $(LIBMOAT_STORAGE)/ChunkyStorage/*.o
+	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
+	@rm -f host/interface_u.* host/*.pb.* enclave/interface_t.* host/*.o enclave/*.o
+	@rm -f $(Trust_Lib) $(Untrust_Lib)
+	@$(MAKE) -C $(Trust_Lib_Path) clean
+	@$(MAKE) -C $(Untrust_Lib_Path) clean
