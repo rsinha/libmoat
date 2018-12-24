@@ -621,7 +621,8 @@ extern "C" size_t kvs_load_ocall(int64_t fd, const char *name)
     std::cout << "barbican: invoking " << command << std::endl;
     dir_err = system(command.c_str());
     if (-1 == dir_err) {
-        std::cout << "Error removing contents of directory " << db_path << std::endl; exit(1);
+        std::cout << "Error removing contents of directory " << db_path << std::endl; 
+        exit(1);
     }
 
     bool success = g_db_context->backend_db_load(fd, db_path.c_str(), db_backup_path.c_str());

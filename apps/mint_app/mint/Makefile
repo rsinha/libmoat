@@ -53,7 +53,7 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-Host_Cpp_Files := host/secret.pb.cc host/host_mint.cpp
+Host_Cpp_Files := host/host_mint.cpp
 #Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include
 Host_Include_Paths := -Ihost -I$(SGX_SDK)/include
 

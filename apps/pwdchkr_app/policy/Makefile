@@ -15,7 +15,7 @@ Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
 Protobuf_Link_Flags := -L/usr/local/lib -l:libprotobuf.a -D_THREAD_SAFE
 Host_Link_Flags := -std=c++11 $(Protobuf_Link_Flags) -lpthread
 
-Host_Cpp_Objects := specification.pb.o record.pb.o Ledger.pb.o ledgerentry.pb.o policy_creator.o
+Host_Cpp_Objects := specification.pb.o delivery.pb.o record.pb.o Ledger.pb.o ledgerentry.pb.o policy_creator.o
 
 Host_Name := policy_checker.out
 
@@ -40,6 +40,14 @@ ledgerentry.pb.cc: specification.pb.cc record.pb.cc ../common/ledgerentry.proto
 	@protoc --proto_path=../common --cpp_out=. ledgerentry.proto
 
 ledgerentry.pb.o: ledgerentry.pb.cc
+	@echo "CXX   <=  $<"
+	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
+
+delivery.pb.cc: ../common/delivery.proto
+	@echo "GEN  =>  $@"
+	@protoc --proto_path=../common --cpp_out=. delivery.proto
+
+delivery.pb.o: delivery.pb.cc
 	@echo "CXX   <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
