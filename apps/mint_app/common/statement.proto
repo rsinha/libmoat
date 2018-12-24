@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+package luciditee_mint_app;
+
+message Statement {
+  message Transaction {
+    required uint64 amount = 1;
+    required uint64 gmr = 2;
+    required uint64 timestamp = 3;
+  }
+  repeated Transaction txs = 1;
+}

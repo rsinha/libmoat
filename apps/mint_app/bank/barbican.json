@@ -2,9 +2,9 @@
   "ledger" : "/tmp/luciditee.ledger",
   "kvs_outputs": {},
   "kvs_inputs": {},
-  "kvs_state" : {},
+  "kvs_state": {},
   "fs_outputs": {
-    "sherlock_input": "/tmp/s3/1/sherlock_input"
+    "bank_input": "/tmp/s3/43/bank_input"
   },
   "fs_inputs": {},
   "fs_state": {},

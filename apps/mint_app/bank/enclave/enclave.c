@@ -7,41 +7,32 @@
 
 #include "sgx_dh.h"
 #include "sgx_trts.h"
-#include "attempt.pb-c.h"
 
-uint64_t enclave_test(uint8_t *buf, size_t size)
+uint64_t enclave_encrypt_data(void *buf, size_t size)
 {
     _moat_debug_module_init();
     _moat_fs_module_init();
 
-    //_moat_print_debug("enclave: buf: %p, size: %zu\n", buf, size);
-
-    LuciditeeGuessApp__Attempt *attempt;
-    attempt = luciditee_guess_app__attempt__unpack(NULL, size, buf);
-    assert(attempt != NULL);
-
-    _moat_print_debug("parsing proto from enclave...got attempt value %" PRIu64 "\n", attempt->guess);
-
-    luciditee_guess_app__attempt__free_unpacked(attempt, NULL);
-
-    //first copy the proto buffer internally
-    uint8_t *internal_buf = (uint8_t *) malloc(size);
-    assert(internal_buf != NULL);
-    memcpy(internal_buf, buf, size);
-
-    //create a file out of this protobuf message
-    //first create the key
     sgx_aes_gcm_128bit_key_t fs_encr_key;
     memset(&fs_encr_key, 0, sizeof(fs_encr_key)); //TODO: this is zeroed out now
 
-    //open the file
-    int64_t fd = _moat_fs_open("sherlock_input", O_WRONLY | O_CREAT, &fs_encr_key);
+    int64_t fd = _moat_fs_open("bank_input", O_RDWR | O_CREAT, &fs_encr_key);
     assert(fd != -1);
-    int64_t api_result = _moat_fs_write(fd, buf, size);
-    assert(api_result == size);
+
+
+    size_t internal_buf_size = size;
+    //first copy the proto buffer internally
+    uint8_t *internal_buf = (uint8_t *) malloc(internal_buf_size);
+    assert(internal_buf != NULL);
+    memcpy(internal_buf, buf, internal_buf_size);
+
+    int64_t api_result = _moat_fs_write(fd, internal_buf, internal_buf_size);
+    assert(api_result == internal_buf_size);
+
+
+    //save the file
     api_result = _moat_fs_save(fd);
     assert(api_result == 0);
 
     return 0;
 }
-
