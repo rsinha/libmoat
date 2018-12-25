@@ -172,6 +172,12 @@ void _moat_kvs_module_init()
 int64_t _moat_kvs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 {
     kvs_db_t *db_md = find_db_by_name(name);
+
+    //expecting to be opened previously?
+    if ((key == NULL || oflag == 0) && (db_md == NULL))
+    {
+        return -1;
+    }
     
     if (db_md == NULL) //else file already exists by that name
     {
@@ -211,6 +217,12 @@ int64_t _moat_kvs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 
     return db_md->db_descriptor;
 }
+
+int64_t _moat_kvs_get_digest(int64_t fd, sgx_sha256_hash_t *hash)
+{
+    memset(hash, 0, sizeof(sgx_sha256_hash_t));
+    return 0;
+} 
 
 /*
  * Retrieves value associated with the input key

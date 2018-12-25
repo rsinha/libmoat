@@ -182,6 +182,10 @@ void _moat_fs_module_init()
 int64_t _moat_fs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 {
     fs_file_t *file_md = find_file_by_name(name);
+    if ((key == NULL || oflag == 0) && (file_md == NULL))
+    {
+        return -1;
+    }
 
     if (file_md == NULL) //else file already exists by that name
     {
