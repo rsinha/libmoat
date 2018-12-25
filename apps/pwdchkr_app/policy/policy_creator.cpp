@@ -26,12 +26,16 @@ int main(int argc, char *argv[])
   spec->set_id(42);
   luciditee::Specification_InputDescription *irene_input = spec->add_inputs();
   irene_input->set_input_name("irene_input");
+  irene_input->set_type(luciditee::Specification_Type_FILE);
   luciditee::Specification_InputDescription *sherlock_input = spec->add_inputs();
   sherlock_input->set_input_name("sherlock_input");
+  sherlock_input->set_type(luciditee::Specification_Type_FILE);
   luciditee::Specification_OutputDescription *pwdchkr_output = spec->add_outputs();
   pwdchkr_output->set_output_name("pwdchkr_output");
+  pwdchkr_output->set_type(luciditee::Specification_Type_FILE);
   luciditee::Specification_StateDescription *state = spec->add_statevars();
   state->set_state_name("pwdchkr_state");
+  state->set_type(luciditee::Specification_Type_FILE);
 
   std::string content;
   if (!ledger_entry.SerializeToString(&content)) {

@@ -28,18 +28,6 @@ uint64_t f(bool); /* user-defined function */
 bool phi(bool init);
 
 
-void print_digest(const char *name, int64_t fd)
-{
-    sgx_sha256_hash_t hash;
-    int64_t result = _moat_fs_get_digest(fd, &hash);
-    if (result != 0) { return; }
-    _moat_print_debug("%s digest: 0x", name); 
-    for (size_t i = 0; i < sizeof(hash); i++) { 
-        _moat_print_debug("%02x", ((uint8_t *) hash)[i]); 
-    }
-    _moat_print_debug("\n");
-}
-
 bool state_policy(Luciditee__Record *record)
 {
     for (size_t i = 0; i < record->n_statevars; i++) {
@@ -79,6 +67,28 @@ void generate_delivery_entry(const Luciditee__Specification *spec, uint64_t heig
     assert (luciditee__ledger_entry__pack(&ledger_entry, *entry_buf) == *entry_buf_len);
 }
 
+void print_digest(char *name, sgx_sha256_hash_t *buf)
+{
+    _moat_print_debug("%s digest: 0x", name); 
+    for (size_t i = 0; i < sizeof(sgx_sha256_hash_t); i++) { 
+        _moat_print_debug("%02x", ((uint8_t *) buf)[i]); 
+    }
+    _moat_print_debug("\n");
+}
+
+void get_digest(char *name, sgx_sha256_hash_t *buf)
+{
+    int64_t fd_f = _moat_fs_open(name, 0, NULL);
+    int64_t fd_kv = _moat_kvs_open(name, 0, NULL);
+    assert(fd_f != -1 || fd_kv != -1);
+    bool is_file = fd_f != -1;
+    if (is_file) {
+        assert(_moat_fs_get_digest(fd_f, buf) == 0);
+    } else {
+        assert(_moat_kvs_get_digest(fd_kv, buf) == 0);
+    }
+}
+
 void generate_computation_record(const Luciditee__Specification *spec, uint64_t height, uint8_t **entry_buf, size_t *entry_buf_len)
 {
     _moat_print_debug("----------------------------\n");
@@ -92,6 +102,7 @@ void generate_computation_record(const Luciditee__Specification *spec, uint64_t 
     
     record.n_inputs = spec->n_inputs;
     record.inputs = (Luciditee__Record__NamedDigest **) malloc(sizeof(void *) * record.n_inputs);
+    assert(record.inputs != NULL);
     for (size_t i = 0; i < spec->n_inputs; i++) {
         Luciditee__Specification__InputDescription *input = spec->inputs[i];
         Luciditee__Record__NamedDigest *nd = (Luciditee__Record__NamedDigest *) 
@@ -99,15 +110,16 @@ void generate_computation_record(const Luciditee__Specification *spec, uint64_t 
         luciditee__record__named_digest__init(nd);
         nd->name = input->input_name;
         nd->digest.len = sizeof(sgx_sha256_hash_t);
-        nd->digest.data = malloc(sizeof(sgx_sha256_hash_t)); assert(nd->digest.data != NULL);
-        int64_t fd = _moat_fs_open(nd->name, 0, NULL);
-        print_digest(nd->name, fd);
-        assert(_moat_fs_get_digest(fd, (sgx_sha256_hash_t *) nd->digest.data) == 0);
+        nd->digest.data = malloc(sizeof(sgx_sha256_hash_t));
+        assert(nd->digest.data != NULL);
+        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
+        print_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
         record.inputs[i] = nd;
     }
 
     record.n_outputs = spec->n_outputs;
     record.outputs = (Luciditee__Record__NamedDigest **) malloc(sizeof(void *) * record.n_outputs);
+    assert(record.outputs != NULL);
     for (size_t i = 0; i < spec->n_outputs; i++) {
         Luciditee__Specification__OutputDescription *output = spec->outputs[i];
         Luciditee__Record__NamedDigest *nd = (Luciditee__Record__NamedDigest *) 
@@ -115,15 +127,16 @@ void generate_computation_record(const Luciditee__Specification *spec, uint64_t 
         luciditee__record__named_digest__init(nd);
         nd->name = output->output_name;
         nd->digest.len = sizeof(sgx_sha256_hash_t);
-        nd->digest.data = malloc(sizeof(sgx_sha256_hash_t)); assert(nd->digest.data != NULL);
-        int64_t fd = _moat_fs_open(nd->name, 0, NULL);
-        print_digest(nd->name, fd);
-        assert(_moat_fs_get_digest(fd, (sgx_sha256_hash_t *) nd->digest.data) == 0);
+        nd->digest.data = malloc(sizeof(sgx_sha256_hash_t));
+        assert(nd->digest.data != NULL);
+        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
+        print_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
         record.outputs[i] = nd;
     }
 
     record.n_statevars = spec->n_statevars;
     record.statevars = (Luciditee__Record__NamedDigest **) malloc(sizeof(void *) * record.n_statevars);
+    assert(record.statevars != NULL);
     for (size_t i = 0; i < spec->n_statevars; i++) {
         Luciditee__Specification__StateDescription *statevar = spec->statevars[i];
         Luciditee__Record__NamedDigest *nd = (Luciditee__Record__NamedDigest *) 
@@ -131,10 +144,10 @@ void generate_computation_record(const Luciditee__Specification *spec, uint64_t 
         luciditee__record__named_digest__init(nd);
         nd->name = statevar->state_name;
         nd->digest.len = sizeof(sgx_sha256_hash_t);
-        nd->digest.data = malloc(sizeof(sgx_sha256_hash_t)); assert(nd->digest.data != NULL);
-        int64_t fd = _moat_fs_open(nd->name, 0, NULL);
-        print_digest(nd->name, fd);
-        assert(_moat_fs_get_digest(fd, (sgx_sha256_hash_t *) nd->digest.data) == 0);
+        nd->digest.data = malloc(sizeof(sgx_sha256_hash_t));
+        assert(nd->digest.data != NULL);
+        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
+        print_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
         record.statevars[i] = nd;
     }
 
@@ -158,26 +171,40 @@ void open_files(const Luciditee__Specification *spec, bool init)
     for (size_t i = 0; i < spec->n_inputs; i++) {
         Luciditee__Specification__InputDescription *input = spec->inputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
-        //_moat_print_debug("attempting to open %s\n", input->input_name);
-        int64_t fd = _moat_fs_open(input->input_name, O_RDONLY, &encr_key);
-        assert(fd != -1);
+        _moat_print_debug("attempting to open %s\n", input->input_name);
+        if (input->type == LUCIDITEE__SPECIFICATION__TYPE__FILE) {
+            int64_t fd = _moat_fs_open(input->input_name, O_RDONLY, &encr_key);
+            assert(fd != -1);
+        } else if (input->type == LUCIDITEE__SPECIFICATION__TYPE__KVS) {
+            int64_t fd = _moat_kvs_open(input->input_name, O_RDONLY, &encr_key);
+            assert(fd != -1);
+        }
     }
     //print outputs
     for (size_t i = 0; i < spec->n_outputs; i++) {
         Luciditee__Specification__OutputDescription *output = spec->outputs[i];
         memset(&encr_key, 0, sizeof(encr_key));
-        //_moat_print_debug("attempting to open %s\n", output->output_name);
-        int64_t fd = _moat_fs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
-        assert(fd != -1);
+        _moat_print_debug("attempting to open %s\n", output->output_name);
+        if (output->type == LUCIDITEE__SPECIFICATION__TYPE__FILE) {
+            int64_t fd = _moat_fs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
+            assert(fd != -1);
+        } else if (output->type == LUCIDITEE__SPECIFICATION__TYPE__KVS) {
+            int64_t fd = _moat_kvs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
+            assert(fd != -1);
+        }
     }
     //print state
     for (size_t i = 0; i < spec->n_statevars; i++) {
         Luciditee__Specification__StateDescription *statevar = spec->statevars[i];
         memset(&encr_key, 0, sizeof(encr_key));
-        //_moat_print_debug("attempting to open %s\n", statevar->state_name);
-        int64_t fd = _moat_fs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
-        assert(fd != -1);
-        //print_digest(statevar->state_name, fd);
+        _moat_print_debug("attempting to open %s\n", statevar->state_name);
+        if (statevar->type == LUCIDITEE__SPECIFICATION__TYPE__FILE) {
+            int64_t fd = _moat_fs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
+            assert(fd != -1);
+        } else if (statevar->type == LUCIDITEE__SPECIFICATION__TYPE__KVS) {
+            int64_t fd = _moat_kvs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
+            assert(fd != -1);
+        }
     }
 }
 
@@ -222,6 +249,7 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     /* initialize libmoat */
     _moat_debug_module_init();
     _moat_fs_module_init();
+    _moat_kvs_module_init();
 
     bool found_spec = false, found_record = false;
     Luciditee__LedgerEntry *latest_record_entry;
@@ -236,6 +264,7 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
         assert(result);
 
         Luciditee__LedgerEntry *entry = parse_buf_as_ledger_entry(ledger_entry_buf, ledger_entry_buf_len);
+        assert(entry != NULL);
 
         if (is_entry_a_spec(entry) && is_entry_of_spec_id(entry, spec_id)) 
         {
@@ -251,7 +280,7 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
                 free_buf_of_ledger_entry_buf(latest_record_entry);
             }
             latest_record_entry = entry;
-            //_moat_print_debug("found record at ledger height %" PRIu64 "\n", t);
+            _moat_print_debug("found record at ledger height %" PRIu64 "\n", t);
             found_record = true;
         } 
         else 
