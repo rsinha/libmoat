@@ -24,14 +24,18 @@ int main(int argc, char *argv[])
   luciditee::Specification *spec = ledger_entry.mutable_spec();
 
   spec->set_id(43);
-  luciditee::Specification_InputDescription *irene_input = spec->add_inputs();
-  irene_input->set_input_name("mint_input");
-  luciditee::Specification_InputDescription *sherlock_input = spec->add_inputs();
-  sherlock_input->set_input_name("bank_input");
-  luciditee::Specification_OutputDescription *pwdchkr_output = spec->add_outputs();
-  pwdchkr_output->set_output_name("fin_output");
-  luciditee::Specification_StateDescription *state = spec->add_statevars();
-  state->set_state_name("fin_state");
+  luciditee::Specification_InputDescription *mint_input = spec->add_inputs();
+  mint_input->set_input_name("mint_input");
+  mint_input->set_type(luciditee::Specification_Type_KVS);
+  luciditee::Specification_InputDescription *bank_input = spec->add_inputs();
+  bank_input->set_input_name("bank_input");
+  bank_input->set_type(luciditee::Specification_Type_FILE);
+  luciditee::Specification_OutputDescription *fin_output = spec->add_outputs();
+  fin_output->set_output_name("fin_output");
+  fin_output->set_type(luciditee::Specification_Type_FILE);
+  luciditee::Specification_StateDescription *fin_state = spec->add_statevars();
+  fin_state->set_state_name("fin_state");
+  fin_state->set_type(luciditee::Specification_Type_FILE);
 
   std::string content;
   if (!ledger_entry.SerializeToString(&content)) {

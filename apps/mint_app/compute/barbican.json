@@ -1,19 +1,20 @@
 {
   "ledger" : "/tmp/luciditee.ledger",
   "kvs_outputs": {},
-  "kvs_inputs": {},
+  "kvs_inputs": {
+    "mint_input": "/tmp/s3/43/mint_input"
+  },
   "kvs_state": {},
   "fs_inputs": {
-    "sherlock_input": "/tmp/s3/1/sherlock_input",
-    "irene_input": "/tmp/s3/1/irene_input"
+    "bank_input": "/tmp/s3/43/bank_input"
   },
   "fs_outputs": {
-    "pwdchkr_output" : "/tmp/s3/1/pwdchkr_output"
+    "fin_output" : "/tmp/s3/43/fin_output"
   },
   "fs_state": {
-    "pwdchkr_state" : {
-      "prev": "/tmp/s3/1/pwdchkr_state", 
-      "next": "/tmp/s3/1/pwdchkr_state"
+    "fin_state" : {
+      "prev": "/tmp/s3/43/fin_state", 
+      "next": "/tmp/s3/43/fin_state"
     }
   },
   "scc_self": "5556",

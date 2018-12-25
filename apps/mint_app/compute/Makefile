@@ -98,7 +98,7 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Proto_C_Files := enclave/attempt.pb-c.c enclave/secret.pb-c.c enclave/specification.pb-c.c enclave/record.pb-c.c enclave/delivery.pb-c.c enclave/ledgerentry.pb-c.c
+Proto_C_Files := enclave/statement.pb-c.c enclave/specification.pb-c.c enclave/record.pb-c.c enclave/delivery.pb-c.c enclave/ledgerentry.pb-c.c
 Enclave_C_Files := enclave/protobuf-c.c $(Proto_C_Files) enclave/scaffolding.c enclave/enclave.c
 Protobuf_Include_Paths := -I/usr/local/include
 #Enclave_Include_Paths := $(Protobuf_Include_Paths) -I../common -Ienclave -I$(Trust_Lib_Path)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
@@ -123,7 +123,7 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 	-Wl,--defsym,__ImageBase=0 \
 	-Wl,--version-script=enclave/enclave.lds
 
-Proto_C_Objects := enclave/attempt.pb-c.o enclave/secret.pb-c.o enclave/specification.pb-c.o enclave/record.pb-c.o enclave/delivery.pb-c.o enclave/ledgerentry.pb-c.o
+Proto_C_Objects := enclave/statement.pb-c.o enclave/specification.pb-c.o enclave/record.pb-c.o enclave/delivery.pb-c.o enclave/ledgerentry.pb-c.o
 Enclave_C_Objects := enclave/protobuf-c.o $(Proto_C_Objects) enclave/scaffolding.o enclave/enclave.o
 
 Enclave_Name := enclave.so
@@ -227,13 +227,9 @@ enclave/specification.pb-c.c: ../common/specification.proto
 	@echo "GEN  =>  $@"
 	@protoc --proto_path=../common --c_out=enclave specification.proto
 
-enclave/attempt.pb-c.c: ../common/attempt.proto
+enclave/statement.pb-c.c: ../common/statement.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --c_out=enclave attempt.proto
-
-enclave/secret.pb-c.c: ../common/secret.proto
-	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --c_out=enclave secret.proto
+	@protoc --proto_path=../common --c_out=enclave statement.proto
 
 enclave/interface_t.c: $(SGX_EDGER8R) interface.edl
 	@echo "GEN  =>  $@"
@@ -260,7 +256,7 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 clean:
 	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
 	@rm -f host/interface_u.* host/*.pb.* enclave/interface_t.* host/*.o enclave/*.o 
-	@rm -f enclave/attempt.* enclave/secret.* enclave/specification.* enclave/record.* enclave/ledgerentry.*
+	@rm -f enclave/statement.* enclave/specification.* enclave/record.* enclave/ledgerentry.*
 	@rm -f $(Trust_Lib) $(Untrust_Lib)
 	@$(MAKE) -C $(Trust_Lib_Path) clean
 	@$(MAKE) -C $(Untrust_Lib_Path) clean
