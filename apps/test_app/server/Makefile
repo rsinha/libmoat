@@ -71,9 +71,9 @@ else
 endif
 
 Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
-RocksDB_Link_Flags := -lrocksdb -lpq -lz -lbz2 -llz4 -lzstd -lsnappy -l:libjemalloc.a -ldl
+RocksDB_Link_Flags := -lrocksdb -lz -lbz2 -llz4 -lzstd -lsnappy -l:libjemalloc.a -ldl
 Protobuf_Link_Flags := -L/usr/local/lib -l:libprotobuf.a -D_THREAD_SAFE
-Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) $(Protobuf_Link_Flags) -L/usr/local/lib -lzmq -lczmq -lhiredis $(RocksDB_Link_Flags) -lpthread
+Host_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) $(Protobuf_Link_Flags) -L/usr/local/lib -lzmq $(RocksDB_Link_Flags) -lpthread
 
 ifneq ($(SGX_MODE), HW)
 	Host_Link_Flags += -lsgx_uae_service_sim
@@ -111,7 +111,7 @@ Enclave_Cpp_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -Wno-unused-parameter -Wno-
 # Otherwise, you may get some undesirable errors.
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -L$(Trust_Lib_Path) -l:$(Trust_Lib_Name) -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -l$(Crypto_Library_Name) -L$(Trust_Lib_Path) -l:$(Trust_Lib_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 \
