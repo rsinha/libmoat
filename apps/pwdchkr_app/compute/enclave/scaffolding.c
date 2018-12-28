@@ -28,15 +28,24 @@ uint64_t f(bool); /* user-defined function */
 bool phi(bool init);
 
 
-bool state_policy(Luciditee__Record *record)
+bool state_policy(const Luciditee__Specification *spec, Luciditee__Record *record)
 {
-    for (size_t i = 0; i < record->n_statevars; i++) {
+    for (size_t i = 0; i < spec->n_statevars; i++) {
+        Luciditee__Specification__StateDescription *statevar = spec->statevars[i];
         Luciditee__Record__NamedDigest *nd = record->statevars[i];
         assert(nd->digest.len == sizeof(sgx_sha256_hash_t));
-        int64_t fd = _moat_fs_open(nd->name, 0, NULL);
-        uint8_t *ledger_hash = nd->digest.data;
+        assert(strcmp(nd->name, statevar->state_name) == 0);
+
+        uint8_t *ledger_hash = ledger_hash = nd->digest.data;
         sgx_sha256_hash_t my_hash;
-        assert(_moat_fs_get_digest(fd, &my_hash) == 0);
+        if (statevar->type == LUCIDITEE__SPECIFICATION__TYPE__FILE) {
+            int64_t fd = _moat_fs_open(nd->name, 0, NULL);
+            assert(_moat_fs_get_digest(fd, &my_hash) == 0);
+        } else if (statevar->type == LUCIDITEE__SPECIFICATION__TYPE__KVS) {
+            int64_t fd = _moat_kvs_open(nd->name, 0, NULL);
+            assert(_moat_kvs_get_digest(fd, &my_hash) == 0);
+        }
+
         if (memcmp(ledger_hash, &my_hash, sizeof(sgx_sha256_hash_t)) != 0) {
             return false; //hash mismatches
         }
@@ -76,16 +85,16 @@ void print_digest(char *name, sgx_sha256_hash_t *buf)
     _moat_print_debug("\n");
 }
 
-void get_digest(char *name, sgx_sha256_hash_t *buf)
+void get_digest(char *name, sgx_sha256_hash_t *buf, Luciditee__Specification__Type type)
 {
-    int64_t fd_f = _moat_fs_open(name, 0, NULL);
-    int64_t fd_kv = _moat_kvs_open(name, 0, NULL);
-    assert(fd_f != -1 || fd_kv != -1);
-    bool is_file = fd_f != -1;
-    if (is_file) {
-        assert(_moat_fs_get_digest(fd_f, buf) == 0);
+    if (type == LUCIDITEE__SPECIFICATION__TYPE__FILE) {
+        int64_t fd = _moat_fs_open(name, 0, NULL);
+        assert(_moat_fs_get_digest(fd, buf) == 0);
+    } else if (type == LUCIDITEE__SPECIFICATION__TYPE__KVS) {
+        int64_t fd = _moat_kvs_open(name, 0, NULL);
+        assert(_moat_kvs_get_digest(fd, buf) == 0);
     } else {
-        assert(_moat_kvs_get_digest(fd_kv, buf) == 0);
+        assert(false); //TODO: right now only supporting 2 types
     }
 }
 
@@ -112,7 +121,7 @@ void generate_computation_record(const Luciditee__Specification *spec, uint64_t 
         nd->digest.len = sizeof(sgx_sha256_hash_t);
         nd->digest.data = malloc(sizeof(sgx_sha256_hash_t));
         assert(nd->digest.data != NULL);
-        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
+        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data, input->type);
         print_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
         record.inputs[i] = nd;
     }
@@ -129,7 +138,7 @@ void generate_computation_record(const Luciditee__Specification *spec, uint64_t 
         nd->digest.len = sizeof(sgx_sha256_hash_t);
         nd->digest.data = malloc(sizeof(sgx_sha256_hash_t));
         assert(nd->digest.data != NULL);
-        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
+        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data, output->type);
         print_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
         record.outputs[i] = nd;
     }
@@ -146,7 +155,7 @@ void generate_computation_record(const Luciditee__Specification *spec, uint64_t 
         nd->digest.len = sizeof(sgx_sha256_hash_t);
         nd->digest.data = malloc(sizeof(sgx_sha256_hash_t));
         assert(nd->digest.data != NULL);
-        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
+        get_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data, statevar->type);
         print_digest(nd->name, (sgx_sha256_hash_t *) nd->digest.data);
         record.statevars[i] = nd;
     }
@@ -178,6 +187,8 @@ void open_files(const Luciditee__Specification *spec, bool init)
         } else if (input->type == LUCIDITEE__SPECIFICATION__TYPE__KVS) {
             int64_t fd = _moat_kvs_open(input->input_name, O_RDONLY, &encr_key);
             assert(fd != -1);
+        } else {
+            assert(false);
         }
     }
     //print outputs
@@ -191,6 +202,8 @@ void open_files(const Luciditee__Specification *spec, bool init)
         } else if (output->type == LUCIDITEE__SPECIFICATION__TYPE__KVS) {
             int64_t fd = _moat_kvs_open(output->output_name, O_RDWR | O_CREAT, &encr_key);
             assert(fd != -1);
+        } else {
+            assert(false);
         }
     }
     //print state
@@ -204,6 +217,8 @@ void open_files(const Luciditee__Specification *spec, bool init)
         } else if (statevar->type == LUCIDITEE__SPECIFICATION__TYPE__KVS) {
             int64_t fd = _moat_kvs_open(statevar->state_name, init ? O_RDWR | O_CREAT : O_RDWR, &encr_key);
             assert(fd != -1);
+        } else {
+            assert(false);
         }
     }
 }
@@ -305,7 +320,7 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     /* invoke policy checker */
     bool compliant;
     if (!init) {
-        compliant = state_policy(latest_record_entry->record);
+        compliant = state_policy(spec_entry->spec, latest_record_entry->record);
         if (! compliant) {
             _moat_print_debug("state_policy check failed\n");
             return -1;

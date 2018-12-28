@@ -182,66 +182,61 @@ void _moat_fs_module_init()
 int64_t _moat_fs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 {
     fs_file_t *file_md = find_file_by_name(name);
-    if ((key == NULL || oflag == 0) && (file_md == NULL))
-    {
-        return -1;
+    if (file_md != NULL) { return file_md->file_descriptor; }
+    if (key == NULL || oflag == 0) { return -1; }
+
+    assert(key != NULL);
+    if (strlen(name) >= MAX_FILE_NAME_LEN) { return -1; }
+    int64_t fd = generate_unique_file_descriptor();
+    if (fd == -1) { return -1; } //we didn't get an available fd
+    //check that only one of O_RDONLY, O_WRONLY, O_RDWR are set
+    if (o_rdonly(oflag)) { if (o_wronly(oflag) || o_rdwr(oflag)) { return -1; } }
+    if (o_wronly(oflag)) { if (o_rdonly(oflag) || o_rdwr(oflag)) { return -1; } }
+    if (o_rdwr(oflag)) { if (o_rdonly(oflag) || o_wronly(oflag)) { return -1; } }
+
+    size_t retstatus;
+    sgx_status_t status;
+    int64_t length = 0;
+    if (o_creat(oflag)) {
+        status = fs_create_ocall(&retstatus, fd, name);
+    } else {
+        //ask host to load db with specified name if it knows about it, and bind it to fd
+        status = fs_load_ocall(&retstatus, fd, name, &length);
+    }
+    assert(status == SGX_SUCCESS && retstatus == 0);
+
+    file_md = (fs_file_t *) malloc(sizeof(fs_file_t)); assert(file_md != NULL);
+
+    strcpy(file_md->file_name, name);
+    file_md->file_descriptor = fd;
+    file_md->offset = 0;
+    file_md->length = length;
+    file_md->num_blocks = o_creat(oflag) ? 0 : (length / BLOCK_SIZE) + 1;
+    file_md->oflag = oflag;
+    file_md->cipher_ctx.counter = 0;
+    memcpy((uint8_t *) &(file_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
+    file_md->blocks = list_create();
+
+    if (!o_creat(oflag)) {
+        //_moat_print_debug(
+        //    "Loaded a file of length %" PRId64 ", with %" PRId64 " blocks\n",
+        //    file_md->length, file_md->num_blocks);
+
+        int64_t len_completed = 0;
+        for (int64_t i = 0; i < file_md->num_blocks; i++) {
+            fs_block_t *block = (fs_block_t *) malloc(sizeof(fs_block_t));
+            assert(block != NULL);
+            block->addr = i;
+            block->len = (i == file_md->num_blocks - 1) ? file_md->length - len_completed : BLOCK_SIZE;
+            list_insert_value(file_md->blocks, block);
+            len_completed += BLOCK_SIZE;
+        }
+        
+        size_t result = block_storage_load(file_md->file_descriptor, file_md->num_blocks);
+        assert(result == 0);
     }
 
-    if (file_md == NULL) //else file already exists by that name
-    {
-        assert(key != NULL);
-        if (strlen(name) >= MAX_FILE_NAME_LEN) { return -1; }
-        int64_t fd = generate_unique_file_descriptor();
-        if (fd == -1) { return -1; } //we didn't get an available fd
-        //check that only one of O_RDONLY, O_WRONLY, O_RDWR are set
-        if (o_rdonly(oflag)) { if (o_wronly(oflag) || o_rdwr(oflag)) { return -1; } }
-        if (o_wronly(oflag)) { if (o_rdonly(oflag) || o_rdwr(oflag)) { return -1; } }
-        if (o_rdwr(oflag)) { if (o_rdonly(oflag) || o_wronly(oflag)) { return -1; } }
-
-        size_t retstatus;
-        sgx_status_t status;
-        int64_t length = 0;
-        if (o_creat(oflag)) {
-            status = fs_create_ocall(&retstatus, fd, name);
-        } else {
-            //ask host to load db with specified name if it knows about it, and bind it to fd
-            status = fs_load_ocall(&retstatus, fd, name, &length);
-        }
-        assert(status == SGX_SUCCESS && retstatus == 0);
-
-        file_md = (fs_file_t *) malloc(sizeof(fs_file_t)); assert(file_md != NULL);
-
-        strcpy(file_md->file_name, name);
-        file_md->file_descriptor = fd;
-        file_md->offset = 0;
-        file_md->length = length;
-        file_md->num_blocks = o_creat(oflag) ? 0 : (length / BLOCK_SIZE) + 1;
-        file_md->oflag = oflag;
-        file_md->cipher_ctx.counter = 0;
-        memcpy((uint8_t *) &(file_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
-        file_md->blocks = list_create();
-
-        if (!o_creat(oflag)) {
-            //_moat_print_debug(
-            //    "Loaded a file of length %" PRId64 ", with %" PRId64 " blocks\n",
-            //    file_md->length, file_md->num_blocks);
-
-            int64_t len_completed = 0;
-            for (int64_t i = 0; i < file_md->num_blocks; i++) {
-                fs_block_t *block = (fs_block_t *) malloc(sizeof(fs_block_t));
-                assert(block != NULL);
-                block->addr = i;
-                block->len = (i == file_md->num_blocks - 1) ? file_md->length - len_completed : BLOCK_SIZE;
-                list_insert_value(file_md->blocks, block);
-                len_completed += BLOCK_SIZE;
-            }
-            
-            size_t result = block_storage_load(file_md->file_descriptor, file_md->num_blocks);
-            assert(result == 0);
-        }
-
-        list_insert_value(g_files, file_md);
-    }
+    list_insert_value(g_files, file_md);
 
     return file_md->file_descriptor;
 }

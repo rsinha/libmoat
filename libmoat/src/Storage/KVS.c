@@ -172,48 +172,41 @@ void _moat_kvs_module_init()
 int64_t _moat_kvs_open(char *name, int64_t oflag, sgx_aes_gcm_128bit_key_t *key)
 {
     kvs_db_t *db_md = find_db_by_name(name);
-
-    //expecting to be opened previously?
-    if ((key == NULL || oflag == 0) && (db_md == NULL))
-    {
-        return -1;
-    }
+    if (db_md != NULL) { return db_md->db_descriptor; }
+    if (key == NULL || oflag == 0) { return -1; }
     
-    if (db_md == NULL) //else file already exists by that name
-    {
-        if (strlen(name) >= MAX_KVS_NAME_LEN) { return -1; }
-        int64_t fd = generate_unique_db_descriptor();
-        _moat_print_debug("creating new db with descriptor %ld\n", fd);
-        if (fd == -1) { return -1; } //we didn't get an available fd
-        //check that only one of O_RDONLY, O_WRONLY, O_RDWR are set
-        if (o_rdonly(oflag)) { if (o_wronly(oflag) || o_rdwr(oflag)) { return -1; } }
-        if (o_wronly(oflag)) { if (o_rdonly(oflag) || o_rdwr(oflag)) { return -1; } }
-        if (o_rdwr(oflag)) { if (o_rdonly(oflag) || o_wronly(oflag)) { return -1; } }
+    if (strlen(name) >= MAX_KVS_NAME_LEN) { return -1; }
+    int64_t fd = generate_unique_db_descriptor();
+    _moat_print_debug("creating new db with descriptor %ld\n", fd);
+    if (fd == -1) { return -1; } //we didn't get an available fd
+    //check that only one of O_RDONLY, O_WRONLY, O_RDWR are set
+    if (o_rdonly(oflag)) { if (o_wronly(oflag) || o_rdwr(oflag)) { return -1; } }
+    if (o_wronly(oflag)) { if (o_rdonly(oflag) || o_rdwr(oflag)) { return -1; } }
+    if (o_rdwr(oflag)) { if (o_rdonly(oflag) || o_wronly(oflag)) { return -1; } }
 
-        size_t retstatus;
-        sgx_status_t status;
+    size_t retstatus;
+    sgx_status_t status;
 
-        db_md = (kvs_db_t *) malloc(sizeof(kvs_db_t));
-        assert(db_md != NULL);
+    db_md = (kvs_db_t *) malloc(sizeof(kvs_db_t));
+    assert(db_md != NULL);
 
-        strcpy(db_md->db_name, name);
-        db_md->db_descriptor = fd;
-        db_md->size = 0;
-        db_md->oflag = oflag;
-        db_md->cipher_ctx.counter = 0;
+    strcpy(db_md->db_name, name);
+    db_md->db_descriptor = fd;
+    db_md->size = 0;
+    db_md->oflag = oflag;
+    db_md->cipher_ctx.counter = 0;
 
-        if (o_creat(oflag)) {
-            status = kvs_create_ocall(&retstatus, fd, name);
-        } else {
-            //ask host to load db with specified name if it knows about it, and bind it to fd
-            status = kvs_load_ocall(&retstatus, fd, name);
-        }
-
-        assert(status == SGX_SUCCESS && retstatus == 0);
-        assert(key != NULL);
-        memcpy((uint8_t *) &(db_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
-        list_insert_value(g_dbs, db_md);
+    if (o_creat(oflag)) {
+        status = kvs_create_ocall(&retstatus, fd, name);
+    } else {
+        //ask host to load db with specified name if it knows about it, and bind it to fd
+        status = kvs_load_ocall(&retstatus, fd, name);
     }
+
+    assert(status == SGX_SUCCESS && retstatus == 0);
+    assert(key != NULL);
+    memcpy((uint8_t *) &(db_md->cipher_ctx.key), key, sizeof(sgx_aes_gcm_128bit_key_t));
+    list_insert_value(g_dbs, db_md);
 
     return db_md->db_descriptor;
 }

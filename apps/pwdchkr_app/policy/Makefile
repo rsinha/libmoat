@@ -17,7 +17,7 @@ Host_Link_Flags := -std=c++11 $(Protobuf_Link_Flags) -lpthread
 
 Host_Cpp_Objects := specification.pb.o delivery.pb.o record.pb.o Ledger.pb.o ledgerentry.pb.o policy_creator.o
 
-Host_Name := policy_checker.out
+Host_Name := policy_creator.out
 
 .PHONY: all run
 
