@@ -22,7 +22,7 @@ PTHREAD_LIB_NAME := libpthread.a
 ######## Library Settings ########
 
 Lib_Name := libbarbican.a
-Lib_Cpp_Files := Ledger.pb.cc Barbican.cpp RocksDBInterface.cpp
+Lib_Cpp_Files := Ledger.pb.cc delivery.pb.cc record.pb.cc specification.pb.cc ledgerentry.pb.cc Barbican.cpp RocksDBInterface.cpp
 
 ######## App Settings ########
 
@@ -30,7 +30,7 @@ Lib_Include_Paths :=  -I$(SGX_SDK)/include -I$(HIREDIS_INC_PATH)
 Protobuf_C_Flags := -D_THREAD_SAFE -I/usr/local/include
 Lib_C_Flags := $(Protobuf_C_Flags) -fPIC -Wno-attributes $(Lib_Include_Paths)
 Lib_Cpp_Flags := $(Lib_C_Flags) -std=c++11
-Lib_Cpp_Objects := Ledger.pb.o Barbican.o RocksDBInterface.o
+Lib_Cpp_Objects := Ledger.pb.o delivery.pb.o record.pb.o specification.pb.o ledgerentry.pb.o Barbican.o RocksDBInterface.o
 
 ######## Enclave Settings ########
 
@@ -52,7 +52,23 @@ Ledger.pb.cc: Ledger.proto
 	@echo "GEN  =>  $@"
 	@protoc --cpp_out=. Ledger.proto
 
-Ledger.pb.o: Ledger.pb.cc
+delivery.pb.cc: delivery.proto
+	@echo "GEN  =>  $@"
+	@protoc --cpp_out=. delivery.proto
+
+record.pb.cc: record.proto
+	@echo "GEN  =>  $@"
+	@protoc --cpp_out=. record.proto
+
+specification.pb.cc: specification.proto
+	@echo "GEN  =>  $@"
+	@protoc --cpp_out=. specification.proto
+
+ledgerentry.pb.cc: ledgerentry.proto
+	@echo "GEN  =>  $@"
+	@protoc --cpp_out=. ledgerentry.proto
+
+%.pb.o: %.pb.cc
 	@echo "CXX   <=  $<"
 	@$(CXX) $(Lib_Cpp_Flags) -c $< -o $@
 
@@ -66,4 +82,4 @@ Ledger.pb.o: Ledger.pb.cc
 
 clean:
 	@rm -f $(Lib_Name)
-	@rm -f *.o
+	@rm -f *.o *.pb.cc
