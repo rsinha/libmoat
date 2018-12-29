@@ -1,0 +1,29 @@
+syntax = "proto2";
+
+package luciditee;
+
+message Specification {
+  required uint64 id = 1;
+  enum Type {
+    FILE = 0;
+    KVS = 1;
+  }
+
+  message InputDescription {
+    required string input_name = 1;
+    required Type type = 2;
+  }
+  repeated InputDescription inputs = 2;
+
+  message OutputDescription {
+    required string output_name = 1;
+    required Type type = 2;
+  }
+  repeated OutputDescription outputs = 3;
+
+  message StateDescription {
+    required string state_name = 1;
+    required Type type = 2;
+  }
+  repeated StateDescription statevars = 4;
+}
