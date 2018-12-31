@@ -13,16 +13,6 @@
 #include "specification.pb-c.h"
 #include "ledgerentry.pb-c.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-sgx_status_t SGX_CDECL ledger_post_ocall(size_t* retval, void* buf, size_t len);
-sgx_status_t SGX_CDECL ledger_get_ocall(size_t* retval, void **untrusted_buf, size_t *untrusted_buf_len);
-
-#ifdef __cplusplus
-}
-#endif
 
 uint64_t f(bool); /* user-defined function */
 bool phi(bool init);
