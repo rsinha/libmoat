@@ -2,6 +2,7 @@
 #include <iostream>
 #include <grpcpp/grpcpp.h>
 #include "luciditee/ledgerentry.grpc.pb.h"
+#include "LedgerClient.h"
 
 using namespace std;
 using namespace luciditee;
@@ -10,56 +11,6 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-
-class LedgerClient {
-public:
-    LedgerClient(std::shared_ptr<Channel> channel)
-            : stub_(LedgerService::NewStub(channel)) {}
-
-    LedgerQueryResponse query(LedgerQueryRequest& queryRequest) {
-        ClientContext context;
-
-        LedgerQueryResponse response;
-
-        Status status = stub_->query(&context, queryRequest, &response);
-
-        if(status.ok()) {
-            return response;
-        } else {
-            cout << status.error_code() << ": " << status.error_message();
-        }
-    }
-
-    BlockchainInfoResponse info(BlockchainInfoRequest& blockchainInfoRequest) {
-        ClientContext context;
-        BlockchainInfoResponse response;
-        Status status = stub_->info(&context, blockchainInfoRequest, &response);
-        if(status.ok()) {
-            return response;
-        } else {
-            cout << status.error_code() << ":" << status.error_message();
-        }
-    }
-
-    LedgerEntryResponse entry(LedgerEntry& entry) {
-        ClientContext context;
-        LedgerEntryResponse response;
-        Status status = stub_->entry(&context, entry, &response);
-        if(status.ok()) {
-            return response;
-        } else {
-            cout << status.error_code() << ":" << status.error_message();
-        }
-    }
-
-private:
-    std::unique_ptr<LedgerService::Stub> stub_;
-};
-
-//luciditee::LedgerEntry& create_policy(::google::protobuf::uint64 value) {
-//
-//    return ledger_entry;
-//}
 
 int main(int argc, char *argv[])
 {
@@ -72,7 +23,7 @@ int main(int argc, char *argv[])
     ledger_entry.set_type(luciditee::LedgerEntry_EntryType_CREATE);
     luciditee::Specification *spec = ledger_entry.mutable_spec();
 
-    spec->set_id(38);
+    spec->set_id(39);
     luciditee::Specification_InputDescription *mint_input = spec->add_inputs();
     mint_input->set_input_name("mint_input");
     mint_input->set_type(luciditee::Specification_Type_KVS);
@@ -91,7 +42,7 @@ int main(int argc, char *argv[])
 
     // Query
     LedgerQueryRequest request;
-    request.set_entryid(38);
+    request.set_entryid(39);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_CREATE);
 
     LedgerQueryResponse response = client.query(request);

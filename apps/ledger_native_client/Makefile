@@ -24,7 +24,7 @@ all:  ledger_client
 
 
 
-ledger_client: luciditee/ledgerentry.pb.o luciditee/ledgerentry.grpc.pb.o ledger_client.o
+ledger_client: luciditee/ledgerentry.pb.o luciditee/ledgerentry.grpc.pb.o LedgerClient.o ledger_client.o
 	$(CXX) $^ $(LDFLAGS) -o $@
 
 clean:

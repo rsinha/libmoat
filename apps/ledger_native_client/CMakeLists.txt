@@ -7,6 +7,8 @@ include_directories(/usr/local/include/)
 
 set(SOURCE_FILES
         ledger_client.cpp
+        LedgerClient.h
+        LedgerClient.cpp
         luciditee/ledgerentry.grpc.pb.h
         luciditee/ledgerentry.grpc.pb.cc
         luciditee/ledgerentry.pb.h
