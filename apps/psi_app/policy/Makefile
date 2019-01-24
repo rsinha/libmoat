@@ -4,6 +4,8 @@ MAKE := make
 
 ######## Library Settings ########
 
+ProtoDir := $(CURDIR)/../common
+
 ######## App Settings ########
 
 Host_Cpp_Files := specification.pb.cc ledgerentry.pb.cc policy_creator.cpp
@@ -35,33 +37,33 @@ Ledger.pb.o: Ledger.pb.cc
 	@echo "CXX   <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
-ledgerentry.pb.cc: specification.pb.cc record.pb.cc delivery.pb.cc ../common/ledgerentry.proto
+ledgerentry.pb.cc: $(ProtoDir)/ledgerentry.proto specification.pb.cc record.pb.cc delivery.pb.cc
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --cpp_out=. ledgerentry.proto
+	@protoc --cpp_out=. --proto_path=$(ProtoDir) $<
 
 ledgerentry.pb.o: ledgerentry.pb.cc
 	@echo "CXX   <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
-delivery.pb.cc: ../common/delivery.proto
+delivery.pb.cc: $(ProtoDir)/delivery.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --cpp_out=. delivery.proto
+	@protoc --cpp_out=. --proto_path=$(ProtoDir) $<
 
 delivery.pb.o: delivery.pb.cc
 	@echo "CXX   <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
-record.pb.cc: ../common/record.proto
+record.pb.cc: $(ProtoDir)/record.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --cpp_out=. record.proto
+	@protoc --cpp_out=. --proto_path=$(ProtoDir) $<
 
 record.pb.o: record.pb.cc
 	@echo "CXX   <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
-specification.pb.cc: ../common/specification.proto
+specification.pb.cc: $(ProtoDir)/specification.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --cpp_out=. specification.proto
+	@protoc --cpp_out=. --proto_path=$(ProtoDir) $<
 
 specification.pb.o: specification.pb.cc
 	@echo "CXX   <=  $<"

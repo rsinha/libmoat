@@ -38,6 +38,7 @@ endif
 
 ######## Library Settings ########
 
+ProtoDir := $(CURDIR)/../common
 Untrust_Lib_Path := ../../../libbarbican
 Untrust_Lib_Name := libbarbican.a
 Untrust_Lib := $(Untrust_Lib_Path)/$(Untrust_Lib_Name)
@@ -211,25 +212,25 @@ $(Host_Name): host/interface_u.o $(Host_Cpp_Objects) $(Untrust_Lib)
 
 ######## Enclave Objects ########
 
-enclave/ledgerentry.pb-c.c: ../common/ledgerentry.proto
+enclave/ledgerentry.pb-c.c: $(ProtoDir)/ledgerentry.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --c_out=enclave ledgerentry.proto
+	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
-enclave/delivery.pb-c.c: ../common/delivery.proto
+enclave/delivery.pb-c.c: $(ProtoDir)/delivery.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --c_out=enclave delivery.proto
+	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
-enclave/record.pb-c.c: ../common/record.proto
+enclave/record.pb-c.c: $(ProtoDir)/record.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --c_out=enclave record.proto
+	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
-enclave/specification.pb-c.c: ../common/specification.proto
+enclave/specification.pb-c.c: $(ProtoDir)/specification.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --c_out=enclave specification.proto
+	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
-enclave/statement.pb-c.c: ../common/statement.proto
+enclave/statement.pb-c.c: $(ProtoDir)/statement.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --c_out=enclave statement.proto
+	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
 enclave/interface_t.c: $(SGX_EDGER8R) interface.edl
 	@echo "GEN  =>  $@"

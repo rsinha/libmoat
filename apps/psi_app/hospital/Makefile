@@ -38,6 +38,7 @@ endif
 
 ######## Library Settings ########
 
+ProtoDir := $(CURDIR)/../common
 Untrust_Lib_Path := ../../../libbarbican
 Untrust_Lib_Name := libbarbican.a
 Untrust_Lib := $(Untrust_Lib_Path)/$(Untrust_Lib_Name)
@@ -74,8 +75,8 @@ endif
 
 Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
 Protobuf_Link_Flags := -L/usr/local/lib -l:libprotobuf.a -D_THREAD_SAFE
-RocksDB_Link_Flags := -lrocksdb -lpq -lz -lbz2 -llz4 -lzstd -lsnappy -l:libjemalloc.a -ldl
-Host_Link_Flags := -std=c++11 $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) $(Protobuf_Link_Flags) -L/usr/local/lib -lzmq -lczmq -lhiredis $(RocksDB_Link_Flags) -lpthread
+RocksDB_Link_Flags := -lrocksdb -lz -lbz2 -llz4 -lzstd -lsnappy -l:libjemalloc.a -ldl
+Host_Link_Flags := -std=c++11 $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) $(Protobuf_Link_Flags) -L/usr/local/lib -lzmq -lczmq $(RocksDB_Link_Flags) -lpthread
 
 ifneq ($(SGX_MODE), HW)
 	Host_Link_Flags += -lsgx_uae_service_sim
@@ -116,7 +117,7 @@ Enclave_Cpp_Flags := $(SGX_COMMON_CFLAGS) -std=c++03 -Wno-unused-parameter -Wno-
 Protobuf_Enc_Link_Flags := -L/usr/local/lib -lprotobuf-c -D_THREAD_SAFE
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -l$(Crypto_Library_Name) -L$(Trust_Lib_Path) -l:$(Trust_Lib_Name) -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -l$(Crypto_Library_Name) -L$(Trust_Lib_Path) -l:$(Trust_Lib_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 \
@@ -190,9 +191,9 @@ $(Trust_Lib):
 
 ######## App Objects ########
 
-host/statement.pb.cc: ../common/statement.proto
+host/statement.pb.cc: $(ProtoDir)/statement.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --cpp_out=host statement.proto
+	@protoc --cpp_out=host --proto_path=$(ProtoDir) $<
 
 host/statement.pb.o: host/statement.pb.cc
 	@echo "CXX   <=  $<"
@@ -217,9 +218,9 @@ $(Host_Name): host/interface_u.o $(Host_Cpp_Objects) $(Untrust_Lib)
 
 ######## Enclave Objects ########
 
-enclave/statement.pb-c.c: ../common/statement.proto
+enclave/statement.pb-c.c: $(ProtoDir)/statement.proto
 	@echo "GEN  =>  $@"
-	@protoc --proto_path=../common --c_out=enclave statement.proto
+	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
 enclave/interface_t.c: $(SGX_EDGER8R) interface.edl
 	@echo "GEN  =>  $@"
