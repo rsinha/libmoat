@@ -15,7 +15,8 @@
 #include <cstdlib>
 #include "json.hpp"
 
-#include "Ledger.pb.h"
+//#include "Ledger.pb.h"
+#include "LedgerClient.h"
 
 using json = nlohmann::json;
 
@@ -23,6 +24,9 @@ using json = nlohmann::json;
 
 #define STORAGE_KVS_ROOT "/tmp/barbican/kvs/"
 #define STORAGE_FS_ROOT "/tmp/barbican/fs/"
+
+#define LEDGER_URL "localhost:8080"
+#define CHAINCODE_NAME  "luciditee"
 
 typedef struct {
     void *zmq_ctx_outbound = NULL;    //zmq ctx of connection for sending msg
@@ -679,71 +683,86 @@ extern "C" size_t free_ocall(void *untrusted_buf)
     return 0;
 }
 
-extern "C" size_t ledger_post_ocall(void *buf, size_t len)
+extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
+    LedgerEntry ledgerEntry;
+    ledgerEntry.ParseFromArray(buf, len);
+
+    LedgerClient client(grpc::CreateChannel(
+            LEDGER_URL, grpc::InsecureChannelCredentials()));
+
+    LedgerEntryResponse entryResponse = client.entry(ledgerEntry);
+
+    if(entryResponse.message().compare("Failure") == 0) {
+        return -1;
+    }
+    return  0;
+}
+
+extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    barbican::Ledger ledger;
-    std::fstream input(g_config_ledger, std::ios::binary | std::ios::in);
-    if (!input) {
-      std::cout << g_config_ledger << ": File not found.  Creating a new file." << std::endl;
-    } else if (!ledger.ParseFromIstream(&input)) {
-      std::cerr << "Failed to parse " << g_config_ledger << std::endl;
-      return -1;
+    LedgerClient client(grpc::CreateChannel(
+            LEDGER_URL, grpc::InsecureChannelCredentials()));
+
+    LedgerQueryRequest request;
+    request.set_entryid(policyId);
+    request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_CREATE);
+    LedgerQueryResponse response = client.query(request);
+    if(response.entries_size() > 0) {
+        LedgerEntry entry;
+        for(int i = 0; i < response.entries_size(); i++) {
+            entry = response.entries(i);
+            if(entry.type() == LedgerEntry_EntryType_CREATE) {
+                break;
+            }
+        }
+        *untrusted_buf_len = entry.ByteSizeLong();
+        *untrusted_buf = malloc(*untrusted_buf_len);
+        assert(*untrusted_buf != NULL);
+        entry.SerializeToArray(*untrusted_buf, *untrusted_buf_len);
+        return 0;
     }
+    return  -1;
 
-    barbican::Ledger_Block *block = ledger.add_blocks();
-    std::string content((const char *) buf, len);
-    block->set_content(content);
-    block->set_height(ledger.blocks_size());
+}
 
-    // Write the new address book back to disk.
-    std::fstream output(g_config_ledger, std::ios::out | std::ios::trunc | std::ios::binary);
-    if (!ledger.SerializeToOstream(&output)) {
-      std::cerr << "Failed to write " << g_config_ledger << std::endl;
-      return -1;
+extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
+{
+    LedgerClient client(grpc::CreateChannel(
+            LEDGER_URL, grpc::InsecureChannelCredentials()));
+
+    LedgerQueryRequest request;
+    request.set_entryid(policyId);
+    request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_RECORD);
+    LedgerQueryResponse response = client.query(request);
+    int totalEntrys = response.entries_size();
+    if( totalEntrys > 0) {
+        const LedgerEntry entry = response.entries(totalEntrys-1);
+        *untrusted_buf_len = entry.ByteSizeLong();
+        *untrusted_buf = malloc(*untrusted_buf_len);
+        assert(*untrusted_buf != NULL);
+        entry.SerializeToArray(*untrusted_buf, *untrusted_buf_len);
+        return 0;
     }
+    return  -1;
 
-    return 0;
 }
 
 extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    barbican::Ledger ledger;
-    std::fstream input(g_config_ledger, std::ios::binary | std::ios::in);
-    if (!input) {
-      std::cout << g_config_ledger << ": File not found.  Creating a new file." << std::endl;
-      return -1;
-    } else if (!ledger.ParseFromIstream(&input)) {
-      std::cout << "Failed to parse " << g_config_ledger << std::endl;
-      return -1;
-    }
-    if (height >= ledger.blocks_size()) { return -1; } //requesting unavailable block
-    //std::cout << "ledger has height " << ledger.blocks_size() << std::endl;
-
-    barbican::Ledger_Block block = ledger.blocks(height);
-    uint64_t block_height = block.height();
-    std::string block_content = block.content();
-
-    *untrusted_buf_len = block_content.size();
-    *untrusted_buf = malloc(*untrusted_buf_len);
-    assert(*untrusted_buf != NULL);
-    memcpy(*untrusted_buf, block_content.c_str(), *untrusted_buf_len);
-
-    input.close();
-    return 0;
+    return  -1;
 }
 
 extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
 {
-    barbican::Ledger ledger;
-    std::fstream input(g_config_ledger, std::ios::binary | std::ios::in);
-    if (!input) {
-      std::cout << g_config_ledger << ": File not found.  Creating a new file." << std::endl;
-    } else if (!ledger.ParseFromIstream(&input)) {
-      std::cerr << "Failed to parse " << g_config_ledger << std::endl;
-      return -1;
-    }
+    LedgerClient client(grpc::CreateChannel(
+            LEDGER_URL, grpc::InsecureChannelCredentials()));
 
-    *height = ledger.blocks_size();
+    BlockchainInfoRequest blockchainInfoRequest;
+    blockchainInfoRequest.set_chaincode(CHAINCODE_NAME);
+    BlockchainInfoResponse resp = client.info(blockchainInfoRequest);
+
+    *height = resp.height();
+
     return 0;
 }
 
