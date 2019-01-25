@@ -747,6 +747,11 @@ extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untr
 
 }
 
+extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf, size_t *untrusted_buf_len)
+{
+    return  -1;
+}
+
 extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
 {
     LedgerClient client(grpc::CreateChannel(
