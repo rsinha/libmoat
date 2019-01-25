@@ -718,7 +718,7 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
         *untrusted_buf_len = entry.ByteSizeLong();
         *untrusted_buf = malloc(*untrusted_buf_len);
         assert(*untrusted_buf != NULL);
-        entry.SerializeToArray(untrusted_buf, untrusted_buf_len);
+        entry.SerializeToArray(*untrusted_buf, *untrusted_buf_len);
         return 0;
     }
     return  -1;
@@ -740,7 +740,7 @@ extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untr
         *untrusted_buf_len = entry.ByteSizeLong();
         *untrusted_buf = malloc(*untrusted_buf_len);
         assert(*untrusted_buf != NULL);
-        entry.SerializeToArray(untrusted_buf, untrusted_buf_len);
+        entry.SerializeToArray(*untrusted_buf, *untrusted_buf_len);
         return 0;
     }
     return  -1;
