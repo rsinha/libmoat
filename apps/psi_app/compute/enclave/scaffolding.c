@@ -299,8 +299,8 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     */
 
     uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
-    bool result = _moat_l_get_policy(spec_id, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
-    if (!result) {
+    bool ledger_result = _moat_l_get_policy(spec_id, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
+    if (!ledger_result) {
         _moat_print_debug("unable to find specification with id %" PRIu64 "\n", spec_id);
         return -1;
     }
@@ -308,8 +308,8 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     assert(is_entry_a_spec(entry) && is_entry_of_spec_id(entry, spec_id));
     spec_entry = entry;
 
-    result = _moat_l_get_compute_record(spec_id, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
-    if (result) {
+    ledger_result = _moat_l_get_compute_record(spec_id, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
+    if (ledger_result) {
         entry = parse_buf_as_ledger_entry(ledger_entry_buf, ledger_entry_buf_len);
         assert(is_entry_a_record(entry) && is_entry_of_spec_id(entry, spec_id));
         latest_record_entry = entry;
