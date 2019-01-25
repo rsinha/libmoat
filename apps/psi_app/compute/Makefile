@@ -77,6 +77,9 @@ Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
 Protobuf_Link_Flags := -L/usr/local/lib -l:libprotobuf.a -D_THREAD_SAFE
 RocksDB_Link_Flags := -lrocksdb -lz -lbz2 -llz4 -lzstd -lsnappy -l:libjemalloc.a -ldl
 Host_Link_Flags := -std=c++11 $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) $(Protobuf_Link_Flags) -L/usr/local/lib -lzmq -lczmq $(RocksDB_Link_Flags) -lpthread
+Host_Link_Flags += -L/usr/local/lib `pkg-config --libs protobuf grpc++ grpc`\
+           -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed\
+           -ldl
 
 ifneq ($(SGX_MODE), HW)
 	Host_Link_Flags += -lsgx_uae_service_sim
