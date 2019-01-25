@@ -9,12 +9,6 @@
 
 #include "cxxopts.hpp"
 
-#include "ledgerentry.pb.h"
-#include "specification.pb.h"
-#include "Ledger.pb.h"
-
-#define LEDGER "/tmp/luciditee.ledger"
-
 #include "LedgerClient.h"
 
 using namespace std;
