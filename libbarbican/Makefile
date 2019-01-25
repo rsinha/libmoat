@@ -31,7 +31,7 @@ Lib_Include_Paths :=  -I$(SGX_SDK)/include -I$(HIREDIS_INC_PATH)
 Protobuf_C_Flags := -D_THREAD_SAFE -I/usr/local/include
 Lib_C_Flags := $(Protobuf_C_Flags) -fPIC -Wno-attributes $(Lib_Include_Paths)
 Lib_Cpp_Flags := $(Lib_C_Flags) -std=c++11
-Ledger_Client_Objects := ledgerentry.grpc.pb.o ledgerentry.pb.o
+Ledger_Client_Objects := ledgerentry.grpc.pb.o ledgerentry.pb.o LedgerClient.o
 Lib_Cpp_Objects :=  $(Ledger_Client_Objects) Barbican.o RocksDBInterface.o
 
 ######## Enclave Settings ########
