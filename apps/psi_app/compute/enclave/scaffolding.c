@@ -263,6 +263,7 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     uint64_t height = _moat_l_get_current_counter();
     //_moat_print_debug("luciditee's ledger has height %" PRIu64 "\n", height);
 
+    /*
     for (uint64_t t = 0; t < height; t++) {
         uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
         bool result = _moat_l_get_content(t, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
@@ -295,11 +296,31 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
 
         free(ledger_entry_buf);
     }
+    */
 
-    if (!found_spec) {
+    uint8_t *ledger_entry_buf = NULL; size_t ledger_entry_buf_len = 0;
+    bool result = _moat_l_get_policy(spec_id, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
+    if (!result) {
         _moat_print_debug("unable to find specification with id %" PRIu64 "\n", spec_id);
         return -1;
     }
+    Luciditee__LedgerEntry *entry = parse_buf_as_ledger_entry(ledger_entry_buf, ledger_entry_buf_len);
+    assert(is_entry_a_spec(entry) && is_entry_of_spec_id(entry, spec_id));
+    spec_entry = entry;
+
+    bool result = _moat_l_get_compute_record(spec_id, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
+    if (result) {
+        entry = parse_buf_as_ledger_entry(ledger_entry_buf, ledger_entry_buf_len);
+        assert(is_entry_a_record(entry) && is_entry_of_spec_id(entry, spec_id));
+        latest_record_entry = entry;
+        found_record = true;
+    }
+
+
+    //if (!found_spec) {
+    //    _moat_print_debug("unable to find specification with id %" PRIu64 "\n", spec_id);
+    //    return -1;
+    //}
 
     bool init = !found_record;
     if (init) { _moat_print_debug("treating this as initial step\n"); }

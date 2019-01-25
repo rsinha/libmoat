@@ -74,6 +74,8 @@ int64_t LIBMOAT_API _moat_kvs_save(int64_t fd);
 
 bool LIBMOAT_API _moat_l_post(void *buf, size_t len);
 bool LIBMOAT_API _moat_l_get_content(uint64_t height, void **untrusted_buf, size_t *untrusted_buf_len);
+bool LIBMOAT_API _moat_l_get_policy(uint64_t spec_id, void **untrusted_buf, size_t *untrusted_buf_len);
+bool LIBMOAT_API _moat_l_get_compute_record(uint64_t spec_id, void **untrusted_buf, size_t *untrusted_buf_len);
 uint64_t LIBMOAT_API _moat_l_get_current_counter();
 
 /***************************************************
