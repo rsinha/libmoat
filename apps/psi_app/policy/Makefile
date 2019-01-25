@@ -33,49 +33,9 @@ run: all
 
 ######## App Objects ########
 
-Ledger.pb.cc: Ledger.proto
-	@echo "GEN  =>  $@"
-	@protoc --cpp_out=. Ledger.proto
-
-Ledger.pb.o: Ledger.pb.cc
-	@echo "CXX   <=  $<"
-	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
-
 ledgerentry.grpc.pb.cc: ledgerentry.proto
 	@protoc --cpp_out=. $<
 	@protoc --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $<
-
-ledgerentry.pb.cc: $(ProtoDir)/ledgerentry.proto specification.pb.cc record.pb.cc delivery.pb.cc
-	@echo "GEN  =>  $@"
-	@protoc --cpp_out=. --proto_path=$(ProtoDir) $<
-
-ledgerentry.pb.o: ledgerentry.pb.cc
-	@echo "CXX   <=  $<"
-	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
-
-delivery.pb.cc: $(ProtoDir)/delivery.proto
-	@echo "GEN  =>  $@"
-	@protoc --cpp_out=. --proto_path=$(ProtoDir) $<
-
-delivery.pb.o: delivery.pb.cc
-	@echo "CXX   <=  $<"
-	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
-
-record.pb.cc: $(ProtoDir)/record.proto
-	@echo "GEN  =>  $@"
-	@protoc --cpp_out=. --proto_path=$(ProtoDir) $<
-
-record.pb.o: record.pb.cc
-	@echo "CXX   <=  $<"
-	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
-
-specification.pb.cc: $(ProtoDir)/specification.proto
-	@echo "GEN  =>  $@"
-	@protoc --cpp_out=. --proto_path=$(ProtoDir) $<
-
-specification.pb.o: specification.pb.cc
-	@echo "CXX   <=  $<"
-	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 %.o: %.cpp
 	@echo "CXX  <=  $<"
