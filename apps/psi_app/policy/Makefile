@@ -34,8 +34,11 @@ run: all
 ######## App Objects ########
 
 ledgerentry.grpc.pb.cc: ledgerentry.proto
-	@protoc --cpp_out=. $<
 	@protoc --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $<
+
+ledgerentry.pb.o: ledgerentry.pb.cc
+	@echo "CXX  <=  $<"
+	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 %.o: %.cpp
 	@echo "CXX  <=  $<"
