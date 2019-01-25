@@ -308,7 +308,7 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     assert(is_entry_a_spec(entry) && is_entry_of_spec_id(entry, spec_id));
     spec_entry = entry;
 
-    bool result = _moat_l_get_compute_record(spec_id, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
+    result = _moat_l_get_compute_record(spec_id, (void **) &ledger_entry_buf, &ledger_entry_buf_len);
     if (result) {
         entry = parse_buf_as_ledger_entry(ledger_entry_buf, ledger_entry_buf_len);
         assert(is_entry_a_record(entry) && is_entry_of_spec_id(entry, spec_id));
