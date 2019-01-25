@@ -43,7 +43,9 @@ bool _moat_l_get_compute_record(uint64_t spec_id, void **buf, size_t *len)
     void *untrusted_buf; size_t untrusted_buf_len;
     size_t retstatus;
     sgx_status_t status = ledger_get_compute_record_ocall(&retstatus, spec_id, &untrusted_buf, &untrusted_buf_len);
-    assert(status == SGX_SUCCESS && retstatus == 0);
+    assert(status == SGX_SUCCESS);
+
+    if (retstatus != 0) { return false; }
 
     *len = untrusted_buf_len;
     *buf = malloc(*len);
