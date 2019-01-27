@@ -50,8 +50,10 @@ Trust_Lib := $(Trust_Lib_Path)/$(Trust_Lib_Name)
 
 ifneq ($(SGX_MODE), HW)
 	Urts_Library_Name := sgx_urts_sim
+	Uae_Library_Name := sgx_uae_service_sim
 else
 	Urts_Library_Name := sgx_urts
+	Uae_Library_Name := sgx_uae_service
 endif
 
 Host_Cpp_Files := host/statement.pb.cc host/host_hospital.cpp
@@ -76,16 +78,9 @@ endif
 Host_Cpp_Flags := $(Host_C_Flags) -std=c++11
 Protobuf_Link_Flags := -L/usr/local/lib -l:libprotobuf.a -D_THREAD_SAFE
 RocksDB_Link_Flags := -lrocksdb -lz -lbz2 -llz4 -lzstd -lsnappy -l:libjemalloc.a -ldl
-Host_Link_Flags := -std=c++11 $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) $(Protobuf_Link_Flags) -L/usr/local/lib -lzmq -lczmq $(RocksDB_Link_Flags) -lpthread
-Host_Link_Flags += -L/usr/local/lib `pkg-config --libs protobuf grpc++ grpc`\
-           -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed\
-           -ldl
+Host_Link_Flags := -std=c++11 $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -l$(Uae_Library_Name) -L/usr/local/lib -lzmq -lczmq $(RocksDB_Link_Flags) -lpthread
+Host_Link_Flags += `pkg-config --libs protobuf grpc++ grpc` -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed
 
-ifneq ($(SGX_MODE), HW)
-	Host_Link_Flags += -lsgx_uae_service_sim
-else
-	Host_Link_Flags += -lsgx_uae_service
-endif
 
 Host_Cpp_Objects := host/statement.pb.o host/host_hospital.o
 
