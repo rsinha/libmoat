@@ -46,6 +46,12 @@ typedef struct _merkle_node {
 
 typedef std::pair<std::string, std::string> strpair_t;
 
+LedgerClient *client = null;
+
+
+
+
+
 /* Global Internal State */
 std::map<int64_t, untrusted_channel_t>  g_channels; //map session id to channel struct
 merkle_node_t                          *g_merkle_root;
@@ -684,14 +690,12 @@ extern "C" size_t free_ocall(void *untrusted_buf)
 }
 
 extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
+    if(client == null) {
+        return  -1;
+    }
     LedgerEntry ledgerEntry;
     ledgerEntry.ParseFromArray(buf, len);
-
-    LedgerClient client(grpc::CreateChannel(
-            LEDGER_URL, grpc::InsecureChannelCredentials()));
-
-    LedgerEntryResponse entryResponse = client.entry(ledgerEntry);
-
+    LedgerEntryResponse entryResponse = client->entry(ledgerEntry);
     if(entryResponse.message().compare("Failure") == 0) {
         return -1;
     }
@@ -700,13 +704,13 @@ extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
 
 extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    LedgerClient client(grpc::CreateChannel(
-            LEDGER_URL, grpc::InsecureChannelCredentials()));
-
+    if(client == null) {
+        return  -1;
+    }
     LedgerQueryRequest request;
     request.set_entryid(policyId);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_CREATE);
-    LedgerQueryResponse response = client.query(request);
+    LedgerQueryResponse response = client->query(request);
     if(response.entries_size() > 0) {
         LedgerEntry entry;
         for(int i = 0; i < response.entries_size(); i++) {
@@ -727,13 +731,13 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
 
 extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    LedgerClient client(grpc::CreateChannel(
-            LEDGER_URL, grpc::InsecureChannelCredentials()));
-
+    if(client == null) {
+        return  -1;
+    }
     LedgerQueryRequest request;
     request.set_entryid(policyId);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_RECORD);
-    LedgerQueryResponse response = client.query(request);
+    LedgerQueryResponse response = client->query(request);
     int totalEntrys = response.entries_size();
     if( totalEntrys > 0) {
         const LedgerEntry entry = response.entries(totalEntrys-1);
@@ -885,6 +889,9 @@ void init_barbican(const std::string &json_str)
             json role = actor_info["role_server"];
             register_scc_actor(it.key(), ip_addr.get<std::string>(), role.get<bool>());
         }
+
+        client = new LedgerClient(grpc::CreateChannel(
+                LEDGER_URL, grpc::InsecureChannelCredentials()));
 
     } catch (const std::exception& ex) {
         std::cout << "barbican: Error parsing json config: " << ex.what() << std::endl;
