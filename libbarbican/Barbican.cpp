@@ -696,7 +696,9 @@ extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
     }
     LedgerEntry ledgerEntry;
     ledgerEntry.ParseFromArray(buf, len);
+    std::cout << "Creating Ledger Entry...." << std::endl;
     LedgerEntryResponse entryResponse = client->entry(ledgerEntry);
+    std::cout << "Done creating Ledger Entry...." << std::endl;
     if(entryResponse.message().compare("Failure") == 0) {
         return -1;
     }
@@ -712,7 +714,9 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
     LedgerQueryRequest request;
     request.set_entryid(policyId);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_CREATE);
+    std::cout << "Querying Ledger...." << std::endl;
     LedgerQueryResponse response = client->query(request);
+    std::cout << "Done Querying Ledger...." << std::endl;
     if(response.entries_size() > 0) {
         LedgerEntry entry;
         for(int i = 0; i < response.entries_size(); i++) {
@@ -740,7 +744,9 @@ extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untr
     LedgerQueryRequest request;
     request.set_entryid(policyId);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_RECORD);
+    std::cout << "Querying Ledger...." << std::endl;
     LedgerQueryResponse response = client->query(request);
+    std::cout << "Done Querying Ledger...." << std::endl;
     int totalEntrys = response.entries_size();
     if( totalEntrys > 0) {
         const LedgerEntry entry = response.entries(totalEntrys-1);
