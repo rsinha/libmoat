@@ -46,7 +46,7 @@ typedef struct _merkle_node {
 
 typedef std::pair<std::string, std::string> strpair_t;
 
-LedgerClient *client = null;
+LedgerClient *client = NULL;
 
 
 
@@ -690,7 +690,7 @@ extern "C" size_t free_ocall(void *untrusted_buf)
 }
 
 extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
-    if(client == null) {
+    if(client == NULL) {
         std::cout << "Ledger Client is not initialized" << std::endl;
         return  -1;
     }
@@ -705,7 +705,7 @@ extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
 
 extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    if(client == null) {
+    if(client == NULL) {
         std::cout << "Ledger Client is not initialized" << std::endl;
         return  -1;
     }
@@ -733,7 +733,7 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
 
 extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    if(client == null) {
+    if(client == NULL) {
         std::cout << "Ledger Client is not initialized" << std::endl;
         return  -1;
     }
@@ -761,12 +761,14 @@ extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf
 
 extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
 {
-    LedgerClient client(grpc::CreateChannel(
-            LEDGER_URL, grpc::InsecureChannelCredentials()));
+    if(client == NULL) {
+        std::cout << "Ledger Client is not initialized" << std::endl;
+        return  -1;
+    }
 
     BlockchainInfoRequest blockchainInfoRequest;
     blockchainInfoRequest.set_chaincode(CHAINCODE_NAME);
-    BlockchainInfoResponse resp = client.info(blockchainInfoRequest);
+    BlockchainInfoResponse resp = client->info(blockchainInfoRequest);
 
     *height = resp.height();
 
