@@ -691,6 +691,7 @@ extern "C" size_t free_ocall(void *untrusted_buf)
 
 extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
     if(client == null) {
+        std::cout << "Ledger Client is not initialized" << std::endl;
         return  -1;
     }
     LedgerEntry ledgerEntry;
@@ -705,6 +706,7 @@ extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
 extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
     if(client == null) {
+        std::cout << "Ledger Client is not initialized" << std::endl;
         return  -1;
     }
     LedgerQueryRequest request;
@@ -732,6 +734,7 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
 extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
     if(client == null) {
+        std::cout << "Ledger Client is not initialized" << std::endl;
         return  -1;
     }
     LedgerQueryRequest request;
@@ -892,6 +895,7 @@ void init_barbican(const std::string &json_str)
 
         client = new LedgerClient(grpc::CreateChannel(
                 LEDGER_URL, grpc::InsecureChannelCredentials()));
+        std::cout << "Created new client:" << client <<std::endl;
 
     } catch (const std::exception& ex) {
         std::cout << "barbican: Error parsing json config: " << ex.what() << std::endl;
