@@ -690,6 +690,10 @@ extern "C" size_t free_ocall(void *untrusted_buf)
     return 0;
 }
 
+uint64_t get_time(struct timeval start, struct timeval stop) {
+    return (stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_usec - start.tv_usec);
+}
+
 extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
     if(client == NULL) {
         std::cout << "Ledger Client is not initialized" << std::endl;
@@ -702,7 +706,7 @@ extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
     gettimeofday(&start, NULL);
     LedgerEntryResponse entryResponse = client->entry(ledgerEntry);
     gettimeofday(&stop, NULL);
-    std::cout << "Time(micro-sec) to create ledger entry:" << stop.tv_usec - start.tv_usec << std::endl;
+    std::cout << "Time(micro-sec) to create ledger entry:" << get_time(start, stop) << std::endl;
     std::cout << "Done creating Ledger Entry...." << std::endl;
     if(entryResponse.message().compare("Failure") == 0) {
         return -1;
@@ -724,7 +728,7 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
     gettimeofday(&start, NULL);
     LedgerQueryResponse response = client->query(request);
     gettimeofday(&stop, NULL);
-    std::cout << "Time(micro-sec) to get policy:" << stop.tv_usec - start.tv_usec << std::endl;
+    std::cout << "Time(micro-sec) to get policy:" << get_time(start, stop) << std::endl;
     std::cout << "Done Querying Ledger...." << std::endl;
     if(response.entries_size() > 0) {
         LedgerEntry entry;
@@ -744,6 +748,8 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
 
 }
 
+
+
 extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
     if(client == NULL) {
@@ -758,7 +764,7 @@ extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untr
     gettimeofday(&start, NULL);
     LedgerQueryResponse response = client->query(request);
     gettimeofday(&stop, NULL);
-    std::cout << "Time(micro-sec) to get compute record:" << stop.tv_usec - start.tv_usec << std::endl;
+    std::cout << "Time(micro-sec) to get compute record:" << get_time(start, stop)  << std::endl;
     std::cout << "Done Querying Ledger...." << std::endl;
     int totalEntrys = response.entries_size();
     if( totalEntrys > 0) {
@@ -790,7 +796,8 @@ extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
     struct timeval start, stop;
     gettimeofday(&start, NULL);
     BlockchainInfoResponse resp = client->info(blockchainInfoRequest);
-    std::cout << "Time(micro-sec) to get ledger height:" << stop.tv_usec - start.tv_usec << std::endl;
+    gettimeofday(&stop, NULL);
+    std::cout << "Time(micro-sec) to get ledger height:" << get_time(start, stop) << std::endl;
 
     *height = resp.height();
 

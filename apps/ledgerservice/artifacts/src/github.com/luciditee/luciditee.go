@@ -106,15 +106,24 @@ func (t *LuciditeeChaincode) queryPolicy(stub shim.ChaincodeStubInterface, args 
 		return shim.Success(t.failLedgerResponse("", "PolicyId must be specified!"))
 	}
 	PolicyId := args[0]
+	QueryType := args[1]
 	var dm DataModel
 	if KnownPolicy, _:= stub.GetState(PolicyId); KnownPolicy != nil {
 		if err := json.Unmarshal(KnownPolicy, &dm); err != nil {
 			return shim.Success(t.failLedgerResponse(PolicyId, "Unable to unmarshal the policy object!"))
 		}
 		Lr := LedgerResponse{
-			Status:"Success", PolicyId:PolicyId, ComputeHistory:dm.ComputeHistory,
-		    ErrorMessage:"", OutputDelivery:dm.OutputDelivery, Policy:dm.Policy,
+			Status:"Success", PolicyId:PolicyId,
+		    ErrorMessage:"",
 		}
+		if QueryType == "CREATE" {
+		   Lr.Policy = dm.policy
+		} else if QueryType == "COMPUTE" {
+		   Lr.ComputeHistory = dm.ComputeHistory
+		} else if QueryType == "DELIVER" {
+		   Lr.OutputDelivery = dm.OutputDelivery
+		}
+
 		Resp, _ := json.Marshal(Lr)
 		return shim.Success(Resp)
 	} else {

@@ -7,6 +7,7 @@
 *_t.c
 *.out
 *.pyc
+*.iml
 venv
 .DS_Store
 *.swp
