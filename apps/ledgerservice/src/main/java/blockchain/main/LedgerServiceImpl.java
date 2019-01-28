@@ -135,7 +135,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         LedgerEntry.EntryType entryType = request.getType();
 
         String[] args = {Long.toString(policyId)};
-        String result = chaincodeService.invokeChaincode(chaincodeName, "query_policy", args);
+        String result = chaincodeService.queryChaincode(chaincodeName, "query_policy", args);
 
         try {
             JSONObject obj = new JSONObject(result);
