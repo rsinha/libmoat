@@ -58,15 +58,15 @@ public class LedgerService {
 
         LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
         Logger rootLogger = loggerContext.getLogger("io.grpc");
-        ((ch.qos.logback.classic.Logger) rootLogger).setLevel(Level.INFO);
+        ((ch.qos.logback.classic.Logger) rootLogger).setLevel(Level.OFF);
 
         Logger rootLogger1 = loggerContext.getLogger("org.hyperledger");
-        ((ch.qos.logback.classic.Logger) rootLogger1).setLevel(Level.INFO);
+        ((ch.qos.logback.classic.Logger) rootLogger1).setLevel(Level.OFF);
 
 
 
         Logger rootLogger2 = loggerContext.getLogger("io.netty");
-        ((ch.qos.logback.classic.Logger) rootLogger2).setLevel(Level.INFO);
+        ((ch.qos.logback.classic.Logger) rootLogger2).setLevel(Level.OFF);
 
         Server server = ServerBuilder.forPort(8080)
                 .addService(new LedgerServiceImpl(chaincodeService))
