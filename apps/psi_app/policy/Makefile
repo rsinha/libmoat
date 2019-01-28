@@ -21,7 +21,7 @@ Host_Link_Flags += -L/usr/local/lib `pkg-config --libs protobuf grpc++ grpc`\
            -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed\
            -ldl
 
-Host_Cpp_Objects := ledgerentry.grpc.pb.o ledgerentry.pb.o LedgerClient.o policy_creator.o
+Host_Cpp_Objects := ledgerentry.pb.o ledgerentry.grpc.pb.o LedgerClient.o policy_creator.o
 
 Host_Name := policy_creator.out
 
@@ -34,8 +34,16 @@ run: all
 ######## App Objects ########
 
 ledgerentry.grpc.pb.cc: ledgerentry.proto
-    @protoc --cpp_out=. $<
+	@echo "GEN  <=  $<"
 	@protoc --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $<
+
+ledgerentry.pb.cc: ledgerentry.proto
+	@echo "GEN  <=  $<"
+	@protoc --cpp_out=. $<
+
+ledgerentry.grpc.pb.o: ledgerentry.grpc.pb.cc
+	@echo "CXX  <=  $<"
+	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
 ledgerentry.pb.o: ledgerentry.pb.cc
 	@echo "CXX  <=  $<"
