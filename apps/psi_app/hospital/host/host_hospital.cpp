@@ -10,7 +10,7 @@
 #include "interface_u.h"
 #include "csv.h"
 
-#include "statement.pb.h"
+#include "input.pb.h"
 
 #include <string>
 #include <fstream>
@@ -80,34 +80,51 @@ int main(int argc, char *argv[])
   launch_enclave(enclave_file);
 
   GOOGLE_PROTOBUF_VERIFY_VERSION;
-  luciditee_psi_app::HospitalDB hospitaldb;
 
-  //step 1: parse the csv file containing all transactions
-  //step 2: put each element in the kvs
+  luciditee_psi_app::PatientRecord record;
+
   in.read_header(io::ignore_extra_column, "ssn", "secret");
+
   uint64_t ssn, secret;
-  while(in.read_row(ssn, secret)) 
-  {
-    luciditee_psi_app::HospitalDB_PatientRecord *record = hospitaldb.add_records();
-    record->set_ssn(ssn);
-    record->set_secret(secret);
-    std::cout << "adding patient record " << ssn << "," << secret << std::endl;
-  }
-
-  size_t ptxt_buf_size = hospitaldb.ByteSize();
-  unsigned char *ptxt_buf = (unsigned char *) malloc(ptxt_buf_size);
-  if(!ptxt_buf) { std::cout << "unable to malloc" << std::endl; exit(1); }
-  if (!hospitaldb.SerializeToArray(ptxt_buf, ptxt_buf_size)) {
-      std::cerr << "Failed to write tx" << std::endl;
-      return -1;
-  }
-
   uint64_t pwerr;
-  sgx_status_t ret = enclave_encrypt_data(global_eid, &pwerr, ptxt_buf, ptxt_buf_size);
+
+  sgx_status_t ret = enclave_init(global_eid, &pwerr);
   if (ret != SGX_SUCCESS)
   {
     printf("enclave  failed: %#x\n", ret);
-    return 1;
+    return -1;
+  }
+
+  while(in.read_row(ssn, secret)) 
+  {
+    record.set_ssn(ssn);
+    record.set_secret(secret);
+
+    size_t ptxt_buf_size = record.ByteSize();
+    unsigned char *ptxt_buf = (unsigned char *) malloc(ptxt_buf_size);
+    if(!ptxt_buf) { std::cout << "unable to malloc" << std::endl; exit(1); }
+
+    if (!record.SerializeToArray(ptxt_buf, ptxt_buf_size)) {
+      std::cerr << "Failed to write tx" << std::endl;
+      return -1;
+    }
+    std::cout << "added patient record " << ssn << "," << secret << std::endl;
+    sgx_status_t ret = enclave_encrypt_data(global_eid, &pwerr, ptxt_buf, ptxt_buf_size);
+    if (ret != SGX_SUCCESS)
+    {
+      printf("enclave  failed: %#x\n", ret);
+      return -1;
+    }
+    
+    free(ptxt_buf);
+  }
+
+
+  ret = enclave_finish(global_eid, &pwerr);
+  if (ret != SGX_SUCCESS)
+  {
+    printf("enclave  failed: %#x\n", ret);
+    return -1;
   }
 
   destroy_enclave();

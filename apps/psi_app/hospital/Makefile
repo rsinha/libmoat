@@ -56,7 +56,7 @@ else
 	Uae_Library_Name := sgx_uae_service
 endif
 
-Host_Cpp_Files := host/statement.pb.cc host/host_hospital.cpp
+Host_Cpp_Files := host/input.pb.cc host/host_hospital.cpp
 #Host_Include_Paths := -I../common -Ihost -I$(SGX_SDK)/include
 Host_Include_Paths := -Ihost -I$(SGX_SDK)/include
 
@@ -82,7 +82,7 @@ Host_Link_Flags := -std=c++11 $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urt
 Host_Link_Flags += `pkg-config --libs protobuf grpc++ grpc` -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed
 
 
-Host_Cpp_Objects := host/statement.pb.o host/host_hospital.o
+Host_Cpp_Objects := host/input.pb.o host/host_hospital.o
 
 Host_Name := hospital.out
 
@@ -121,7 +121,7 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 	-Wl,--defsym,__ImageBase=0 \
 	-Wl,--version-script=enclave/enclave.lds
 
-Enclave_C_Objects := enclave/protobuf-c.o enclave/statement.pb-c.o enclave/enclave.o
+Enclave_C_Objects := enclave/protobuf-c.o enclave/input.pb-c.o enclave/enclave.o
 
 Enclave_Name := enclave.so
 Signed_Enclave_Name := enclave.signed.so
@@ -189,11 +189,11 @@ $(Trust_Lib):
 
 ######## App Objects ########
 
-host/statement.pb.cc: $(ProtoDir)/statement.proto
+host/input.pb.cc: $(ProtoDir)/input.proto
 	@echo "GEN  =>  $@"
 	@protoc --cpp_out=host --proto_path=$(ProtoDir) $<
 
-host/statement.pb.o: host/statement.pb.cc
+host/input.pb.o: host/input.pb.cc
 	@echo "CXX   <=  $<"
 	@$(CXX) $(Host_Cpp_Flags) -c $< -o $@
 
@@ -216,7 +216,7 @@ $(Host_Name): host/interface_u.o $(Host_Cpp_Objects) $(Untrust_Lib)
 
 ######## Enclave Objects ########
 
-enclave/statement.pb-c.c: $(ProtoDir)/statement.proto
+enclave/input.pb-c.c: $(ProtoDir)/input.proto
 	@echo "GEN  =>  $@"
 	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
@@ -244,7 +244,7 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 
 clean:
 	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
-	@rm -f host/interface_u.* host/*.pb.* enclave/interface_t.* host/*.o enclave/*.o enclave/statement.* host/statement.*
+	@rm -f host/interface_u.* host/*.pb.* enclave/interface_t.* host/*.o enclave/*.o enclave/input.* host/input.*
 	@rm -f $(Trust_Lib) $(Untrust_Lib)
 	@$(MAKE) -C $(Trust_Lib_Path) clean
 	@$(MAKE) -C $(Untrust_Lib_Path) clean
