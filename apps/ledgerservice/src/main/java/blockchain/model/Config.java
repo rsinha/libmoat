@@ -80,7 +80,8 @@ public class Config {
 		} finally {
 
 			// Default values
-            defaultProperty(".level", "OFF");
+            defaultProperty("org.hyperledger.fabric_ca.sdk.loglevel", "INFO");
+			defaultProperty("org.hyperledger.fabric.sdk.loglevel", "INFO");
 			defaultProperty(GOSSIPWAITTIME, "5000");
 			defaultProperty(INVOKEWAITTIME, "100000");
 			defaultProperty(DEPLOYWAITTIME, "120000");
