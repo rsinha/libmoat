@@ -2,6 +2,8 @@ package blockchain.main;
 
 import blockchain.service.ChaincodeService;
 import blockchain.service.ChaincodeServiceImpl;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import org.slf4j.Logger;
@@ -55,8 +57,13 @@ public class LedgerService {
 //         Create a new server to listen on port 8080
         ChaincodeService chaincodeService = new ChaincodeServiceImpl();
 
-        Logger.getLogger("io.grpc").setLevel(Level.INFO);
-        Logger.getLogger("org.hyperledger").setLevel(Level.INFO);
+        LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
+        Logger rootLogger = loggerContext.getLogger("io.grpc");
+        ((ch.qos.logback.classic.Logger) rootLogger).setLevel(Level.INFO);
+
+        Logger rootLogger1 = loggerContext.getLogger("org.hyperledger");
+        ((ch.qos.logback.classic.Logger) rootLogger1).setLevel(Level.INFO);
+
 
         Server server = ServerBuilder.forPort(8080)
                 .addService(new LedgerServiceImpl(chaincodeService))
