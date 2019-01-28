@@ -71,6 +71,9 @@ public class LedgerService {
         Logger rootLogger3 = loggerContext.getLogger("blockchain.service");
         ((ch.qos.logback.classic.Logger) rootLogger3).setLevel(Level.OFF);
 
+        Logger rootLogger4 = loggerContext.getLogger("blockchain.main");
+        ((ch.qos.logback.classic.Logger) rootLogger4).setLevel(Level.OFF);
+
         Server server = ServerBuilder.forPort(8080)
                 .addService(new LedgerServiceImpl(chaincodeService))
                 .build();
