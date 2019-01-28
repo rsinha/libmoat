@@ -263,7 +263,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 				// it belongs to this channel
 				Set<String> channels = client.queryChannels(peer);
 				if (!channels.contains(channelName)) {
-					logger.info("Peer %s does not appear to belong to channel %s", peerName, channelName);
+					//logger.info("Peer %s does not appear to belong to channel %s", peerName, channelName);
 				}
 
 				newChannel.addPeer(peer);
@@ -376,7 +376,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 			Org sampleOrg = Conf.getSampleOrg("peerOrg1");
 
-			logger.info("Constructing channel %s", channelName);
+			//logger.info("Constructing channel %s", channelName);
 
 			// Only peer Admin org
 			client.setUserContext(sampleOrg.getPeerAdmin());
@@ -415,7 +415,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 					client.getChannelConfigurationSignature(channelConfiguration, sampleOrg.getPeerAdmin()));
 
 
-			logger.info("Created channel %s", channelName);
+			//logger.info("Created channel %s", channelName);
 
 			for (String peerName : sampleOrg.getPeerNames()) {
 				String peerLocation = sampleOrg.getPeerLocation(peerName);
@@ -435,7 +435,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 				Peer peer = client.newPeer(peerName, peerLocation, peerProperties);
 				newChannel.joinPeer(peer);
-				logger.info("Peer %s joined channel %s", peerName, channelName);
+			//	logger.info("Peer %s joined channel %s", peerName, channelName);
 				sampleOrg.addPeer(peer);
 			}
 
@@ -453,7 +453,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 			newChannel.initialize();
 
-			logger.info("Finished initialization channel %s", channelName);
+			//logger.info("Finished initialization channel %s", channelName);
 
 			return "Channel created successfully";
 		}
@@ -639,7 +639,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 			///////////////
 			/// Send transaction proposal to all peers
-			logger.debug("chaincodeFunction" + chaincodeFunction);
+			//logger.debug("chaincodeFunction" + chaincodeFunction);
 			TransactionProposalRequest transactionProposalRequest = client.newTransactionProposalRequest();
 			transactionProposalRequest.setChaincodeID(chaincodeID);
 			transactionProposalRequest.setFcn(chaincodeFunction);
@@ -653,14 +653,14 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 			transactionProposalRequest.setTransientMap(tm2);
 
-			logger.info("sending transactionProposal to all peers with arguments: move(a,b,100)");
+			//logger.info("sending transactionProposal to all peers with arguments: move(a,b,100)");
 
 			Collection<ProposalResponse> transactionPropResp = channel
 					.sendTransactionProposal(transactionProposalRequest, channel.getPeers());
 			for (ProposalResponse response : transactionPropResp) {
 				if (response.getStatus() == ProposalResponse.Status.SUCCESS) {
-					logger.info("Successful transaction proposal response Txid: %s from peer %s",
-							response.getTransactionID(), response.getPeer().getName());
+//					logger.info("Successful transaction proposal response Txid: %s from peer %s",
+//							response.getTransactionID(), response.getPeer().getName());
 					successful.add(response);
 				} else {
 					failed.add(response);
@@ -669,19 +669,19 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 			Collection<Set<ProposalResponse>> proposalConsistencySets = SDKUtils
 					.getProposalConsistencySets(transactionPropResp);
 			if (proposalConsistencySets.size() != 1) {
-				logger.info(format("Expected only one set of consistent proposal responses but got %d",
-						proposalConsistencySets.size()));
+//				logger.info(format("Expected only one set of consistent proposal responses but got %d",
+//						proposalConsistencySets.size()));
 			}
 
-			logger.info("Received %d transaction proposal responses. Successful+verified: %d . Failed: %d",
-					transactionPropResp.size(), successful.size(), failed.size());
+//			logger.info("Received %d transaction proposal responses. Successful+verified: %d . Failed: %d",
+//					transactionPropResp.size(), successful.size(), failed.size());
 			if (failed.size() > 0) {
 				ProposalResponse firstTransactionProposalResponse = failed.iterator().next();
-				logger.info("Not enough endorsers for invoke(move a,b,100):" + failed.size() + " endorser error: "
-						+ firstTransactionProposalResponse.getMessage() + ". Was verified: "
-						+ firstTransactionProposalResponse.isVerified());
+//				logger.info("Not enough endorsers for invoke(move a,b,100):" + failed.size() + " endorser error: "
+//						+ firstTransactionProposalResponse.getMessage() + ". Was verified: "
+//						+ firstTransactionProposalResponse.isVerified());
 			}
-			logger.info("Successfully received transaction proposal responses.");
+//			logger.info("Successfully received transaction proposal responses.");
 			ProposalResponse resp = transactionPropResp.iterator().next();
 			byte[] x = resp.getChaincodeActionResponsePayload(); // This is the
 			// data
@@ -695,24 +695,24 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 
 
-			logger.debug("getChaincodeActionResponseReadWriteSetInfo:::"
-					+ resp.getChaincodeActionResponseReadWriteSetInfo());
+//			logger.debug("getChaincodeActionResponseReadWriteSetInfo:::"
+//					+ resp.getChaincodeActionResponseReadWriteSetInfo());
 			ChaincodeID cid = resp.getChaincodeID();
 
 			////////////////////////////
 			// Send Transaction Transaction to orderer
-			logger.info("Sending chaincode transaction(move a,b,100) to orderer.");
+//			logger.info("Sending chaincode transaction(move a,b,100) to orderer.");
 			channel.sendTransaction(successful).thenApply(transactionEvent -> {
 
 				waitOnFabric(0);
 
-				logger.info("transaction event is valid", transactionEvent.isValid()); // must
+//				logger.info("transaction event is valid", transactionEvent.isValid()); // must
 				// be
 				// valid
 				// to
 				// be
 				// here.
-				logger.info("Finished invoke transaction with transaction id %s", transactionEvent.getTransactionID());
+//				logger.info("Finished invoke transaction with transaction id %s", transactionEvent.getTransactionID());
 
 				return "Chaincode invoked successfully " + transactionEvent.getTransactionID();
 			}).exceptionally(e -> {
@@ -720,11 +720,11 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 					BlockEvent.TransactionEvent te = ((TransactionEventException) e).getTransactionEvent();
 					if (te != null) {
 						fail(format("Transaction with txid %s failed. %s", te.getTransactionID(), e.getMessage()));
-						logger.info("Transaction with txid %s failed. %s", te.getTransactionID(), e.getMessage());
+//						logger.info("Transaction with txid %s failed. %s", te.getTransactionID(), e.getMessage());
 					}
 				}
 
-				logger.info("failed with %s exception %s", e.getClass().getName(), e.getMessage());
+//				logger.info("failed with %s exception %s", e.getClass().getName(), e.getMessage());
 				return "Error";
 			}).get(Conf.getTransactionWaitTime(), TimeUnit.SECONDS);
 
@@ -770,9 +770,9 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 			for (ProposalResponse proposalResponse : queryProposals) {
 				if (!proposalResponse.isVerified() || proposalResponse.getStatus() != ProposalResponse.Status.SUCCESS) {
-					logger.debug("Failed query proposal from peer " + proposalResponse.getPeer().getName() + " status: "
-							+ proposalResponse.getStatus() + ". Messages: " + proposalResponse.getMessage()
-							+ ". Was verified : " + proposalResponse.isVerified());
+//					logger.debug("Failed query proposal from peer " + proposalResponse.getPeer().getName() + " status: "
+//							+ proposalResponse.getStatus() + ". Messages: " + proposalResponse.getMessage()
+//							+ ". Was verified : " + proposalResponse.isVerified());
 				} else {
 
 					String payload = proposalResponse.getProposalResponse().getResponse().getPayload().toStringUtf8();
@@ -802,14 +802,14 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 			// out("Using peer %s for channel queries", queryPeer.getName());
 
 			BlockchainInfo channelInfo = channel.queryBlockchainInfo();
-			logger.info("Channel info for : " + channelName);
-			logger.info("Channel height: " + channelInfo.getHeight());
+//			logger.info("Channel info for : " + channelName);
+//			logger.info("Channel height: " + channelInfo.getHeight());
 
 
 			String chainCurrentHash = Hex.encodeHexString(channelInfo.getCurrentBlockHash());
 			String chainPreviousHash = Hex.encodeHexString(channelInfo.getPreviousBlockHash());
-			logger.info("Chain current block hash: " + chainCurrentHash);
-			logger.info("Chainl previous block hash: " + chainPreviousHash);
+//			logger.info("Chain current block hash: " + chainCurrentHash);
+//			logger.info("Chainl previous block hash: " + chainPreviousHash);
 
 			return Ledgerentry.BlockchainInfoResponse.newBuilder().setHeight(channelInfo.getHeight())
 					.setCurrentBlockHash(chainCurrentHash)
@@ -836,26 +836,26 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 			// out("Using peer %s for channel queries", queryPeer.getName());
 
 			BlockchainInfo channelInfo = channel.queryBlockchainInfo();
-			logger.info("Channel info for : " + channelName);
-			logger.info("Channel height: " + channelInfo.getHeight());
+//			logger.info("Channel info for : " + channelName);
+//			logger.info("Channel height: " + channelInfo.getHeight());
 
 			String chainCurrentHash = Hex.encodeHexString(channelInfo.getCurrentBlockHash());
 			String chainPreviousHash = Hex.encodeHexString(channelInfo.getPreviousBlockHash());
-			logger.info("Chain current block hash: " + chainCurrentHash);
-			logger.info("Chainl previous block hash: " + chainPreviousHash);
+//			logger.info("Chain current block hash: " + chainCurrentHash);
+//			logger.info("Chainl previous block hash: " + chainPreviousHash);
 
 			// Query by block number. Should return latest block, i.e. block
 			// number 2
 			BlockInfo returnedBlock = channel.queryBlockByNumber(channelInfo.getHeight() - 1);
 			String previousHash = Hex.encodeHexString(returnedBlock.getPreviousHash());
-			logger.info("queryBlockByNumber returned correct block with blockNumber " + returnedBlock.getBlockNumber()
-			+ " \n previous_hash " + previousHash);
+//			logger.info("queryBlockByNumber returned correct block with blockNumber " + returnedBlock.getBlockNumber()
+//			+ " \n previous_hash " + previousHash);
 
 			// Query by block hash. Using latest block's previous hash so should
 			// return block number 1
 			byte[] hashQuery = returnedBlock.getPreviousHash();
 			returnedBlock = channel.queryBlockByHash(hashQuery);
-			logger.info("queryBlockByHash returned block with blockNumber " + returnedBlock.getBlockNumber());
+//			logger.info("queryBlockByHash returned block with blockNumber " + returnedBlock.getBlockNumber());
 
 		} catch (Exception e) {
 			logger.error("ChaincodeServiceImpl | blockchainInfo | "+ e.getMessage());

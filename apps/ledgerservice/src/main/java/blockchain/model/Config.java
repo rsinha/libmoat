@@ -80,7 +80,7 @@ public class Config {
 		} finally {
 
 			// Default values
-
+            defaultProperty(".level", "OFF");
 			defaultProperty(GOSSIPWAITTIME, "5000");
 			defaultProperty(INVOKEWAITTIME, "100000");
 			defaultProperty(DEPLOYWAITTIME, "120000");

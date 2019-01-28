@@ -24,19 +24,19 @@ public class LedgerService {
                // 1.Create Channel
                // 2.Install Chaincode
                // 3.Instantiate Chaincode
-               logger.info("Creating user.....");
+//               logger.info("Creating user.....");
                String result = chaincodeService.enrollAndRegister("test_lutiditee");
-               logger.info(result);
+//               logger.info(result);
 
-               logger.info("Constructing channel.....");
+//               logger.info("Constructing channel.....");
                String channelResult = chaincodeService.constructChannel();
-               logger.info(channelResult);
+//               logger.info(channelResult);
 
-               logger.info("Installing ChainCode.......");
+//               logger.info("Installing ChainCode.......");
                String installationResult = chaincodeService.installChaincode("myChaincode");
                logger.info(installationResult);
 
-               logger.info("Instantiating ChainCode.......");
+//               logger.info("Instantiating ChainCode.......");
                String[] args = {};
                String instantiationResult = chaincodeService.instantiateChaincode("myChaincode", "init", args);
                logger.info(instantiationResult);
@@ -52,6 +52,7 @@ public class LedgerService {
     {
 //         Create a new server to listen on port 8080
         ChaincodeService chaincodeService = new ChaincodeServiceImpl();
+
         Server server = ServerBuilder.forPort(8080)
                 .addService(new LedgerServiceImpl(chaincodeService))
                 .build();
@@ -62,7 +63,8 @@ public class LedgerService {
         // Server threads are running in the background.
         System.out.println("Server started***********");
 
-        System.out.println("Bootstrap ledger service.................");
+
+//        System.out.println("Bootstrap ledger service.................");
         //Bootstrap the hyperledger
         new LedgerInstance(chaincodeService).bootStrapLedger();
 
