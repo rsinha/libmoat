@@ -102,27 +102,16 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
             if(entryType == LedgerEntry.EntryType.CREATE) {
                 List<LedgerEntry> ledgerEntries = new ArrayList<>();
                 String policyObject = obj.getString("policy");
-//                JSONArray computeHistory = obj.getJSONArray("compute_history");
-//                JSONArray outputDelivery = obj.getJSONArray("output_delivery");
-
                 LedgerEntry.Builder policyBuilder = LedgerEntry.newBuilder();
                 JsonFormat.parser().merge(policyObject, policyBuilder);
                 ledgerEntries.add(policyBuilder.build());
-
-//                ledgerEntries.addAll(getComputeHistory(computeHistory));
-//                ledgerEntries.addAll(getOutputDelivery(outputDelivery));
-
                 return LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(ledgerEntries).build();
             } else if(entryType == LedgerEntry.EntryType.RECORD) {
-                List<LedgerEntry> ledgerEntries = new ArrayList<>();
                 JSONArray computeHistory = obj.getJSONArray("compute_history");
-                ledgerEntries.addAll(getComputeHistory(computeHistory));
-                return LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(ledgerEntries).build();
+                return LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(getComputeHistory(computeHistory)).build();
             } else if(entryType == LedgerEntry.EntryType.DELIVER) {
-                List<LedgerEntry> ledgerEntries = new ArrayList<>();
                 JSONArray computeHistory = obj.getJSONArray("output_delivery");
-                ledgerEntries.addAll(getOutputDelivery(computeHistory));
-                return LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(ledgerEntries).build();
+                return LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(getOutputDelivery(computeHistory)).build();
             }
         } catch (Exception e) {
             e.printStackTrace();
