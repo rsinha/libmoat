@@ -7,6 +7,8 @@ import io.grpc.ServerBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.logging.Level;
+
 public class LedgerService {
     private static final Logger logger = LoggerFactory.getLogger(LedgerService.class);
 
@@ -52,6 +54,9 @@ public class LedgerService {
     {
 //         Create a new server to listen on port 8080
         ChaincodeService chaincodeService = new ChaincodeServiceImpl();
+
+        Logger.getLogger("io.grpc").setLevel(Level.INFO);
+        Logger.getLogger("org.hyperledger").setLevel(Level.INFO);
 
         Server server = ServerBuilder.forPort(8080)
                 .addService(new LedgerServiceImpl(chaincodeService))
