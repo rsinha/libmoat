@@ -64,6 +64,10 @@ public class LedgerService {
         ((ch.qos.logback.classic.Logger) rootLogger1).setLevel(Level.INFO);
 
 
+
+        Logger rootLogger2 = loggerContext.getLogger("io.netty");
+        ((ch.qos.logback.classic.Logger) rootLogger2).setLevel(Level.INFO);
+
         Server server = ServerBuilder.forPort(8080)
                 .addService(new LedgerServiceImpl(chaincodeService))
                 .build();
