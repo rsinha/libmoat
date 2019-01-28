@@ -102,15 +102,15 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
             if(entryType == LedgerEntry.EntryType.CREATE) {
                 List<LedgerEntry> ledgerEntries = new ArrayList<>();
                 String policyObject = obj.getString("policy");
-                JSONArray computeHistory = obj.getJSONArray("compute_history");
-                JSONArray outputDelivery = obj.getJSONArray("output_delivery");
+//                JSONArray computeHistory = obj.getJSONArray("compute_history");
+//                JSONArray outputDelivery = obj.getJSONArray("output_delivery");
 
                 LedgerEntry.Builder policyBuilder = LedgerEntry.newBuilder();
                 JsonFormat.parser().merge(policyObject, policyBuilder);
                 ledgerEntries.add(policyBuilder.build());
 
-                ledgerEntries.addAll(getComputeHistory(computeHistory));
-                ledgerEntries.addAll(getOutputDelivery(outputDelivery));
+//                ledgerEntries.addAll(getComputeHistory(computeHistory));
+//                ledgerEntries.addAll(getOutputDelivery(outputDelivery));
 
                 return LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(ledgerEntries).build();
             } else if(entryType == LedgerEntry.EntryType.RECORD) {
@@ -134,7 +134,18 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         long policyId = request.getEntryId();
         LedgerEntry.EntryType entryType = request.getType();
 
-        String[] args = {Long.toString(policyId)};
+        String queryType = "CREATE";
+        if(entryType == LedgerEntry.EntryType.CREATE) {
+            queryType = "CREATE";
+
+        } else if (entryType == LedgerEntry.EntryType.RECORD) {
+            queryType = "COMPUTE";
+
+        } else if(entryType == LedgerEntry.EntryType.DELIVER) {
+            queryType = "DELIVER";
+
+        }
+        String[] args = {Long.toString(policyId), queryType};
         String result = chaincodeService.queryChaincode(chaincodeName, "query_policy", args);
 
         try {

@@ -749,8 +749,8 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 			chaincodeID = getChaincodeId(name);
 			Channel channel = reconstructChannel();
-			logger.debug("Now query chaincode for the value of b.");
-			logger.debug(chaincodeFunction);
+//			logger.debug("Now query chaincode for the value of b.");
+//			logger.debug(chaincodeFunction);
 			QueryByChaincodeRequest queryByChaincodeRequest = client.newQueryProposalRequest();
 
 
