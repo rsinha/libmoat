@@ -43,6 +43,7 @@ public class LedgerService {
                String[] args = {};
                String instantiationResult = chaincodeService.instantiateChaincode("myChaincode", "init", args);
                logger.info(instantiationResult);
+               System.out.println(installationResult);
 
            } catch (Exception e) {
                e.printStackTrace();
