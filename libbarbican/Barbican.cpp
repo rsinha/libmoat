@@ -796,6 +796,7 @@ extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
     struct timeval start, stop;
     gettimeofday(&start, NULL);
     BlockchainInfoResponse resp = client->info(blockchainInfoRequest);
+    gettimeofday(&stop, NULL);
     std::cout << "Time(micro-sec) to get ledger height:" << get_time(start, stop) << std::endl;
 
     *height = resp.height();
