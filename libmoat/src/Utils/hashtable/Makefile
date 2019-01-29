@@ -3,7 +3,7 @@ FLAGS=-Wall -Wextra -std=c99 -pedantic -Werror
 # D=-DDEBUG -g
 GCC=gcc ${D} ${FLAGS}
 
-default: stacks
+default: stacks hashtable
 
 stacks : contracts.h xalloc.h xalloc.c stacks.h stacks.c stacks-test.c
 	$(GCC) xalloc.c stacks.c stacks-test.c -o stacks

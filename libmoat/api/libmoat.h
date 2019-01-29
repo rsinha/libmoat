@@ -84,4 +84,10 @@ uint64_t LIBMOAT_API _moat_l_get_current_counter();
 
 void _moat_generate_seal_key();
 
+/***************************************************
+        TIME RELATED UTILITIES
+ ***************************************************/
+
+void _moat_print_time_of_day();
+
 #endif

@@ -10,6 +10,7 @@ LIBMOAT_UTILS := $(LIBMOAT)/src/Utils
 LIBMOAT_LOG := $(LIBMOAT)/src/Log
 LIBMOAT_STORAGE := $(LIBMOAT)/src/Storage
 LIBMOAT_KEYMGMT := $(LIBMOAT)/src/KeyManagement
+LIBMOAT_TIMEUTILS := $(LIBMOAT)/src/Time
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -50,6 +51,7 @@ TrustLib_C_Files := $(wildcard src/Network/*.c) \
                     $(wildcard src/Storage/BlockStorage/*.c) \
                     $(wildcard src/Storage/ChunkyStorage/*.c) \
                     $(wildcard src/Log/*.c) \
+                    $(wildcard src/Time/*.c) \
                     $(wildcard src/KeyManagement/*.c) \
                     $(wildcard src/Utils/*.c)
 TrustLib_Cpp_Files := 
@@ -144,6 +146,10 @@ $(LIBMOAT_LOG)/%.o: $(LIBMOAT_LOG)/%.c
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 
 $(LIBMOAT_KEYMGMT)/%.o: $(LIBMOAT_KEYMGMT)/%.c
+	@echo "CC   <= $<"
+	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
+
+$(LIBMOAT_TIMEUTILS)/%.o: $(LIBMOAT_TIMEUTILS)/%.c
 	@echo "CC   <= $<"
 	@$(CC) $(TrustLib_Compile_C_Flags) -c $< -o $@
 

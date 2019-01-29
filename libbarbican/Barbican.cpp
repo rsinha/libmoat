@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <cstdlib>
+#include <time.h>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include "json.hpp"
 
 //#include "Ledger.pb.h"
@@ -194,6 +196,27 @@ extern "C" size_t end_session_ocall(int64_t session_id)
     //TODO: zmq_send(zmq_skt_outbound, &msg, sizeof(msg), 0);
 
     teardown_channel(session_id);
+    return 0;
+}
+
+const std::string currentDateTime() {
+    time_t     now = time(0);
+    struct tm  tstruct;
+    char       buf[80];
+    tstruct = *localtime(&now);
+    // Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+    // for more information about date/time format
+    strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
+
+    return buf;
+} 
+
+extern "C" size_t print_time_of_day_ocall()
+{
+    //std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    //std::cout << "####### current time: " << std::ctime(&t);
+    boost::posix_time::ptime date_time = boost::posix_time::microsec_clock::universal_time();
+    std::cout << "##### current time: " << date_time << std::endl;
     return 0;
 }
 
