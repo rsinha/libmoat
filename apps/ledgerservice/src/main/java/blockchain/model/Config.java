@@ -80,7 +80,8 @@ public class Config {
 		} finally {
 
 			// Default values
-
+            defaultProperty("org.hyperledger.fabric_ca.sdk.loglevel", "INFO");
+			defaultProperty("org.hyperledger.fabric.sdk.loglevel", "INFO");
 			defaultProperty(GOSSIPWAITTIME, "5000");
 			defaultProperty(INVOKEWAITTIME, "100000");
 			defaultProperty(DEPLOYWAITTIME, "120000");
@@ -96,7 +97,8 @@ public class Config {
 					"peer0.org1.example.com@grpc://localhost:7053,peer1.org1.example.com@grpc://localhost:7058");
 
 			defaultProperty(BLOCKCHAINTLS, null);
-			runningTLS = null != sdkProperties.getProperty(BLOCKCHAINTLS, null);
+			//runningTLS = null != sdkProperties.getProperty(BLOCKCHAINTLS, null);
+			runningTLS = false;
 			runningFabricCATLS = runningTLS;
 			runningFabricTLS = runningTLS;
 
