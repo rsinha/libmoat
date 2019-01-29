@@ -102,8 +102,8 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Proto_C_Files := enclave/statement.pb-c.c enclave/specification.pb-c.c enclave/record.pb-c.c enclave/delivery.pb-c.c enclave/ledgerentry.pb-c.c
-Enclave_C_Files := enclave/protobuf-c.c $(Proto_C_Files) enclave/scaffolding.c enclave/enclave.c
+Proto_C_Files := enclave/input.pb-c.c enclave/specification.pb-c.c enclave/record.pb-c.c enclave/delivery.pb-c.c enclave/ledgerentry.pb-c.c
+Enclave_C_Files := enclave/protobuf-c.c $(Proto_C_Files) enclave/scaffolding.c enclave/hashtable.c enclave/xalloc.c enclave/enclave.c
 Protobuf_Include_Paths := -I/usr/local/include
 #Enclave_Include_Paths := $(Protobuf_Include_Paths) -I../common -Ienclave -I$(Trust_Lib_Path)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
 Enclave_Include_Paths := $(Protobuf_Include_Paths) -Ienclave -I$(Trust_Lib_Path)/api -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
@@ -127,8 +127,8 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 	-Wl,--defsym,__ImageBase=0 \
 	-Wl,--version-script=enclave/enclave.lds
 
-Proto_C_Objects := enclave/statement.pb-c.o enclave/specification.pb-c.o enclave/record.pb-c.o enclave/delivery.pb-c.o enclave/ledgerentry.pb-c.o
-Enclave_C_Objects := enclave/protobuf-c.o $(Proto_C_Objects) enclave/scaffolding.o enclave/enclave.o
+Proto_C_Objects := enclave/input.pb-c.o enclave/specification.pb-c.o enclave/record.pb-c.o enclave/delivery.pb-c.o enclave/ledgerentry.pb-c.o
+Enclave_C_Objects := enclave/protobuf-c.o $(Proto_C_Objects) enclave/scaffolding.o enclave/hashtable.o enclave/xalloc.o enclave/enclave.o
 
 Enclave_Name := enclave.so
 Signed_Enclave_Name := enclave.signed.so
@@ -231,7 +231,7 @@ enclave/specification.pb-c.c: $(ProtoDir)/specification.proto
 	@echo "GEN  =>  $@"
 	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
-enclave/statement.pb-c.c: $(ProtoDir)/statement.proto
+enclave/input.pb-c.c: $(ProtoDir)/input.proto
 	@echo "GEN  =>  $@"
 	@protoc --c_out=enclave --proto_path=$(ProtoDir) $<
 
@@ -260,7 +260,7 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 clean:
 	@rm -f $(Host_Name) $(Enclave_Name) $(Signed_Enclave_Name)
 	@rm -f host/interface_u.* host/*.pb.* enclave/interface_t.* host/*.o enclave/*.o 
-	@rm -f enclave/statement.* enclave/specification.* enclave/record.* enclave/ledgerentry.*
+	@rm -f enclave/input.* enclave/specification.* enclave/record.* enclave/ledgerentry.*
 	@rm -f $(Trust_Lib) $(Untrust_Lib)
 	@$(MAKE) -C $(Trust_Lib_Path) clean
 	@$(MAKE) -C $(Untrust_Lib_Path) clean

@@ -13,6 +13,9 @@
 
 #include <cxxopts.hpp>
 
+void init_barbican(const std::string &json_str);
+
+/*
 void read_all_bytes_in_file(const char *filename, uint8_t **buf, size_t *len)
 {
     std::ifstream ifs(filename, std::ios::binary | std::ios::ate);
@@ -26,6 +29,7 @@ void read_all_bytes_in_file(const char *filename, uint8_t **buf, size_t *len)
     ifs.read((char *) *buf, (std::streamsize) *len);
     ifs.close();
 }
+*/
 
 int enclave_computation(uint64_t spec_id, const char *enc_file)
 {
@@ -99,7 +103,6 @@ int main(int argc, char *argv[])
     std::string enclave_file = result["e"].as<std::string>();
     uint64_t spec_id = result["s"].as<uint64_t>();
   
-    void init_barbican(const std::string &json_str);
     std::ifstream f(json_file);
     std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     init_barbican(json_str);
