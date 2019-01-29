@@ -11,8 +11,6 @@
 
 #include <assert.h>
 
-#define DEBUG
-
 #ifdef DEBUG
 
 #define ASSERT(COND) assert(COND)

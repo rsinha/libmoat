@@ -58,23 +58,11 @@ void enclave_encrypt_data(int64_t fd, void *buf, size_t size)
 /* uses pseudo-random number generation */
 /* converted to use unsigned int in C */
 int hash(ht_key s, int m)
-{ REQUIRES(m > 1);
-  unsigned int a = 1664525;
-  unsigned int b = 1013904223;	/* inlined random number generator */
-  unsigned int r = 0xdeadbeef;	       /* initial seed */
-  int len = strlen(s);		       /* different from C0! */
-  int i; unsigned int h = 0;	       /* empty string maps to 0 */
-  for (i = 0; i < len; i++)
-    {
-      h = r*h + ((char*)s)[i];	 /* mod 2^32 */
-      r = r*a + b;	 /* mod 2^32, linear congruential random no */
-    }
-  h = h % m;			/* reduce to range */
-  //@assert -m < (int)h && (int)h < m;
-  int hx = (int)h;
-  if (hx < 0) h += m;	/* make positive, if necessary */
-  ENSURES(0 <= hx && hx < m);
-  return hx;
+{
+    uint64_t ssn = *((uint64_t *) s);
+    int h = ssn % m;
+    if (h < 0) { h += m; }
+    return h;
 }
 
 bool equal(ht_key k1, ht_key k2)
@@ -84,12 +72,12 @@ bool equal(ht_key k1, ht_key k2)
 
 ht_key elem_key(ht_elem e)
 {
-    return &((LuciditeePsiApp__PatientRecord *) e)->ssn;
+    return &(((LuciditeePsiApp__PatientRecord *) e)->ssn);
 }
 
 uint64_t f(bool init)
 {
-    table hashTbl = table_new(1<<20, &elem_key, &equal, &hash);
+    table hashTbl = table_new(1<<10, &elem_key, &equal, &hash);
 
 
     int64_t hospital_a_fd = _moat_fs_open("hospital_a_input", 0, NULL); assert(hospital_a_fd != -1);
