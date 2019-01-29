@@ -35,12 +35,19 @@ typedef struct _merkle_node {
     struct _merkle_node     *children[ALPHABET_SIZE];
 } merkle_node_t;
 
+typedef struct {
+    bool valid;
+    size_t addr;
+    block_data_t value;
+} cache_entry_t;
+
 /***************************************************
  INTERNAL STATE
  ***************************************************/
 
 static size_t          g_max_files;
 static merkle_node_t **g_merkle_roots; //array of pointers to merkle roots
+static cache_entry_t  *g_cache; //indexed by the file descriptor
 
 /***************************************************
  PRIVATE METHODS
@@ -173,6 +180,12 @@ void block_storage_module_init(size_t max_files)
     for (int i = 0; i < max_files; i++) {
         g_merkle_roots[i] = NULL;
     }
+
+    g_cache = calloc(g_max_files, sizeof(cache_entry_t));
+    assert(g_cache != NULL);
+    for (size_t i = 0; i < g_max_files; i++) {
+	g_cache[i].valid = false;
+    }
 }
 
 size_t block_storage_get_digest(int64_t fd, sgx_sha256_hash_t *hash) {
@@ -218,6 +231,12 @@ size_t block_storage_load(int64_t fd, size_t num_blocks) {
 //NOTE: addr ranges from 1 to g_num_blocks
 size_t block_storage_read(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data_t data)
 {
+
+    if (g_cache[fd].valid && g_cache[fd].addr == addr) {
+        memcpy(data, g_cache[fd].value, sizeof(block_data_t));
+	return 0;
+    }
+
     sgx_status_t status;
     size_t retstatus;
 
@@ -262,6 +281,11 @@ size_t block_storage_read(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_data
                                         0, //0 bytes of AAD
                                         (const sgx_aes_gcm_128bit_tag_t *) (payload + SGX_AESGCM_IV_SIZE)); //mac
     assert(status == SGX_SUCCESS);
+
+    //store the data in cache
+    g_cache[fd].valid = true;
+    g_cache[fd].addr = addr;
+    memcpy(g_cache[fd].value, data, sizeof(block_data_t));
     
     return 0;
 }
@@ -327,5 +351,10 @@ size_t block_storage_write(int64_t fd, cipher_ctx_t *ctx, size_t addr, block_dat
     status = fs_write_block_ocall(&retstatus, fd, addr, ciphertext, sizeof(ciphertext));
     assert(status == SGX_SUCCESS && retstatus == 0);
 
+    //store the data in cache
+    g_cache[fd].valid = true;
+    g_cache[fd].addr = addr;
+    memcpy(g_cache[fd].value, data, sizeof(block_data_t));
+    
     return 0;
 }
