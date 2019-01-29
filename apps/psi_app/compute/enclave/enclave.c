@@ -13,15 +13,17 @@
 #include "contracts.h"
 
 
-uint8_t *g_internal_buf;
-size_t g_internal_buf_size;
-
 /* TODO: make this a protobuf */
 typedef struct {
     uint64_t ssn;
     uint64_t secret_A;
     uint64_t secret_B;
 } output_record_t;
+
+
+void *g_buf = NULL;
+size_t g_buf_size = 0;
+size_t g_buf_used = 0;
 
 void file_write_and_seek(int64_t fd, void *buf, size_t size)
 {
@@ -31,23 +33,25 @@ void file_write_and_seek(int64_t fd, void *buf, size_t size)
     assert(api_result == _moat_fs_file_size(fd));
 }
 
-uint64_t enclave_encrypt_data(int64_t fd, void *buf, size_t size)
+void enclave_encrypt_data(int64_t fd, void *buf, size_t size)
 {
-    if (size == 0) { return -1; }
-
-    if (size > g_internal_buf_size) {
-        if (g_internal_buf != NULL) { free(g_internal_buf); }
-        g_internal_buf = (uint8_t *) malloc(size);
-        assert(g_internal_buf != NULL);
-	g_internal_buf_size = size;
+    if (g_buf == NULL) {
+        g_buf = malloc(4044);
+	assert(g_buf != NULL);
+	g_buf_size = 4044;
+	g_buf_used = 0;
     }
 
-    memcpy(g_internal_buf, buf, size);
+    if (g_buf_used + (size + sizeof(size)) > g_buf_size) {
+        file_write_and_seek(fd, g_buf, g_buf_used);
+	memset(g_buf, 0, g_buf_size);
+	g_buf_used = 0;
+    }
 
-    file_write_and_seek(fd, &size, sizeof(size));
-    file_write_and_seek(fd, g_internal_buf, size);
-
-    return 0;
+    memcpy(g_buf + g_buf_used, &size, sizeof(size));
+    g_buf_used += sizeof(size);
+    memcpy(g_buf + g_buf_used, buf, size);
+    g_buf_used += size;
 }
 
 /* hash function */
@@ -122,16 +126,13 @@ uint64_t f(bool init)
 
 	LuciditeePsiApp__PatientRecord *record = luciditee_psi_app__patient_record__unpack(NULL, record_size, hospital_a_buf);
 	table_insert(hashTbl, record);
-	_moat_print_debug("added patient with ssn %" PRIu64 "\n", record->ssn);
+	//_moat_print_debug("added patient with ssn %" PRIu64 "\n", record->ssn);
 
     }
 
     size_t hospital_b_db_size = (size_t) _moat_fs_file_size(hospital_b_fd); //how many bytes is the entire db?
     uint8_t *hospital_b_buf = NULL; size_t hospital_b_buf_size = 0; //used to hold protobuf
     size_t hospital_b_db_ptr = 0; //offset within the hospital db
-
-    g_internal_buf = NULL;
-    g_internal_buf_size = 0;
 
     while(hospital_b_db_ptr < hospital_b_db_size) { //until we run out of bytes
 	size_t record_size;
@@ -162,7 +163,7 @@ uint64_t f(bool init)
 	if (record_in_A != NULL) {
             assert(record_in_A->ssn == record_in_B->ssn);
 	    //add to output set
-	    _moat_print_debug("output patient with ssn %" PRIu64 "\n", record_in_A->ssn);
+	    //_moat_print_debug("output patient with ssn %" PRIu64 "\n", record_in_A->ssn);
 	    
 	    output_record_t out_record;
 	    out_record.ssn = record_in_B->ssn;
