@@ -211,6 +211,11 @@ const std::string currentDateTime() {
     return buf;
 } 
 
+extern "C" size_t sleep_ocall(uint32_t microseconds)
+{
+    usleep(microseconds);
+}
+
 extern "C" size_t print_time_of_day_ocall()
 {
     //std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());

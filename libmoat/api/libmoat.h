@@ -89,5 +89,6 @@ void _moat_generate_seal_key();
  ***************************************************/
 
 void _moat_print_time_of_day();
+void _moat_sleep(uint32_t microseconds);
 
 #endif

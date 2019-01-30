@@ -62,6 +62,7 @@ sgx_status_t SGX_CDECL ledger_get_current_counter_ocall(size_t* retval, uint64_t
 sgx_status_t SGX_CDECL print_debug_on_host_ocall(size_t* retval, const char* str);
 
 sgx_status_t SGX_CDECL print_time_of_day_ocall(size_t* retval);
+sgx_status_t SGX_CDECL sleep_ocall(size_t *retval, uint32_t milliseconds);
 
 #ifdef __cplusplus
 }
