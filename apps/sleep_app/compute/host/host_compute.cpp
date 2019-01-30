@@ -13,7 +13,7 @@
 
 #include <cxxopts.hpp>
 
-void init_barbican(const std::string &json_str);
+void init_barbican(const std::string &json_file, const std::string &scratch_space_root);
 
 /*
 void read_all_bytes_in_file(const char *filename, uint8_t **buf, size_t *len)
@@ -83,10 +83,10 @@ int main(int argc, char *argv[])
       .show_positional_help()
       .add_options()
         ("help", "Print help")
-        //("i,init", "Create initial state", cxxopts::value<bool>(init))
         ("c,config", "Json configuration", cxxopts::value<std::string>())
         ("e,enclave", "Enclave binary", cxxopts::value<std::string>())
         ("s,spec", "Computation's specification", cxxopts::value<uint64_t>())
+        ("l,location", "Directory to use as scratch space", cxxopts::value<std::string>())
       ;
 
     auto result = options.parse(argc, argv);
@@ -94,18 +94,18 @@ int main(int argc, char *argv[])
     if (!result.count("s") || 
         !result.count("e") || 
         !result.count("c") || 
+        !result.count("l") || 
         result.count("help")) {
       std::cout << options.help({"", "Group"}) << std::endl;
       exit(0);
     }
 
     std::string json_file = result["c"].as<std::string>();
+    std::string scratch_space_root = result["l"].as<std::string>();
     std::string enclave_file = result["e"].as<std::string>();
     uint64_t spec_id = result["s"].as<uint64_t>();
   
-    std::ifstream f(json_file);
-    std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    init_barbican(json_str);
+    init_barbican(json_file, scratch_space_root);
 
     return enclave_computation(spec_id, enclave_file.c_str());
 

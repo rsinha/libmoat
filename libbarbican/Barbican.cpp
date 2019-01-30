@@ -25,8 +25,8 @@ using json = nlohmann::json;
 
 /* Internal Definitions */
 
-#define STORAGE_KVS_ROOT "/tmp/barbican/kvs/"
-#define STORAGE_FS_ROOT "/tmp/barbican/fs/"
+#define STORAGE_FS_ROOT (g_scratch_space_root + "/fs/")
+#define STORAGE_KVS_ROOT (g_scratch_space_root + "/kvs/")
 
 #define LEDGER_URL "localhost:8080"
 #define CHAINCODE_NAME  "luciditee"
@@ -73,6 +73,8 @@ std::string                             g_config_scc_self;
 std::map<std::string, std::string>      g_config_scc_actors; //map remote entity name to ip address
 std::map<std::string, bool>             g_config_scc_roles; //map remote entity name to role (client / server)
 std::map<int64_t, std::string>          g_file_paths;
+
+std::string                             g_scratch_space_root;
 
 void teardown_channel(int64_t session_id)
 {
@@ -890,9 +892,14 @@ void register_scc_actor(const std::string &name, const std::string &ip_addr, boo
         ", we will act as " << (role_is_server ? "server" : "client") << std::endl;
 }
 
-void init_barbican(const std::string &json_str)
+void init_barbican(const std::string &json_file, const std::string &scratch_space_root)
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+    std::ifstream f(json_file);
+    std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+
+    g_scratch_space_root = scratch_space_root;
 
     try {
         json j = json::parse(json_str);
