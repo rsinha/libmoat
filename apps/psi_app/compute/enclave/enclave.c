@@ -54,6 +54,12 @@ void enclave_encrypt_data(int64_t fd, void *buf, size_t size)
     g_buf_used += size;
 }
 
+void enclave_encrypt_data_flush(int64_t fd)
+{
+    int64_t api_result = _moat_fs_write(fd, g_buf, g_buf_used);
+    assert(api_result == g_buf_used);
+}
+
 /* hash function */
 /* uses pseudo-random number generation */
 /* converted to use unsigned int in C */
@@ -161,6 +167,8 @@ uint64_t f(bool init)
 	}
         luciditee_psi_app__patient_record__free_unpacked(record_in_B, NULL); //don't delete record_in_B as the hashtable still needs it
     }
+
+    enclave_encrypt_data_flush(output_fd);
 
     //write to fd
     int64_t api_result = _moat_fs_save(output_fd);
