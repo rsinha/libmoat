@@ -1,0 +1,10 @@
+enclave {
+  trusted {
+    public uint64_t enclave_init();
+    public uint64_t enclave_encrypt_data([user_check] void *buf, size_t buf_size);
+    public uint64_t enclave_finish();
+  };
+
+  from "../../../../libmoat/api/libmoat.edl" import *;
+
+};
