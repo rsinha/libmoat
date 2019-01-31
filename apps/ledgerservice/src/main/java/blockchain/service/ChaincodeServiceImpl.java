@@ -640,7 +640,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 			///////////////
 			/// Send transaction proposal to all peers
 			//logger.debug("chaincodeFunction" + chaincodeFunction);
-			System.out.println("Sending tx proposal:" + "chaincodeFunction" + chaincodeFunction);
+//			System.out.println("Sending tx proposal:" + "chaincodeFunction" + chaincodeFunction);
 			TransactionProposalRequest transactionProposalRequest = client.newTransactionProposalRequest();
 			transactionProposalRequest.setChaincodeID(chaincodeID);
 			transactionProposalRequest.setFcn(chaincodeFunction);
@@ -686,7 +686,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 //						+ firstTransactionProposalResponse.isVerified());
 			}
 //			logger.info("Successfully received transaction proposal responses.");
-			System.out.println("Successfully received transaction proposal responses.");
+//			System.out.println("Successfully received transaction proposal responses.");
 			ProposalResponse resp = transactionPropResp.iterator().next();
 			byte[] x = resp.getChaincodeActionResponsePayload();
 			String resultAsString = null;
@@ -701,7 +701,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 			////////////////////////////
 			// Send Transaction Transaction to orderer
 //			logger.info("Sending chaincode transaction(move a,b,100) to orderer.");
-			System.out.println("Sending Transaction....");
+//			System.out.println("Sending Transaction....");
 			channel.sendTransaction(successful).thenApply(transactionEvent -> {
 
 				waitOnFabric(0);
@@ -713,7 +713,7 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 				// be
 				// here.
 //				logger.info("Finished invoke transaction with transaction id %s", transactionEvent.getTransactionID());
-				System.out.println("Chaincode invoked successfully......");
+//				System.out.println("Chaincode invoked successfully......");
 				return "Chaincode invoked successfully " + transactionEvent.getTransactionID();
 			}).exceptionally(e -> {
 				if (e instanceof TransactionEventException) {
