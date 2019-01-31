@@ -352,13 +352,21 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
     uint8_t *record_buf; size_t record_buf_len;
     generate_computation_record(spec_entry->spec, height, &record_buf, &record_buf_len);
     /* post record on the ledger; libmoat also invokes verify_L for us */
-    assert(_moat_l_post(record_buf, record_buf_len));
+    bool ledger_success = _moat_l_post(record_buf, record_buf_len);
+    if (!ledger_success) {
+	_moat_print_debug("ALARM: Ledger post failed\n");
+	return -1;
+    }
 
     /* generate the on-ledger delivery entry */
     uint8_t *delivery_buf; size_t delivery_buf_len;
     generate_delivery_entry(spec_entry->spec, height, &delivery_buf, &delivery_buf_len);
     /* post encrypted key on the ledger; libmoat also invokes verify_L for us */
-    assert(_moat_l_post(delivery_buf, delivery_buf_len));
+    ledger_success = _moat_l_post(delivery_buf, delivery_buf_len);
+    if (!ledger_success) {
+	_moat_print_debug("ALARM: Ledger post failed\n");
+	return -1;
+    }
 
     return result;
 }
