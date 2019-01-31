@@ -726,9 +726,11 @@ uint64_t get_time(struct timeval start, struct timeval stop) {
 
 extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
     if(client == NULL) {
-        std::cout << "Ledger Client is not initialized" << std::endl;
-        return  -1;
+       // std::cout << "Ledger Client is not initialized" << std::endl;
+       // return  -1;
     }
+    client = new LedgerClient(grpc::CreateChannel(
+            LEDGER_URL, grpc::InsecureChannelCredentials()));
     LedgerEntry ledgerEntry;
     ledgerEntry.ParseFromArray(buf, len);
     std::cout << "Creating Ledger Entry...." << std::endl;
@@ -747,9 +749,12 @@ extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
 extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
     if(client == NULL) {
-        std::cout << "Ledger Client is not initialized" << std::endl;
-        return  -1;
+       // std::cout << "Ledger Client is not initialized" << std::endl;
+        //return  -1;
     }
+    client = new LedgerClient(grpc::CreateChannel(
+            LEDGER_URL, grpc::InsecureChannelCredentials()));
+
     LedgerQueryRequest request;
     request.set_entryid(policyId);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_CREATE);
@@ -783,9 +788,12 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
 extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
     if(client == NULL) {
-        std::cout << "Ledger Client is not initialized" << std::endl;
-        return  -1;
+       // std::cout << "Ledger Client is not initialized" << std::endl;
+        //return  -1;
     }
+    client = new LedgerClient(grpc::CreateChannel(
+            LEDGER_URL, grpc::InsecureChannelCredentials()));
+
     LedgerQueryRequest request;
     request.set_entryid(policyId);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_RECORD);
@@ -817,9 +825,13 @@ extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf
 extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
 {
     if(client == NULL) {
-        std::cout << "Ledger Client is not initialized" << std::endl;
-        return  -1;
+
+      //  std::cout << "Ledger Client is not initialized" << std::endl;
+        //return  -1;
     }
+
+    client = new LedgerClient(grpc::CreateChannel(
+            LEDGER_URL, grpc::InsecureChannelCredentials()));
 
     BlockchainInfoRequest blockchainInfoRequest;
     blockchainInfoRequest.set_chaincode(CHAINCODE_NAME);
@@ -959,9 +971,9 @@ void init_barbican(const std::string &json_file, const std::string &scratch_spac
             register_scc_actor(it.key(), ip_addr.get<std::string>(), role.get<bool>());
         }
 
-        client = new LedgerClient(grpc::CreateChannel(
-                LEDGER_URL, grpc::InsecureChannelCredentials()));
-        std::cout << "Created new client:" << client <<std::endl;
+        //client = new LedgerClient(grpc::CreateChannel(
+          //      LEDGER_URL, grpc::InsecureChannelCredentials()));
+        //std::cout << "Created new client:" << client <<std::endl;
 
     } catch (const std::exception& ex) {
         std::cout << "barbican: Error parsing json config: " << ex.what() << std::endl;
