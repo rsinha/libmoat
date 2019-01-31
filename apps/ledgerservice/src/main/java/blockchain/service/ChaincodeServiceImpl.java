@@ -654,7 +654,6 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 
 			transactionProposalRequest.setTransientMap(tm2);
 
-			//logger.info("sending transactionProposal to all peers with arguments: move(a,b,100)");
 
 			Collection<ProposalResponse> transactionPropResp = channel
 					.sendTransactionProposal(transactionProposalRequest, channel.getPeers());
@@ -663,13 +662,16 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 //					logger.info("Successful transaction proposal response Txid: %s from peer %s",
 //							response.getTransactionID(), response.getPeer().getName());
 					successful.add(response);
+					System.out.println("Success sending proposal to Peers...");
 				} else {
+					System.out.println("Unable to Send proposal to Peers...");
 					failed.add(response);
 				}
 			}
 			Collection<Set<ProposalResponse>> proposalConsistencySets = SDKUtils
 					.getProposalConsistencySets(transactionPropResp);
 			if (proposalConsistencySets.size() != 1) {
+				System.out.println("Inconsistent proposals...");
 //				logger.info(format("Expected only one set of consistent proposal responses but got %d",
 //						proposalConsistencySets.size()));
 			}
@@ -678,23 +680,19 @@ public class ChaincodeServiceImpl implements ChaincodeService {
 //					transactionPropResp.size(), successful.size(), failed.size());
 			if (failed.size() > 0) {
 				ProposalResponse firstTransactionProposalResponse = failed.iterator().next();
+				System.out.println("Not enough endorsers...");
 //				logger.info("Not enough endorsers for invoke(move a,b,100):" + failed.size() + " endorser error: "
 //						+ firstTransactionProposalResponse.getMessage() + ". Was verified: "
 //						+ firstTransactionProposalResponse.isVerified());
 			}
 //			logger.info("Successfully received transaction proposal responses.");
+			System.out.println("Successfully received transaction proposal responses.");
 			ProposalResponse resp = transactionPropResp.iterator().next();
-			byte[] x = resp.getChaincodeActionResponsePayload(); // This is the
-			// data
-			// returned
-			// by the
-			// chaincode.
+			byte[] x = resp.getChaincodeActionResponsePayload();
 			String resultAsString = null;
 			if (x != null) {
 				resultAsString = new String(x, "UTF-8");
 			}
-
-
 
 //			logger.debug("getChaincodeActionResponseReadWriteSetInfo:::"
 //					+ resp.getChaincodeActionResponseReadWriteSetInfo());

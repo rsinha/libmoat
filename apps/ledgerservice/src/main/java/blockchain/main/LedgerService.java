@@ -62,7 +62,7 @@ public class LedgerService {
         ((ch.qos.logback.classic.Logger) rootLogger).setLevel(Level.OFF);
 
         Logger rootLogger1 = loggerContext.getLogger("org.hyperledger");
-        ((ch.qos.logback.classic.Logger) rootLogger1).setLevel(Level.OFF);
+//        ((ch.qos.logback.classic.Logger) rootLogger1).setLevel(Level.OFF);
 
 
 
