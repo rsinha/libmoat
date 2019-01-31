@@ -18,6 +18,7 @@
 #include <cxxopts.hpp>
 
 sgx_enclave_id_t global_eid = 0;
+void init_barbican(const std::string &json_file, const std::string &scratch_space_root);
 
 void launch_enclave(std::string &enclave_file)
 {
@@ -57,25 +58,24 @@ int main(int argc, char *argv[])
       ("c,config", "Json configuration", cxxopts::value<std::string>())
       ("d,data", "CSV database", cxxopts::value<std::string>())
       ("e,enclave", "Location of Enclave Binary", cxxopts::value<std::string>())
+      ("l,location", "Directory to use as scratch space", cxxopts::value<std::string>())
     ;
 
   auto result = options.parse(argc, argv);
 
-  if (!result.count("d") || !result.count("c") || result.count("help")) {
+  if (!result.count("d") || !result.count("l") || !result.count("c") || result.count("help")) {
     std::cout << options.help({"", "Group"}) << std::endl;
     exit(0);
   }
 
   std::string json_file = result["c"].as<std::string>();
+  std::string scratch_space_root = result["l"].as<std::string>();
   std::string data_file = result["d"].as<std::string>();
   std::string enclave_file = result["e"].as<std::string>();
 
   io::CSVReader<2> in(data_file);
 
-  void init_barbican(const std::string &json_str);
-  std::ifstream f(json_file);
-  std::string json_str((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-  init_barbican(json_str);
+  init_barbican(json_file, scratch_space_root);
 
   launch_enclave(enclave_file);
 
