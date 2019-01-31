@@ -28,6 +28,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
 //            String policyStr = policy.toString();
             String[] args = {Long.toString(policyId), policyJson};
 //            String[] args = {Long.toString(policyId), policyStr};
+            System.out.println("Invoking chaincode for ledger entry......");
             String result = chaincodeService.invokeChaincode(chaincodeName, ledgerFunc, args);
             return getCreatePolicyResponse(result);
         } catch (Exception e) {
