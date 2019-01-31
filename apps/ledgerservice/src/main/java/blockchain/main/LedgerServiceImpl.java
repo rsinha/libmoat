@@ -3,6 +3,7 @@ package blockchain.main;
 import blockchain.service.ChaincodeService;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import luciditee.LedgerServiceGrpc;
 import luciditee.Ledgerentry.*;
@@ -27,6 +28,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
 //            String policyStr = policy.toString();
             String[] args = {Long.toString(policyId), policyJson};
 //            String[] args = {Long.toString(policyId), policyStr};
+//            System.out.println("Invoking chaincode for ledger entry......");
             String result = chaincodeService.invokeChaincode(chaincodeName, ledgerFunc, args);
             return getCreatePolicyResponse(result);
         } catch (Exception e) {
@@ -45,7 +47,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
 
     @Override
     public void entry(LedgerEntry request, StreamObserver<LedgerEntryResponse> responseObserver) {
-        System.out.println(request);
+//        System.out.println(request);
 
         LedgerEntry.EntryType entryType = request.getType();
 
@@ -66,6 +68,8 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         }
         // When you are done, you must call onCompleted.
         responseObserver.onCompleted();
+        responseObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+
     }
 
     private List<LedgerEntry> getComputeHistory(JSONArray computeHistory) throws InvalidProtocolBufferException {
@@ -149,10 +153,11 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
 
     @Override
     public void query(LedgerQueryRequest request, StreamObserver<LedgerQueryResponse> queryResponseStreamObserver) {
-        System.out.println(request);
+//        System.out.println(request);
         LedgerQueryResponse response = queryLedger(request);
         queryResponseStreamObserver.onNext(response);
         queryResponseStreamObserver.onCompleted();
+        queryResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
 
     @Override
@@ -160,5 +165,6 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         BlockchainInfoResponse response = chaincodeService.bcInfo();
         blockchainInfoResponseStreamObserver.onNext(response);
         blockchainInfoResponseStreamObserver.onCompleted();
+        blockchainInfoResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
 }
