@@ -28,7 +28,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
 //            String policyStr = policy.toString();
             String[] args = {Long.toString(policyId), policyJson};
 //            String[] args = {Long.toString(policyId), policyStr};
-            System.out.println("Invoking chaincode for ledger entry......");
+//            System.out.println("Invoking chaincode for ledger entry......");
             String result = chaincodeService.invokeChaincode(chaincodeName, ledgerFunc, args);
             return getCreatePolicyResponse(result);
         } catch (Exception e) {
@@ -47,7 +47,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
 
     @Override
     public void entry(LedgerEntry request, StreamObserver<LedgerEntryResponse> responseObserver) {
-        System.out.println(request);
+//        System.out.println(request);
 
         LedgerEntry.EntryType entryType = request.getType();
 
@@ -153,7 +153,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
 
     @Override
     public void query(LedgerQueryRequest request, StreamObserver<LedgerQueryResponse> queryResponseStreamObserver) {
-        System.out.println(request);
+//        System.out.println(request);
         LedgerQueryResponse response = queryLedger(request);
         queryResponseStreamObserver.onNext(response);
         queryResponseStreamObserver.onCompleted();
