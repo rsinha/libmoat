@@ -3,6 +3,7 @@ package blockchain.main;
 import blockchain.service.ChaincodeService;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import luciditee.LedgerServiceGrpc;
 import luciditee.Ledgerentry.*;
@@ -66,6 +67,8 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         }
         // When you are done, you must call onCompleted.
         responseObserver.onCompleted();
+        responseObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+
     }
 
     private List<LedgerEntry> getComputeHistory(JSONArray computeHistory) throws InvalidProtocolBufferException {
@@ -153,6 +156,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         LedgerQueryResponse response = queryLedger(request);
         queryResponseStreamObserver.onNext(response);
         queryResponseStreamObserver.onCompleted();
+        queryResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
 
     @Override
@@ -160,5 +164,6 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         BlockchainInfoResponse response = chaincodeService.bcInfo();
         blockchainInfoResponseStreamObserver.onNext(response);
         blockchainInfoResponseStreamObserver.onCompleted();
+        blockchainInfoResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
 }
