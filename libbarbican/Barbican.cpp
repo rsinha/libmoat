@@ -49,7 +49,7 @@ typedef struct _merkle_node {
 
 typedef std::pair<std::string, std::string> strpair_t;
 
-LedgerClient *client = NULL;
+//LedgerClient *client = NULL;
 
 
 
@@ -725,11 +725,11 @@ uint64_t get_time(struct timeval start, struct timeval stop) {
 }
 
 extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
-    if(client == NULL) {
-       // std::cout << "Ledger Client is not initialized" << std::endl;
-       // return  -1;
-    }
-    client = new LedgerClient(grpc::CreateChannel(
+//    if(client == NULL) {
+//       // std::cout << "Ledger Client is not initialized" << std::endl;
+//       // return  -1;
+//    }
+    LedgerClient *client = new LedgerClient(grpc::CreateChannel(
             LEDGER_URL, grpc::InsecureChannelCredentials()));
     LedgerEntry ledgerEntry;
     ledgerEntry.ParseFromArray(buf, len);
@@ -740,19 +740,22 @@ extern "C" size_t ledger_post_ocall(const void *buf, size_t len) {
     gettimeofday(&stop, NULL);
     std::cout << "Time(micro-sec) to create ledger entry:" << get_time(start, stop) << std::endl;
     std::cout << "Done creating Ledger Entry...." << std::endl;
+    delete client;
     if(entryResponse.message().compare("Failure") == 0) {
         return -1;
     }
+
+
     return  0;
 }
 
 extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    if(client == NULL) {
-       // std::cout << "Ledger Client is not initialized" << std::endl;
-        //return  -1;
-    }
-    client = new LedgerClient(grpc::CreateChannel(
+//    if(client == NULL) {
+//       // std::cout << "Ledger Client is not initialized" << std::endl;
+//        //return  -1;
+//    }
+    LedgerClient *client = new LedgerClient(grpc::CreateChannel(
             LEDGER_URL, grpc::InsecureChannelCredentials()));
 
     LedgerQueryRequest request;
@@ -765,6 +768,7 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
     gettimeofday(&stop, NULL);
     std::cout << "Time(micro-sec) to get policy:" << get_time(start, stop) << std::endl;
     std::cout << "Done Querying Ledger...." << std::endl;
+    delete client;
     if(response.entries_size() > 0) {
         LedgerEntry entry;
         for(int i = 0; i < response.entries_size(); i++) {
@@ -787,11 +791,11 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
 
 extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untrusted_buf, size_t *untrusted_buf_len)
 {
-    if(client == NULL) {
-       // std::cout << "Ledger Client is not initialized" << std::endl;
-        //return  -1;
-    }
-    client = new LedgerClient(grpc::CreateChannel(
+//    if(client == NULL) {
+//       // std::cout << "Ledger Client is not initialized" << std::endl;
+//        //return  -1;
+//    }
+    LedgerClient *client = new LedgerClient(grpc::CreateChannel(
             LEDGER_URL, grpc::InsecureChannelCredentials()));
 
     LedgerQueryRequest request;
@@ -805,6 +809,7 @@ extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untr
     std::cout << "Time(micro-sec) to get compute record:" << get_time(start, stop)  << std::endl;
     std::cout << "Done Querying Ledger...." << std::endl;
     int totalEntrys = response.entries_size();
+    delete client;
     if( totalEntrys > 0) {
         const LedgerEntry entry = response.entries(totalEntrys-1);
         *untrusted_buf_len = entry.ByteSizeLong();
@@ -824,13 +829,13 @@ extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf
 
 extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
 {
-    if(client == NULL) {
+//    if(client == NULL) {
+//
+//      //  std::cout << "Ledger Client is not initialized" << std::endl;
+//        //return  -1;
+//    }
 
-      //  std::cout << "Ledger Client is not initialized" << std::endl;
-        //return  -1;
-    }
-
-    client = new LedgerClient(grpc::CreateChannel(
+    LedgerClient *client = new LedgerClient(grpc::CreateChannel(
             LEDGER_URL, grpc::InsecureChannelCredentials()));
 
     BlockchainInfoRequest blockchainInfoRequest;
@@ -842,6 +847,7 @@ extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
     std::cout << "Time(micro-sec) to get ledger height:" << get_time(start, stop) << std::endl;
 
     *height = resp.height();
+    delete client;
 
     return 0;
 }
