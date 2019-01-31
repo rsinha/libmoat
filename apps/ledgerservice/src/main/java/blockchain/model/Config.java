@@ -97,8 +97,8 @@ public class Config {
 					"peer0.org1.example.com@grpc://localhost:7053,peer1.org1.example.com@grpc://localhost:7058");
 
 			defaultProperty(BLOCKCHAINTLS, null);
-			//runningTLS = null != sdkProperties.getProperty(BLOCKCHAINTLS, null);
-			runningTLS = false;
+			runningTLS = null != sdkProperties.getProperty(BLOCKCHAINTLS, null);
+			//runningTLS = false;
 			runningFabricCATLS = runningTLS;
 			runningFabricTLS = runningTLS;
 
