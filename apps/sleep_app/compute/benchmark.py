@@ -15,14 +15,14 @@ class myThread (threading.Thread):
       print "Starting " + self.name
       prepare_json_config(self.threadID)
       cmd = prepare_cmd_string(self.threadID)
-      invoke_cmd(cmd)
+      #invoke_cmd(cmd)
       print "Exiting " + self.name
 
 def prepare_json_config(threadID):
    f = open('barbican.json', 'r')
    config = json.load(f)
    config['fs_outputs']['psi_output'] += ("/" + str(threadID))
-   f_out = open('barbican.' + str(threadID) + '.json', 'w')
+   f_out = open('config/barbican.' + str(threadID) + '.json', 'w')
    json.dump(config, f_out)
 
 def prepare_environment():
@@ -30,11 +30,11 @@ def prepare_environment():
 
 def prepare_cmd_string(threadID):
    cmd = "./compute.out"
-   cmd += (" -c barbican." + str(threadID) + ".json")
+   cmd += (" -c config/barbican." + str(threadID) + ".json")
    cmd += " -e enclave.signed.so"
    cmd += " -s 42"
    cmd += " -l /tmp/barbican/" + str(threadID)
-   cmd += " >> log" + str(threadID)
+   cmd += (" >> logs/nohup" + str(threadID) + ".out")
    return cmd
 
 def invoke_cmd(cmd):

@@ -7,6 +7,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <sys/time.h>
 
 #include "sgx_urts.h"
 #include "interface_u.h"
@@ -68,7 +69,11 @@ int enclave_computation(uint64_t spec_id, const char *enc_file)
     return 1;
   }
   
-  return 0;
+  return pwerr;
+}
+
+uint64_t get_delta_time_in_usec(struct timeval start, struct timeval stop) {
+    return (stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_usec - start.tv_usec);
 }
 
 int main(int argc, char *argv[])
@@ -107,7 +112,15 @@ int main(int argc, char *argv[])
   
     init_barbican(json_file, scratch_space_root);
 
-    return enclave_computation(spec_id, enclave_file.c_str());
+
+    struct timeval start, stop;
+    gettimeofday(&start, NULL);
+    int r = enclave_computation(spec_id, enclave_file.c_str());
+    gettimeofday(&stop, NULL);
+    if (r == 0) {
+    	std::cout << "Oakland latency:" << get_delta_time_in_usec(start, stop) << std::endl;
+    }
+    return r;
 
   } catch (const cxxopts::OptionException& e) {
     std::cout << "error parsing options: " << e.what() << std::endl;

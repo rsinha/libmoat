@@ -344,9 +344,9 @@ uint64_t invoke_enclave_computation(uint64_t spec_id)
         return -1;
     }
     /* use the ledger to decide whether we are creating initial state, and let f know that */
-    _moat_print_time_of_day();
+    //_moat_print_time_of_day();
     uint64_t result = f(init);
-    _moat_print_time_of_day();
+    //_moat_print_time_of_day();
 
     /* generate the on-ledger record entry */
     uint8_t *record_buf; size_t record_buf_len;

@@ -4,11 +4,11 @@
   "kvs_inputs": {},
   "kvs_state": {},
   "fs_inputs": {
-    "hospital_a_input": "/tmp/s3/42/H_A_input",
-    "hospital_b_input": "/tmp/s3/42/H_B_input"
+    "hospital_a_input": "/data/s3/42/H_A_input",
+    "hospital_b_input": "/data/s3/42/H_B_input"
   },
   "fs_outputs": {
-    "psi_output" : "/tmp/s3/42/psi_output"
+    "psi_output" : "/data/s3/42/psi_output"
   },
   "fs_state": {},
   "scc_self": "5556",
