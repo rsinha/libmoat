@@ -88,7 +88,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
                 policyObject.put("history", new JSONArray());
                 policyObject.put("output", new JSONArray());
                 String result = sendToTenderMint("create", Long.toString(policyId), policyObject.toString());
-                System.out.println(result);
+//                System.out.println(result);
                 return getCreatePolicyResponse(result);
 
             } else if(ledgerFunc.equals("record_compute")) {
@@ -133,8 +133,8 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
                         o.put("digest", "");
                     }
 
-                    System.out.println("COmpute Record Id********:" + Long.toString(chStart));
-                    System.out.println("Compute Record****************" + policyByteStr.toString());
+//                    System.out.println("COmpute Record Id********:" + Long.toString(chStart));
+//                    System.out.println("Compute Record****************" + policyObject.toString());
 
                     String chResults = sendToTenderMint("create", Long.toString(chStart), policyObject.toString());
 
@@ -172,7 +172,9 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 
                     String policyByteStr = JsonFormat.printer().print(policy);
 
-                    String chResults = sendToTenderMint("create", Long.toString(outputOffset), policyByteStr.toString());
+                    JSONObject policyObject = new JSONObject(policyByteStr);
+                    policyObject.getJSONObject("delivery").put("encrypted_key", "");
+                    String chResults = sendToTenderMint("create", Long.toString(outputOffset), policyObject.toString());
                     return getCreatePolicyResponse(chResults);
 
                 } else  {
@@ -282,7 +284,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
                 //Get the last compute record
                 String computeRecord = sendToTenderMint("query", Long.toString(chId), "");
 
-                System.out.println("Last Compute Record:" + computeRecord);
+//                System.out.println("Last Compute Record:" + computeRecord);
 
                 JSONObject crObj = new JSONObject(computeRecord);
                 String cr = crObj.getJSONObject("result").getJSONObject("response").getString("value");
