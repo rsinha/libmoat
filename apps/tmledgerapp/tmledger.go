@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/tendermint/abci/server"
-	"tmledgerapp/store"
+	"github.com/tendermint/abci/example/tmledgerapp/store"
 
 	cmn "github.com/tendermint/tmlibs/common"
 )

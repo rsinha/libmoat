@@ -74,6 +74,9 @@ var _ types.Application = (*LucidiTEEApplication)(nil)
 type LucidiTEEApplication struct {
 	types.BaseApplication
 
+	// validator set
+	ValUpdates []types.ValidatorUpdate
+
 	state State
 }
 
@@ -90,6 +93,12 @@ func (app* LucidiTEEApplication) failLedgerResponse(policyId, errorMessage strin
 	return Resp
 }
 
+// Track the block hash and header information
+func (app *LucidiTEEApplication) BeginBlock(req types.RequestBeginBlock) types.ResponseBeginBlock {
+	// reset valset changes
+	app.ValUpdates = make([]types.ValidatorUpdate, 0)
+	return types.ResponseBeginBlock{}
+}
 
 func (app *LucidiTEEApplication) Info(req types.RequestInfo) (resInfo types.ResponseInfo) {
 	return types.ResponseInfo{
