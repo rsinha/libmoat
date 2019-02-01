@@ -30,7 +30,8 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
         Client client = Client.create();
         WebResource webResource = null;
         if(method.equals("create")) {
-            webResource = client.resource(tenderMintUrl+"broadcast_tx_commit?tx="+policyId+"="+payload);
+            String encodedPayload = Base64.getEncoder().encodeToString(payload.getBytes());
+            webResource = client.resource(tenderMintUrl+"broadcast_tx_commit?tx="+ "\""+ policyId+"="+encodedPayload + "\"");
         } else if(method.equals("query")) {
             webResource = client.resource(tenderMintUrl+"abci_query?data="+policyId);
         } else if(method.equals("status")) {
