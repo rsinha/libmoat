@@ -118,10 +118,25 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 
                     String policyByteStr = JsonFormat.printer().print(policy);
 
+
+
+                    JSONObject policyObject = new JSONObject(policyByteStr);
+                    JSONArray inputs = policyObject.getJSONObject("record").getJSONArray("inputs");
+                    for(int i = 0; i < inputs.length(); i++) {
+                        JSONObject o = inputs.getJSONObject(i);
+                        o.put("digest", "");
+                    }
+
+                    JSONArray outputs = policyObject.getJSONObject("record").getJSONArray("outputs");
+                    for(int i = 0; i < outputs.length(); i++) {
+                        JSONObject o = outputs.getJSONObject(i);
+                        o.put("digest", "");
+                    }
+
                     System.out.println("COmpute Record Id********:" + Long.toString(chStart));
                     System.out.println("Compute Record****************" + policyByteStr.toString());
 
-                    String chResults = sendToTenderMint("create", Long.toString(chStart), policyByteStr.toString());
+                    String chResults = sendToTenderMint("create", Long.toString(chStart), policyObject.toString());
 
 
 
