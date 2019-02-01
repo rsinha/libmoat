@@ -54,9 +54,6 @@ public class LedgerService {
 
     public static void main( String[] args ) throws Exception
     {
-//         Create a new server to listen on port 8080
-        ChaincodeService chaincodeService = new ChaincodeServiceImpl();
-
         LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
         Logger rootLogger = loggerContext.getLogger("io.grpc");
         ((ch.qos.logback.classic.Logger) rootLogger).setLevel(Level.OFF);
@@ -75,22 +72,44 @@ public class LedgerService {
         Logger rootLogger4 = loggerContext.getLogger("blockchain.main");
         ((ch.qos.logback.classic.Logger) rootLogger4).setLevel(Level.OFF);
 
-        Server server = ServerBuilder.forPort(8080)
-                .addService(new LedgerServiceImpl(chaincodeService))
-                .build();
+
+        if(args.length > 0) {
+            String tenderMint = args[0];
+            if(tenderMint.equals("tm")) {
+                Server server = ServerBuilder.forPort(8080)
+                        .addService(new TenderMintLedgerImpl())
+                        .build();
+
+                server.start();
+                // Server threads are running in the background.
+                System.out.println("Server started***********");
+                // Don't exit the main thread. Wait until server is terminated.
+                server.awaitTermination();
+            }
+        } else {
+//         Create a new server to listen on port 8080
+            ChaincodeService chaincodeService = new ChaincodeServiceImpl();
+
+            Server server = ServerBuilder.forPort(8080)
+                    .addService(new LedgerServiceImpl(chaincodeService))
+                    .build();
 //
 //         Start the server
-        server.start();
+            server.start();
 
-        // Server threads are running in the background.
-        System.out.println("Server started***********");
+            // Server threads are running in the background.
+            System.out.println("Server started***********");
 
 
 //        System.out.println("Bootstrap ledger service.................");
-        //Bootstrap the hyperledger
-        new LedgerInstance(chaincodeService).bootStrapLedger();
+            //Bootstrap the hyperledger
+            new LedgerInstance(chaincodeService).bootStrapLedger();
 
-        // Don't exit the main thread. Wait until server is terminated.
-        server.awaitTermination();
+            // Don't exit the main thread. Wait until server is terminated.
+            server.awaitTermination();
+
+        }
+
+
     }
 }
