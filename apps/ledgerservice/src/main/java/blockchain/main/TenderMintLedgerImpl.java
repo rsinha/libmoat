@@ -53,7 +53,8 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
         try {
             String policyJson = JsonFormat.printer().print(policy);
             if(ledgerFunc.equals("create_policy")) {
-                String result = sendToTenderMint("create", Long.toString(policyId), policyJson);
+                String policyByteStr = new String(Base64.getEncoder().encode(policy.toByteArray()));
+                String result = sendToTenderMint("create", Long.toString(policyId), policyByteStr);
                 return getCreatePolicyResponse(result);
             } else if(ledgerFunc.equals("record_compute")) {
                 // query compute bucket
@@ -143,29 +144,6 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
     }
 
 
-    private Ledgerentry.LedgerQueryResponse filterResponseByType(JSONObject obj, Ledgerentry.LedgerEntry.EntryType entryType) {
-        String status = obj.getString("status");
-        if(status.equals("Failure")) {
-            return Ledgerentry.LedgerQueryResponse.newBuilder().setEntryId(obj.getLong("policy_id")).build();
-        }
-
-        try {
-            long policyId = obj.getLong("policy_id");
-            if(entryType == Ledgerentry.LedgerEntry.EntryType.CREATE) {
-
-                String policyObject = obj.getString("policy");
-
-            } else if(entryType == Ledgerentry.LedgerEntry.EntryType.RECORD) {
-
-            } else if(entryType == Ledgerentry.LedgerEntry.EntryType.DELIVER) {
-                JSONArray computeHistory = obj.getJSONArray("output_delivery");
-
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return Ledgerentry.LedgerQueryResponse.newBuilder().setEntryId(obj.getLong("policy_id")).build();
-    }
 
     private List<Ledgerentry.LedgerEntry> getComputeHistory(JSONArray computeHistory) throws InvalidProtocolBufferException {
         List<Ledgerentry.LedgerEntry> ledgerEntries = new ArrayList<>();
@@ -198,6 +176,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
             if(entryType == Ledgerentry.LedgerEntry.EntryType.CREATE) {
                 List<Ledgerentry.LedgerEntry> ledgerEntries = new ArrayList<>();
                 String result = sendToTenderMint("query", Long.toString(policyId), "");
+                
                 JSONObject obj = new JSONObject(result);
                 String policyObject = obj.getJSONObject("result").getJSONObject("response").getString("value");
 
