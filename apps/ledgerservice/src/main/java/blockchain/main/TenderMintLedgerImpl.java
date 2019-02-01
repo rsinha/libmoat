@@ -119,6 +119,9 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
                     String policyByteStr = JsonFormat.printer().print(policy);
 
                     String chResults = sendToTenderMint("create", Long.toString(chStart), policyByteStr.toString());
+                    System.out.println("COmpute Record Id:" + Long.toString(chStart));
+                    System.out.println("Last Compute Record:" + chResults);
+
                     return getCreatePolicyResponse(chResults);
 
                 } else  {
@@ -262,7 +265,9 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
                 String computeRecord = sendToTenderMint("query", Long.toString(chId), "");
                 JSONObject crObj = new JSONObject(computeRecord);
                 String cr = crObj.getJSONObject("result").getJSONObject("response").getString("value");
-               JSONObject crHist = new JSONObject(new String(Base64.getDecoder().decode(cr)));
+                System.out.println("Last Compute Record:" + cr);
+
+                JSONObject crHist = new JSONObject(new String(Base64.getDecoder().decode(cr)));
 
                 JSONArray crObjHistory = new JSONArray();
                 crObjHistory.put(crHist.toString());
