@@ -68,7 +68,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         }
         // When you are done, you must call onCompleted.
         responseObserver.onCompleted();
-        responseObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+//        responseObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
 
     }
 
@@ -157,7 +157,7 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         LedgerQueryResponse response = queryLedger(request);
         queryResponseStreamObserver.onNext(response);
         queryResponseStreamObserver.onCompleted();
-        queryResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+//        queryResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
 
     @Override
@@ -165,6 +165,6 @@ public class LedgerServiceImpl extends LedgerServiceGrpc.LedgerServiceImplBase {
         BlockchainInfoResponse response = chaincodeService.bcInfo();
         blockchainInfoResponseStreamObserver.onNext(response);
         blockchainInfoResponseStreamObserver.onCompleted();
-        blockchainInfoResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+//        blockchainInfoResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
 }

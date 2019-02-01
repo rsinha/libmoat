@@ -10,6 +10,7 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import luciditee.LedgerServiceGrpc;
 import luciditee.Ledgerentry;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.httpclient.HttpClient;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -26,37 +27,46 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 
     }
 
-    private String sendToTenderMint(String method, String policyId, String payload) {
-        Client client = Client.create();
-        WebResource webResource = null;
-        if(method.equals("create")) {
-            JSONObject entryObject = new JSONObject();
-            entryObject.put("jsonrpc", "2.0");
-            entryObject.put("id", "anything");
-            entryObject.put("method", "broadcast_t_commit");
-            JSONObject params = new JSONObject();
+    private String createTenderMintObject(String method, String policyId, String payload){
+        JSONObject entryObject = new JSONObject();
+        entryObject.put("jsonrpc", "2.0");
+        entryObject.put("id", "anything");
+        entryObject.put("method", method);
+        JSONObject params = new JSONObject();
+        if(method.equals("abci_query")) {
+            String policyPayload = Hex.encodeHexString(policyId.getBytes());
+            params.put("data", policyPayload);
+        } else {
             String policyPayload = Base64.getEncoder().encodeToString((policyId+"="+payload).getBytes());
             params.put("tx", policyPayload);
-            entryObject.put("params",params);
-
-            String policyEntry = entryObject.toString();
-            webResource = client.resource(tenderMintUrl);
-
-            ClientResponse response = webResource.accept("application/json").type("application/json")
-                    .post(ClientResponse.class,policyEntry);
-
-            if (response.getStatus() != 200) {
-                throw new RuntimeException("Failed : HTTP error code : "
-                        + response.getStatus());
-            }
-            return response.getEntity(String.class);
-
-        } else if(method.equals("query")) {
-            webResource = client.resource(tenderMintUrl+"abci_query?data="+policyId);
-        } else if(method.equals("status")) {
-            webResource = client.resource(tenderMintUrl+"status");
         }
-        if(webResource != null) {
+        entryObject.put("params",params);
+        return entryObject.toString();
+    }
+
+    private String postToTenderMint(Client client, String policyEntry) {
+        WebResource webResource = client.resource(tenderMintUrl);
+        ClientResponse response = webResource.accept("application/json").type("application/json")
+                .post(ClientResponse.class,policyEntry);
+        if (response.getStatus() != 200) {
+            throw new RuntimeException("Failed : HTTP error code : "
+                    + response.getStatus());
+        }
+        return response.getEntity(String.class);
+    }
+
+    private String sendToTenderMint(String method, String policyId, String payload) {
+        Client client = Client.create();
+
+        if(method.equals("create")) {
+            String policyEntry = createTenderMintObject("broadcast_tx_commit", policyId, payload);
+            return postToTenderMint(client, policyEntry);
+        } else if(method.equals("query")) {
+            String policyQuery = createTenderMintObject("abci_query", policyId, "");
+            return postToTenderMint(client, policyQuery);
+
+        } else if(method.equals("status")) {
+            WebResource webResource =  client.resource(tenderMintUrl+"status");
             ClientResponse response = webResource.accept("application/json")
                     .get(ClientResponse.class);
             if (response.getStatus() != 200) {
@@ -70,54 +80,82 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 
     private Ledgerentry.LedgerEntryResponse createLedgerEntry(long policyId, Ledgerentry.LedgerEntry policy, String ledgerFunc) {
         try {
-            String policyJson = JsonFormat.printer().print(policy);
+//            String policyJson = JsonFormat.printer().print(policy);
             if(ledgerFunc.equals("create_policy")) {
-                String policyByteStr = new String(policy.toByteArray());
-                String result = sendToTenderMint("create", Long.toString(policyId), policyByteStr);
+                String policyByteStr = JsonFormat.printer().print(policy);
+                JSONObject policyObject = new JSONObject();
+                policyObject.put("policy", new JSONObject(policyByteStr));
+                policyObject.put("history", new JSONArray());
+                policyObject.put("output", new JSONArray());
+                String result = sendToTenderMint("create", Long.toString(policyId), policyObject.toString());
+                System.out.println(result);
                 return getCreatePolicyResponse(result);
+
             } else if(ledgerFunc.equals("record_compute")) {
                 // query compute bucket
-                String queryResult = sendToTenderMint("query", "COMPUTE-"+Long.toString(policyId), "");
+                String computeBucket = Long.toString(policyId);
+                String queryResult = sendToTenderMint("query", computeBucket, "");
                 JSONObject obj = new JSONObject(queryResult);
                 String bucketExist = obj.getJSONObject("result").getJSONObject("response").getString("log");
                 if(bucketExist.equals("exists")) {
                     String encodedHistory = obj.getJSONObject("result").getJSONObject("response").getString("value");
-                    JSONObject history = new JSONObject(new String(Base64.getDecoder().decode(encodedHistory)));
-                    JSONArray computeHistory = history.getJSONArray("history");
-                    computeHistory.put(policyJson);
-                    String entryResult = sendToTenderMint("create", "COMPUTE-"+Long.toString(policyId), history.toString());
-                    return getCreatePolicyResponse(entryResult);
+                    JSONObject policyObj = new JSONObject(new String(Base64.getDecoder().decode(encodedHistory)));
+                    JSONArray computeHistory = policyObj.getJSONArray("history");
+
+                    long chStart = 150;
+                    JSONObject randomId = new JSONObject();
+                    if(computeHistory.length() > 0) {
+                        chStart = chStart + computeHistory.length() + 1;
+                        randomId.put("ch", chStart);
+                    } else {
+                        randomId.put("ch", chStart);
+                    }
+                    computeHistory.put(randomId);
+                    policyObj.put("history", computeHistory);
+                    // Update Policy with compute history id
+                    String entryResult = sendToTenderMint("create", computeBucket, policyObj.toString());
+                    // Add compute history to ledger
+
+                    String policyByteStr = JsonFormat.printer().print(policy);
+
+                    String chResults = sendToTenderMint("create", Long.toString(chStart), policyByteStr.toString());
+                    return getCreatePolicyResponse(chResults);
 
                 } else  {
-                    JSONArray computeHistory = new JSONArray();
-                    computeHistory.put(policyJson);
-                    JSONObject jsonObject = new JSONObject();
-                    jsonObject.put("history", computeHistory);
-                    String historyJson = jsonObject.toString();
-                    String entryResult = sendToTenderMint("create", "COMPUTE-"+Long.toString(policyId), historyJson);
-                    return getCreatePolicyResponse(entryResult);
+                    // Unknown Policy
                 }
             } else if(ledgerFunc.equals("deliver_output")) {
-                // query output bucket
-                String queryResult = sendToTenderMint("query", "OUTPUT-"+Long.toString(policyId), "");
+                // query compute bucket
+                String computeBucket = Long.toString(policyId);
+                String queryResult = sendToTenderMint("query", computeBucket, "");
                 JSONObject obj = new JSONObject(queryResult);
                 String bucketExist = obj.getJSONObject("result").getJSONObject("response").getString("log");
                 if(bucketExist.equals("exists")) {
                     String encodedHistory = obj.getJSONObject("result").getJSONObject("response").getString("value");
-                    JSONObject history = new JSONObject(new String(Base64.getDecoder().decode(encodedHistory)));
-                    JSONArray computeHistory = history.getJSONArray("output");
-                    computeHistory.put(policyJson);
-                    String entryResult = sendToTenderMint("create", "OUTPUT-"+Long.toString(policyId), history.toString());
-                    return getCreatePolicyResponse(entryResult);
+                    JSONObject policyObj = new JSONObject(new String(Base64.getDecoder().decode(encodedHistory)));
+                    JSONArray outputHistory = policyObj.getJSONArray("output");
+
+                    long outputOffset = 9000;
+                    JSONObject randomId = new JSONObject();
+                    if(outputHistory.length() > 0) {
+                        outputOffset = outputOffset + outputHistory.length() + 1;
+                        randomId.put("oh", outputOffset);
+                    } else {
+                        randomId.put("oh", outputOffset);
+                    }
+                    outputHistory.put(randomId);
+                    policyObj.put("output", outputHistory);
+                    // Update Policy with compute history id
+                    String entryResult = sendToTenderMint("create", computeBucket, policyObj.toString());
+                    // Add compute history to ledger
+
+                    String policyByteStr = JsonFormat.printer().print(policy);
+
+                    String chResults = sendToTenderMint("create", Long.toString(outputOffset), policyByteStr.toString());
+                    return getCreatePolicyResponse(chResults);
 
                 } else  {
-                    JSONArray computeHistory = new JSONArray();
-                    computeHistory.put(policyJson);
-                    JSONObject jsonObject = new JSONObject();
-                    jsonObject.put("output", computeHistory);
-                    String historyJson = jsonObject.toString();
-                    String entryResult = sendToTenderMint("create", "OUTPUT-"+Long.toString(policyId), historyJson);
-                    return getCreatePolicyResponse(entryResult);
+                  // Unknown Policy
                 }
             }
 
@@ -130,7 +168,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
     }
 
     private Ledgerentry.LedgerEntryResponse getCreatePolicyResponse(String result) {
-        JSONObject obj = new JSONObject(result);
+        JSONObject obj = new JSONObject(result).getJSONObject("result");
         return Ledgerentry.LedgerEntryResponse.newBuilder().setMessage(obj.getString("hash"))
                 .setEntryId(obj.getLong("height"))
                 .setType(Ledgerentry.LedgerEntry.EntryType.CREATE).build();
@@ -158,7 +196,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
         }
         // When you are done, you must call onCompleted.
         responseObserver.onCompleted();
-        responseObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+//        responseObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
 
     }
 
@@ -199,29 +237,62 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
                 JSONObject obj = new JSONObject(result);
                 String policyObject = obj.getJSONObject("result").getJSONObject("response").getString("value");
 
-                Ledgerentry.LedgerEntry.Builder policyBuilder = Ledgerentry.LedgerEntry.newBuilder();
-                JsonFormat.parser().merge(new String(Base64.getDecoder().decode(policyObject)), policyBuilder);
+                JSONObject policy = new JSONObject(new String(Base64.getDecoder().decode(policyObject)));
 
+                Ledgerentry.LedgerEntry.Builder policyBuilder = Ledgerentry.LedgerEntry.newBuilder();
+                JsonFormat.parser().merge(policy.getJSONObject("policy").toString(), policyBuilder);
+//                policyBuilder.mergeFrom(new String(Base64.getDecoder().decode(policyObject)).getBytes());
                 ledgerEntries.add(policyBuilder.build());
                 return Ledgerentry.LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(ledgerEntries).build();
+
             } else if (entryType == Ledgerentry.LedgerEntry.EntryType.RECORD) {
-                String result = sendToTenderMint("query", "COMPUTE-"+Long.toString(policyId), "");
+                String result = sendToTenderMint("query", Long.toString(policyId), "");
                 JSONObject obj = new JSONObject(result);
 
                 String encodedHistory = obj.getJSONObject("result").getJSONObject("response").getString("value");
                 JSONObject history = new JSONObject(new String(Base64.getDecoder().decode(encodedHistory)));
                 JSONArray computeHistory = history.getJSONArray("history");
 
-                return Ledgerentry.LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(getComputeHistory(computeHistory)).build();
-            } else if(entryType == Ledgerentry.LedgerEntry.EntryType.DELIVER) {
-                String result = sendToTenderMint("query", "OUTPUT-"+Long.toString(policyId), "");
+                long chId = 150;
+                if(computeHistory.length() > 0) {
+                    chId = ((JSONObject)computeHistory.get(computeHistory.length() -1)).getInt("ch");
+                }
 
+                //Get the last compute record
+                String computeRecord = sendToTenderMint("query", Long.toString(chId), "");
+                JSONObject crObj = new JSONObject(computeRecord);
+                String cr = crObj.getJSONObject("result").getJSONObject("response").getString("value");
+               JSONObject crHist = new JSONObject(new String(Base64.getDecoder().decode(cr)));
+
+                JSONArray crObjHistory = new JSONArray();
+                crObjHistory.put(crHist.toString());
+
+                return Ledgerentry.LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(getComputeHistory(crObjHistory)).build();
+
+            } else if(entryType == Ledgerentry.LedgerEntry.EntryType.DELIVER) {
+                String result = sendToTenderMint("query", Long.toString(policyId), "");
                 JSONObject obj = new JSONObject(result);
 
                 String encodedHistory = obj.getJSONObject("result").getJSONObject("response").getString("value");
                 JSONObject history = new JSONObject(new String(Base64.getDecoder().decode(encodedHistory)));
-                JSONArray outputHistory = history.getJSONArray("output");
-                return Ledgerentry.LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(getOutputDelivery(outputHistory)).build();
+                JSONArray computeHistory = history.getJSONArray("output");
+
+                long chId = 9000;
+                if(computeHistory.length() > 0) {
+                    chId = ((JSONObject)computeHistory.get(computeHistory.length() -1)).getInt("oh");
+                }
+
+                //Get the last compute record
+                String computeRecord = sendToTenderMint("query", Long.toString(chId), "");
+                JSONObject crObj = new JSONObject(computeRecord);
+                String cr = crObj.getJSONObject("result").getJSONObject("response").getString("value");
+                JSONObject crHist = new JSONObject(new String(Base64.getDecoder().decode(cr)));
+
+                JSONArray crObjHistory = new JSONArray();
+                crObjHistory.put(crHist.toString());
+
+                return Ledgerentry.LedgerQueryResponse.newBuilder().setEntryId(policyId).addAllEntries(getOutputDelivery(crObjHistory)).build();
+
             }
 
         } catch (Exception e) {
@@ -235,7 +306,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
         Ledgerentry.LedgerQueryResponse response = queryLedger(request);
         queryResponseStreamObserver.onNext(response);
         queryResponseStreamObserver.onCompleted();
-        queryResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+//        queryResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
 
     @Override
@@ -251,7 +322,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 
         blockchainInfoResponseStreamObserver.onNext(response);
         blockchainInfoResponseStreamObserver.onCompleted();
-        blockchainInfoResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+//        blockchainInfoResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
 
 }

@@ -82,7 +82,7 @@ public class LedgerService {
 
                 server.start();
                 // Server threads are running in the background.
-                System.out.println("Server started***********");
+                System.out.println("TenderMint Ledger  Started***********");
                 // Don't exit the main thread. Wait until server is terminated.
                 server.awaitTermination();
             }
@@ -98,7 +98,7 @@ public class LedgerService {
             server.start();
 
             // Server threads are running in the background.
-            System.out.println("Server started***********");
+            System.out.println("HyperLedger started***********");
 
 
 //        System.out.println("Bootstrap ledger service.................");
