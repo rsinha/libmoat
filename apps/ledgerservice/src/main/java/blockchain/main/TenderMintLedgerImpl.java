@@ -23,7 +23,11 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 
     private static String tenderMintUrl = "http://localhost:26657/";
 
+    private WebResource webResource = null;
+
     public TenderMintLedgerImpl() {
+        Client client = Client.create();
+        webResource = client.resource(tenderMintUrl);
 
     }
 
@@ -44,8 +48,8 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
         return entryObject.toString();
     }
 
-    private String postToTenderMint(Client client, String policyEntry) {
-        WebResource webResource = client.resource(tenderMintUrl);
+    private String postToTenderMint(String policyEntry) {
+
         ClientResponse response = webResource.accept("application/json").type("application/json")
                 .post(ClientResponse.class,policyEntry);
         if (response.getStatus() != 200) {
@@ -56,16 +60,17 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
     }
 
     private String sendToTenderMint(String method, String policyId, String payload) {
-        Client client = Client.create();
+
 
         if(method.equals("create")) {
             String policyEntry = createTenderMintObject("broadcast_tx_commit", policyId, payload);
-            return postToTenderMint(client, policyEntry);
+            return postToTenderMint(policyEntry);
         } else if(method.equals("query")) {
             String policyQuery = createTenderMintObject("abci_query", policyId, "");
-            return postToTenderMint(client, policyQuery);
+            return postToTenderMint(policyQuery);
 
         } else if(method.equals("status")) {
+            Client client = Client.create();
             WebResource webResource =  client.resource(tenderMintUrl+"status");
             ClientResponse response = webResource.accept("application/json")
                     .get(ClientResponse.class);
