@@ -119,9 +119,9 @@ func (t *LuciditeeChaincode) queryPolicy(stub shim.ChaincodeStubInterface, args 
 		if QueryType == "CREATE" {
 		   Lr.Policy = dm.policy
 		} else if QueryType == "COMPUTE" {
-		   Lr.ComputeHistory = dm.ComputeHistory
+		   Lr.ComputeHistory = [] string {dm.ComputeHistory[len(dm.ComputeHistory) - 1 ]}
 		} else if QueryType == "DELIVER" {
-		   Lr.OutputDelivery = dm.OutputDelivery
+		   Lr.OutputDelivery = [] string {dm.OutputDelivery[len(dm.OutputDelivery) - 1]}
 		}
 
 		Resp, _ := json.Marshal(Lr)
