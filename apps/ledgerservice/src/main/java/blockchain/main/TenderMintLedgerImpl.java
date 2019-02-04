@@ -24,10 +24,13 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
     private static String tenderMintUrl = "http://localhost:26657/";
 
     private WebResource webResource = null;
+    private WebResource statusResource = null;
 
     public TenderMintLedgerImpl() {
         Client client = Client.create();
         webResource = client.resource(tenderMintUrl);
+
+        statusResource =  client.resource(tenderMintUrl+"status");
 
     }
 
@@ -70,9 +73,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
             return postToTenderMint(policyQuery);
 
         } else if(method.equals("status")) {
-            Client client = Client.create();
-            WebResource webResource =  client.resource(tenderMintUrl+"status");
-            ClientResponse response = webResource.accept("application/json")
+            ClientResponse response = statusResource.accept("application/json")
                     .get(ClientResponse.class);
             if (response.getStatus() != 200) {
                 throw new RuntimeException("Failed : HTTP error code : "
