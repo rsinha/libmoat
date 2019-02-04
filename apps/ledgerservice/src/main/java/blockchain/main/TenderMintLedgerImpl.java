@@ -1,8 +1,10 @@
 package blockchain.main;
 
 import blockchain.service.ChaincodeService;
+import com.alibaba.fastjson.JSON;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import com.oracle.javafx.jmx.json.JSONReader;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
@@ -317,7 +319,7 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
     @Override
     public void info(Ledgerentry.BlockchainInfoRequest request, StreamObserver<Ledgerentry.BlockchainInfoResponse> blockchainInfoResponseStreamObserver) {
         String result = sendToTenderMint("status", "", "");
-        JSONObject status = new JSONObject(result);
+        com.alibaba.fastjson.JSONObject status = JSON.parseObject(result);
         String currentBlockHash = status.getJSONObject("result").getJSONObject("sync_info").getString("latest_block_hash");
         Long height = status.getJSONObject("result").getJSONObject("sync_info").getLong("latest_block_height");
 
