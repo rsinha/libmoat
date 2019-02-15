@@ -49,7 +49,7 @@ typedef struct _merkle_node {
 
 typedef std::pair<std::string, std::string> strpair_t;
 
-LedgerClient *client = NULL;
+static LedgerClient *client = NULL;
 
 
 
