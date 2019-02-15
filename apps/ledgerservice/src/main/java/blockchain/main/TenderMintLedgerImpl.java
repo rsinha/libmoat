@@ -317,13 +317,13 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 
     @Override
     public void info(Ledgerentry.BlockchainInfoRequest request, StreamObserver<Ledgerentry.BlockchainInfoResponse> blockchainInfoResponseStreamObserver) {
-        String result = sendToTenderMint("status", "", "");
-        com.alibaba.fastjson.JSONObject status = JSON.parseObject(result);
-        String currentBlockHash = status.getJSONObject("result").getJSONObject("sync_info").getString("latest_block_hash");
-        Long height = status.getJSONObject("result").getJSONObject("sync_info").getLong("latest_block_height");
+//        String result = sendToTenderMint("status", "", "");
+//        com.alibaba.fastjson.JSONObject status = JSON.parseObject(result);
+//        String currentBlockHash = status.getJSONObject("result").getJSONObject("sync_info").getString("latest_block_hash");
+//        Long height = status.getJSONObject("result").getJSONObject("sync_info").getLong("latest_block_height");
 
-        Ledgerentry.BlockchainInfoResponse response = Ledgerentry.BlockchainInfoResponse.newBuilder().setHeight(height)
-                .setCurrentBlockHash(currentBlockHash)
+        Ledgerentry.BlockchainInfoResponse response = Ledgerentry.BlockchainInfoResponse.newBuilder().setHeight(1000)
+                .setCurrentBlockHash("avqcqwrqtrtwqrtrwtrtewrt")
                 .setPreviousBlockHash("").build();
 
         blockchainInfoResponseStreamObserver.onNext(response);
