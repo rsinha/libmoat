@@ -761,7 +761,7 @@ extern "C" size_t ledger_get_policy_ocall(uint64_t policyId, void **untrusted_bu
     LedgerQueryRequest request;
     request.set_entryid(policyId);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_CREATE);
-    std::cout << "Querying Ledger...." << std::endl;
+    std::cout << "Querying Ledger for Policy...." << std::endl;
     struct timeval start, stop;
     gettimeofday(&start, NULL);
     LedgerQueryResponse response = client->query(request);
@@ -801,7 +801,7 @@ extern "C" size_t ledger_get_compute_record_ocall(uint64_t policyId, void **untr
     LedgerQueryRequest request;
     request.set_entryid(policyId);
     request.set_type(LedgerEntry_EntryType::LedgerEntry_EntryType_RECORD);
-    std::cout << "Querying Ledger...." << std::endl;
+    std::cout << "Querying Ledger for Compute Record...." << std::endl;
     struct timeval start, stop;
     gettimeofday(&start, NULL);
     LedgerQueryResponse response = client->query(request);
@@ -830,7 +830,6 @@ extern "C" size_t ledger_get_content_ocall(uint64_t height, void **untrusted_buf
 extern "C" size_t ledger_get_current_counter_ocall(uint64_t *height)
 {
     if(client == NULL) {
-
         std::cout << "Ledger Client is not initialized" << std::endl;
         return  -1;
     }
@@ -979,6 +978,7 @@ void init_barbican(const std::string &json_file, const std::string &scratch_spac
 
         client = new LedgerClient(grpc::CreateChannel(
                 LEDGER_URL, grpc::InsecureChannelCredentials()));
+
         std::cout << "Created new client:" << client <<std::endl;
 
     } catch (const std::exception& ex) {
