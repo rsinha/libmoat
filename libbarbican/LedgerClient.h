@@ -27,6 +27,7 @@ public:
     LedgerQueryResponse query(LedgerQueryRequest& queryRequest);
     BlockchainInfoResponse info(BlockchainInfoRequest& blockchainInfoRequest);
 private:
+    ClientContext context_;
     std::unique_ptr<LedgerService::Stub> stub_;
 };
 

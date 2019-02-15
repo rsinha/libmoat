@@ -5,9 +5,9 @@
 #include "LedgerClient.h"
 
 LedgerEntryResponse LedgerClient::entry(LedgerEntry &entry) {
-    ClientContext context;
+//    ClientContext context;
     LedgerEntryResponse response;
-    Status status = stub_->entry(&context, entry, &response);
+    Status status = stub_->entry(&context_, entry, &response);
     if (status.ok()) {
         return response;
     } else {
@@ -18,9 +18,9 @@ LedgerEntryResponse LedgerClient::entry(LedgerEntry &entry) {
 
 
 LedgerQueryResponse LedgerClient::query(LedgerQueryRequest &queryRequest) {
-    ClientContext context;
+//    ClientContext context;
     LedgerQueryResponse response;
-    Status status = stub_->query(&context, queryRequest, &response);
+    Status status = stub_->query(&context_, queryRequest, &response);
     if (status.ok()) {
         return response;
     } else {
@@ -29,9 +29,9 @@ LedgerQueryResponse LedgerClient::query(LedgerQueryRequest &queryRequest) {
 }
 
 BlockchainInfoResponse LedgerClient::info(BlockchainInfoRequest &blockchainInfoRequest) {
-    ClientContext context;
+
     BlockchainInfoResponse response;
-    Status status = stub_->info(&context, blockchainInfoRequest, &response);
+    Status status = stub_->info(&context_, blockchainInfoRequest, &response);
     if (status.ok()) {
         return response;
     } else {
