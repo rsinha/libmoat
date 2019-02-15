@@ -26,6 +26,9 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 
     private WebResource webResource = null;
     private WebResource statusResource = null;
+    private   Ledgerentry.BlockchainInfoResponse heightResponse = Ledgerentry.BlockchainInfoResponse.newBuilder().setHeight(1000)
+            .setCurrentBlockHash("avqcqwrqtrtwqrtrwtrtewrt")
+            .setPreviousBlockHash("").build();
 
     public TenderMintLedgerImpl() {
         Client client = Client.create();
@@ -322,11 +325,9 @@ public class TenderMintLedgerImpl extends LedgerServiceGrpc.LedgerServiceImplBas
 //        String currentBlockHash = status.getJSONObject("result").getJSONObject("sync_info").getString("latest_block_hash");
 //        Long height = status.getJSONObject("result").getJSONObject("sync_info").getLong("latest_block_height");
 
-        Ledgerentry.BlockchainInfoResponse response = Ledgerentry.BlockchainInfoResponse.newBuilder().setHeight(1000)
-                .setCurrentBlockHash("avqcqwrqtrtwqrtrwtrtewrt")
-                .setPreviousBlockHash("").build();
 
-        blockchainInfoResponseStreamObserver.onNext(response);
+
+        blockchainInfoResponseStreamObserver.onNext(heightResponse);
         blockchainInfoResponseStreamObserver.onCompleted();
 //        blockchainInfoResponseStreamObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
     }
